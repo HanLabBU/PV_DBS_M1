@@ -24,96 +24,97 @@ mr=0;
 
 for stim_freq=[ 0  1]
 
-if stim_freq==1
-    cd([server_root_path 'EricLowet' f 'DBS' f 'PV' f '140' f ])
-else
-    cd([server_root_path 'EricLowet' f 'DBS' f 'PV' f '40' f ])
-end
+    if stim_freq==1
+        cd([server_root_path 'EricLowet' f 'DBS' f 'PV' f '140' f ])
+    else
+        cd([server_root_path 'EricLowet' f 'DBS' f 'PV' f '40' f ])
+    end
 
 
 ses=dir('*.mat');
 
 for ind=1:length(ses)
-   Cpath= ses(ind).name;
+    Cpath= ses(ind).name;
     load(Cpath)  %loading
     
     trial_numb=unique(result.trial_vec);
+    
     if length(find(result.trial_vec==trial_numb(1) )) <3500 & length(trial_numb)>2
     
-    %%  denoise
-    FS=828;
-    Fn = FS/2;FB=[ 86.5 88.5];
-    [B, A] = butter(2, [min(FB)/Fn max(FB)/Fn]);
-    LFPg= ((filtfilt(B,A,    result.traces(:,1))));
-    %result.traces(:,1)= result.traces(:,1)-LFPg; %% Camera noise removal
-    %%
-    lfp=[];
-    clear allV allS alls1  allV40 allV140
-    tr=0;
-    for  ne=unique(result.trial_vec) % trials
-        tr=tr+1;
-        %% Vm
-        v= result.traces(result.trial_vec==ne,1)  ;
-        v=v(10:2500);
+        %%  denoise
+        FS=828;
+        Fn = FS/2;FB=[ 86.5 88.5];
+        [B, A] = butter(2, [min(FB)/Fn max(FB)/Fn]);
+        LFPg= ((filtfilt(B,A,    result.traces(:,1))));
+        %result.traces(:,1)= result.traces(:,1)-LFPg; %% Camera noise removal
+        %%
+        lfp=[];
+        clear allV allS alls1  allV40 allV140
+        tr=0;
         
-           vsub= result.resultS{ne}.trace_ws(1,:)'  ;
-        vsub=vsub(10:2500);
-        
-       
-    Fn = FS/2;FB=[ 35 45];
-    [B, A] = butter(2, [min(FB)/Fn max(FB)/Fn]);
-    Vsub40= angle(hilbert(filtfilt(B,A,     vsub)));
-       Fn = FS/2;FB=[ 135 145];
-    [B, A] = butter(2, [min(FB)/Fn max(FB)/Fn]);
-    Vsub140= angle(hilbert(filtfilt(B,A,     vsub)));
-        
-        %v=v-mean(v);
-      %  v=v-fastsmooth(v,2300,1,1);
+        for  ne=unique(result.trial_vec) % trials
+            tr=tr+1;
+            %% Vm
+            v= result.traces(result.trial_vec==ne,1)  ;
+            v=v(10:2500);
+            
+            vsub= result.resultS{ne}.trace_ws(1,:)'  ;
+            vsub=vsub(10:2500);
+           
+            Fn = FS/2;FB=[ 35 45];
+            [B, A] = butter(2, [min(FB)/Fn max(FB)/Fn]);
+            Vsub40= angle(hilbert(filtfilt(B,A,     vsub)));
+            Fn = FS/2;FB=[ 135 145];
+            [B, A] = butter(2, [min(FB)/Fn max(FB)/Fn]);
+            Vsub140= angle(hilbert(filtfilt(B,A,     vsub)));
+            
+            %v=v-mean(v);
+            %  v=v-fastsmooth(v,2300,1,1);
       
-      % exponential fitting to remove photobleaching
-     [ fitbaseline, coeff]=exp_fit_Fx(v,FS);
+            % exponential fitting to remove photobleaching
+            [ fitbaseline, coeff]=exp_fit_Fx(v,FS);
   
-   v=(v-fitbaseline');
-     % v(1:10)=NaN;
-         lfp.trial{tr}= ( vsub)';
-         lfp.time{tr}= (1:size(v,1))./FS;
-        allV(1:length(v),ne)=v;
-        allV40(1:length(v),ne)=Vsub40;
-         allV140(1:length(v),ne)=Vsub140;
-        %%spikes
-          strain= result.resultS{ne}.roaster(10:2500);
-          allS(1:length(strain),tr)=strain;
-           sid=result.resultS{ne}.spike_idx{1};sid=sid-15;sid(sid<1)=[];
-           vect=zeros(1,size(allS,1));vect(sid)=1;
-          alls1( :,tr)=vect(1:2491);
-         spx= result.resultS{ne}.spike_idx{1}   ;
-         samp= result.resultS{ne}.spike_amplitude{1};
-         samp(spx <10)=NaN;
+            v=(v-fitbaseline');
+            % v(1:10)=NaN;
+            lfp.trial{tr}= ( vsub)';
+            lfp.time{tr}= (1:size(v,1))./FS;
+            allV(1:length(v),ne)=v;
+            allV40(1:length(v),ne)=Vsub40;
+            allV140(1:length(v),ne)=Vsub140;
+            %%spikes
+            strain= result.resultS{ne}.roaster(10:2500);
+            allS(1:length(strain),tr)=strain;
+            sid=result.resultS{ne}.spike_idx{1};sid=sid-15;sid(sid<1)=[];
+            vect=zeros(1,size(allS,1));vect(sid)=1;
+            alls1( :,tr)=vect(1:2491);
+            spx= result.resultS{ne}.spike_idx{1}   ;
+            samp= result.resultS{ne}.spike_amplitude{1};
+            samp(spx <10)=NaN;
      
-         allsamp=[allsamp ,samp];
-
-    end
-     for id=1%:size(vsig,2)
-lfp.label{id}= num2str(id);
-  end  
+            allsamp=[allsamp ,samp];
+        end
+     
+        for id=1%:size(vsig,2)
+            lfp.label{id}= num2str(id);
+        end  
  
     
-  []; %block_type == cfg.blk
-    cfg.method ='wavelet'; %'mvar';
-    cfg.output ='fourier';
-     cfg.taper='hanning';
-    cfg.keeptapers ='yes';
-    cfg.keeptrials ='yes';
-    cfg.trials='all';cfg.tapsmofrq =5;%
-     cfg.channel= 'all'%; %chans=cfg.channel;
-    cfg.foi= [2:10:220];
-     cfg.toi=lfp.time{1}(1:1:end) ;
-     cfg.width =6;
-    cfg.t_ftimwin =[ones(1,length(cfg.foi))*0.4];
-freq2 = ft_freqanalysis(cfg, lfp);
-  
-wavD = angle(squeeze(freq2.fourierspctrm));
-wavA = abs(squeeze(freq2.fourierspctrm));
+        []; %block_type == cfg.blk
+        cfg.method ='wavelet'; %'mvar';
+        cfg.output ='fourier';
+        cfg.taper='hanning';
+        cfg.keeptapers ='yes';
+        cfg.keeptrials ='yes';
+        cfg.trials='all';cfg.tapsmofrq =5;%
+        cfg.channel= 'all'%; %chans=cfg.channel;
+        cfg.foi= [2:10:220];
+        cfg.toi=lfp.time{1}(1:1:end) ;
+        cfg.width =6;
+        cfg.t_ftimwin =[ones(1,length(cfg.foi))*0.4];
+        freq2 = ft_freqanalysis(cfg, lfp);
+          
+        wavD = angle(squeeze(freq2.fourierspctrm));
+        wavA = abs(squeeze(freq2.fourierspctrm));
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
