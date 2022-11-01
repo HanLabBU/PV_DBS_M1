@@ -1,8 +1,21 @@
-addpath('\\engnas.bu.edu\research\eng_research_handata\EricLowet\DBS\DBS_Scripts\')
+clear all;
+f = filesep;
+
+%USER modification
+% Linux specific stuff
+%server_root_path = ['/home/pierfier/handata_server/'];
+
+% Windows Computers
+server_root_path = 'Z:\';
+
+%END USER modification
+
+% Add specific script paths
+addpath([ server_root_path 'EricLowet' f 'DBS' f 'DBS_Scripts']);
+addpath([server_root_path 'EricLowet' f 'Scripts' f 'fieldtrip']);
 
 % power, entrainment
 %%
-clear all
 
  stim_type=[];
  % 1= 140Hz, other 40Hz
@@ -14,10 +27,10 @@ mr=0;
 % Loop between each frequency
 for stim_freq=[ 0  1]
 
-    if stim_freq==1
-        cd('\\engnas.bu.edu\research\eng_research_handata\EricLowet\DBS\PV\140\')
+    if stim_freq == 1
+        cd([server_root_path 'EricLowet' f 'DBS' f 'PV' f '140' f]);
     else
-        cd('\\engnas.bu.edu\research\eng_research_handata\EricLowet\DBS\PV\40\')
+        cd([server_root_path 'EricLowet' f 'DBS' f 'PV' f '40' f])
     end
     
     
@@ -43,7 +56,7 @@ for stim_freq=[ 0  1]
             %%
 
 
-            lfp=[];
+            data=[];
             clear allV allS alls1  allV40 allV140
             tr=0;
             
@@ -54,7 +67,7 @@ for stim_freq=[ 0  1]
                 v= result.traces(result.trial_vec==ne,1)  ;
                 v=v(10:2500); 
                 
-                % Grab subthreshold 
+                % Grab subthreshold Vm of specific trial
                 vsub= result.resultS{ne}.trace_ws(1,:)'  ;
                 vsub=vsub(10:2500);
                 
@@ -70,29 +83,33 @@ for stim_freq=[ 0  1]
                 %  v=v-fastsmooth(v,2300,1,1);
           
                 % exponential fitting to remove photobleaching
-                % Custom function in DBS folder
+                % External function referenced in DBS folder
                 [ fitbaseline, coeff]=exp_fit_Fx(v,FS); 
-      
                 v=(v-fitbaseline');
                 % v(1:10)=NaN;
-
-                lfp.trial{tr}= ( vsub)';
-                lfp.time{tr}= (1:size(v,1))./FS;
                 
-                % Save the trace and the phase angle from both 40 and 140
+                % TODO this is just saving subthres Vm into LFP variable
+                data.trial{tr}= ( vsub)';
+                data.time{tr}= (1:size(v,1))./FS;
+                
+                % Save the detrended trace and the phase angle from both 40 and 140
                 allV(1:length(v),ne)=v;
                 allV40(1:length(v),ne)=Vsub40;
                 allV140(1:length(v),ne)=Vsub140;
                 
                 %%spikes
+                % Store spike raster
                 strain= result.resultS{ne}.roaster(10:2500);
                 allS(1:length(strain),tr)=strain;
                 
+                % Store spike idxs
                 sid=result.resultS{ne}.spike_idx{1};
                 sid=sid-15;
                 sid(sid<1)=[];
-                vect=zeros(1,size(allS,1));vect(sid)=1;
+                vect=zeros(1,size(allS,1));
+                vect(sid)=1;
                 
+                %Remaking the spike raster using just idxs, but that was done previously?
                 alls1( :,tr)=vect(1:2491);
                 
                 % Remove spike amplitudes that are within the first 10 frames
@@ -101,31 +118,42 @@ for stim_freq=[ 0  1]
                 samp(spx <10)=NaN;
                 allsamp=[allsamp ,samp];
             end
+            
+            %TODO not sure what this is doing, so I am just going to ignore it all
+            %for id=1%:size(vsig,2)
+            %    %Remove spike 
+            %    amplitudesm2str(id);
+            %end  
         
-            for id=1%:size(vsig,2)
-                Remove spike amplitudesm2str(id);
-            end  
-        
+            % Here is the bulk configuration for performing spectral analysis with Fieldtrip
             %block_type == cfg.blk
+
+            global ft_default
+            ft_default.debug = 'saveonerror'
+
             cfg.method ='wavelet'; %'mvar';
             cfg.output ='fourier';
             cfg.taper='hanning';
             cfg.keeptapers ='yes';
             cfg.keeptrials ='yes';
-            cfg.trials='all';cfg.tapsmofrq =5;%
+            cfg.trials='all';
+            cfg.tapsmofrq =5;%
             cfg.channel= 'all'%; %chans=cfg.channel;
             cfg.foi= [2:10:220];
-            cfg.toi=lfp.time{1}(1:1:end) ;
+            cfg.toi=data.time{1}(1:1:end);
             cfg.width =6;
             cfg.t_ftimwin =[ones(1,length(cfg.foi))*0.4];
-            freq2 = ft_freqanalysis(cfg, lfp);
-      
+            freq2 = ft_freqanalysis(cfg, data);
+            
+            % The phase of the Fourier series of the subthreshold Vm
             wavD = angle(squeeze(freq2.fourierspctrm));
+
+            %TODO is this just the absolute value of the whole fourier signal?
             wavA = abs(squeeze(freq2.fourierspctrm));
     
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     
-            mr=mr+1;
+            mr=mr+1
             allname{mr}=  Cpath;
     
             allpow(1:size(wavA,3),:,mr)= squeeze(nanmean(wavA,1))';
@@ -134,6 +162,8 @@ for stim_freq=[ 0  1]
             sm=50 ;%smoothing parameter (rectangular window)
             allfiringSM(:,mr)= nanfastsmooth(nanmean(allS.*FS,2),sm,1,1);
             allfiringSM(:,mr)= allfiringSM(:,mr)-nanmean(allfiringSM(5:800,mr));
+            
+            % TODO I feel like this should be allsamp??
             allVm(:,mr)= nanmean(allV,2)./nanmean(samp);
             sm=50 ;%smoothing parameter (rectangular window)
             allVmSM(:,mr)= nanfastsmooth(nanmean(allV,2),sm,1,1)./nanmean(samp);
@@ -221,7 +251,9 @@ PostTimsel= [1657+10:2490];
 
 tim_axis=([1:size(allV,1)]-(FS-10))./FS;
 
+
 %%%%
+
 savepath='\\engnas.bu.edu\research\eng_research_handata\EricLowet\DBS\PV_figure\'
 pheight=150;
 %%%%%%%%%%%%%%%%%%
@@ -237,166 +269,167 @@ axis tight;xlim([-0.7 1.7])
 print(gcf, '-dpdf' , '-r300' ,'-painters', [ savepath 'Nonsmooth_Vm_av_40_140t.pdf'])
 %savefig(gcf, [ savepath 'Nonsmooth_Vm_av_40_140.fig'])
 
-%% Vm average plots (smoothed)
-V1=nanmean(allVmSM(:, stim_type==0),2);
-V1s=nanstd(allVmSM(:, stim_type==0),[],2)./sqrt(length(find(stim_type==0)));
-V2=nanmean(allVmSM(:, stim_type==1),2);
-V2s=nanstd(allVmSM(:, stim_type==1),[],2)./sqrt(length(find(stim_type==1)));
-figure('COlor','w','Position',[300 300 250 pheight],'Renderer', 'painters'),
-plot(tim_axis,V1,'k','Linewidth',1.5)
-fill_error_area2(tim_axis,V1,V1s, [ 0.5 0.5 0.5]);
-axis tight;; xlim([-0.7 1.7]);ylim([-0.3 1.2])
-print(gcf, '-dpdf' , '-r300' ,'-painters', [ savepath 'smooth_Vm_av_40.pdf'])
-%savefig(gcf, [ savepath 'smooth_Vm_av_40.fig'])
-figure('COlor','w','Position',[300 300 250 pheight],'Renderer', 'painters'),
-plot(tim_axis,V2,'k','Linewidth',1.5)
-fill_error_area2(tim_axis,V2,V2s, [ 0.5 0.5 0.5]);
-axis tight; xlim([-0.7 1.7]);ylim([-0.3 1.2])
-print(gcf, '-dpdf' , '-r300' ,'-painters', [ savepath 'smooth_Vm_av_140.pdf'])
-%savefig(gcf, [ savepath 'smooth_Vm_av_140.fig'])
-
-%% Vm bar plots /quantifications
-
-V1b=nanmean(allVmSM(baseTimsel, stim_type==0),1);
-V2b=nanmean(allVmSM(baseTimsel, stim_type==1),1);
-V1s=nanmean(allVmSM(StimTimselTR, stim_type==0),1);
-V2s=nanmean(allVmSM(StimTimselTR, stim_type==1),1);
-V1s2=nanmean(allVmSM(StimTimselSU, stim_type==0),1);
-V2s2=nanmean(allVmSM(StimTimselSU, stim_type==1),1);
-V1p=nanmean(allVmSM(PostTimsel, stim_type==0),1);
-V2p=nanmean(allVmSM(PostTimsel, stim_type==1),1);
-%% STATS
-%% Base vs trans
-[h,p,ci,stats] = ttest(V1s) % 40Hz%
-%df=20,  0.0067
-[h,p,ci,stats] = ttest(V2s)% 140Hz
-%df=22, 1.6927e-04
-%% Base vs sustained
-[h,p,ci,stats] = ttest( V1s2) % 40Hz
-%df=20, 0.0032
-[h,p,ci,stats] = ttest( V2s2)% 140Hz
-%df=22, 0.0013
-%%
-
-[h,p,ci,stats] = ttest( V1s,V1s2) % 40Hz
-%df=20, 0.0416
-[h,p,ci,stats] = ttest( V2s,V2s2) % 40Hz
-%df=22, 0.0416
-
-
-
-%%
-%% Base vs post
-[h,p,ci,stats] = ttest( V1p) % 40Hz
-% df=20, 0.3230
-[h,p,ci,stats] = ttest( V2p)% 140Hz
-%df=22, 0.5219
-%% trans between DBS cond
-[h,p,ci,stats] = ttest2(V2s, V1s) %
-%df=42,  0.0082
-%% sust between DBS cond
-[h,p,ci,stats] = ttest2(V2s2, V1s2) %
-%df=42,  0.3584
-
-figure('COlor','w','Position', [ 300 400 250 pheight],'Renderer', 'painters') 
-M=[V1s', V1s2'];M2=[ V2s', V2s2'];
-b1=bar(2,nanmean(V1s),'Facecolor',[ 0 0 0.9]);hold on,
-set(b1,'FaceAlpha',0.7)
-b1=bar(3,nanmean(V1s2),'Facecolor',[ 0 0 0.9]);hold on,
-set(b1,'FaceAlpha',0.4)
-b1=bar(5,nanmean(V2s),'Facecolor',[ 0.9 0 0]);hold on,
-set(b1,'FaceAlpha',0.7)
-b1=bar(6,nanmean(V2s2),'Facecolor',[ 0.9 0 0]);hold on,
-set(b1,'FaceAlpha',0.4)
-errorbar([2 3 ],nanmean(M,1), nanstd(M)./sqrt(size(M,1)),'.k')
-errorbar([5 6],nanmean(M2,1), nanstd(M2)./sqrt(size(M2,1)),'.k')
-ylim([0 1.2])
-print(gcf, '-dpdf' , '-r300' ,'-painters', [ savepath 'Vm_av_barplot.pdf'])
-%savefig(gcf, [ savepath 'Vm_av_barplot.fig'])
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% FIRING RATE %%
-
-
-V1=nanmean(allfiringSM(:, stim_type==0),2);
-V1s=nanstd(allfiringSM(:, stim_type==0),[],2)./sqrt(length(find(stim_type==0)));
-V2=nanmean(allfiringSM(:, stim_type==1),2);
-V2s=nanstd(allfiringSM(:, stim_type==1),[],2)./sqrt(length(find(stim_type==1)));
-SPM=firing_conc(:,stim_type_tr==0)==1;
-figure('COlor','w','Position',[300 300 250 pheight],'Renderer', 'painters'),
-fill_error_area2(tim_axis,fastsmooth(V1,10,1,1),V1s, [ 0.5 0.5 0.5]);
-plot(tim_axis,fastsmooth(V1,10,1,1),'k','Linewidth',1)
-
-axis tight;; xlim([-0.7 1.7]);%ylim([-0.3 1.2])
-% for ind=1:size(SPM,2)
-%    plot(tim_axis(SPM(:,ind)),  ones(1,length(find(SPM(:,ind))))*ind+32,'r.');  hold on,
-% end
-print(gcf, '-dpdf' , '-r300' ,'-painters', [ savepath 'Firing_40_sm.pdf'])
-%savefig(gcf, [ savepath 'Firing_40_sm.fig'])
-
-figure('COlor','w','Position',[300 300 250 pheight],'Renderer', 'painters'),
-fill_error_area2(tim_axis,fastsmooth(V2,10,1,1),V2s, [ 0.5 0.5 0.5]);
-plot(tim_axis,fastsmooth(V2,10,1,1),'k','Linewidth',1.5)
-axis tight; xlim([-0.7 1.7]);%ylim([-0.3 1.2])
-print(gcf, '-dpdf' , '-r300' ,'-painters', [ savepath 'Firing_140_sm.pdf'])
-%savefig(gcf, [ savepath 'Firing_140_sm.fig'])
-
-%% BARPLOT FIRING
-V1b=nanmean(allfiringSM(baseTimsel, stim_type==0),1);
-V2b=nanmean(allfiringSM(baseTimsel, stim_type==1),1);
-V1s=nanmean(allfiringSM(StimTimselTR, stim_type==0),1);
-V2s=nanmean(allfiringSM(StimTimselTR, stim_type==1),1);
-V1s2=nanmean(allfiringSM(StimTimselSU, stim_type==0),1);
-V2s2=nanmean(allfiringSM(StimTimselSU, stim_type==1),1);
-
-V1p=nanmean(allfiringSM(PostTimsel, stim_type==0),1);
-V2p=nanmean(allfiringSM(PostTimsel, stim_type==1),1);
-figure('COlor','w','Position', [ 300 400 250 pheight],'Renderer', 'painters') 
-M=[V1s', V1s2'];M2=[V2s', V2s2'];
-b1=bar(2,nanmean(V1s),'Facecolor',[ 0 0 0.9]);hold on,
-set(b1,'FaceAlpha',0.7)
-b1=bar(3,nanmean(V1s2),'Facecolor',[ 0 0 0.9]);hold on,
-set(b1,'FaceAlpha',0.4)
-b1=bar(5,nanmean(V2s),'Facecolor',[ 0.9 0 0]);hold on,
-set(b1,'FaceAlpha',0.7)
-b1=bar(6,nanmean(V2s2),'Facecolor',[ 0.9 0 0]);hold on,
-set(b1,'FaceAlpha',0.4)
-errorbar([ 2 3 ],nanmean(M,1), nanstd(M)./sqrt(size(M,1)),'.k')
-errorbar([ 5 6],nanmean(M2,1), nanstd(M2)./sqrt(size(M2,1)),'.k')
-ylim([-5 22])
-print(gcf, '-dpdf' , '-r300' ,'-painters', [ savepath 'Firing_barplot.pdf'])
-%savefig(gcf, [ savepath 'Firing_barplot.fig'])
-
-
-%% Base vs trans
-[h,p,ci,stats] = ttest(V1s) % 40Hz%
-%df=20,   0.0011
-[h,p,ci,stats] = ttest(V2s)% 140Hz
-%df=25, 0.0031
-%% Base vs sustained
-[h,p,ci,stats] = ttest( V1s2) % 40Hz
-%df=20, 0.0017
-[h,p,ci,stats] = ttest( V2s2)% 140Hz
-%df=25,   0.0653
-[h,p,ci,stats] = ttest(V1s, V1s2)% 140Hz
-%df=20,  0.1511
-[h,p,ci,stats] = ttest(V2s, V2s2)% 140Hz
-%df=25,   0.0055
-
-%% Base vs post
-[h,p,ci,stats] = ttest( V1p) % 40Hz
-% df=20,  0.4546
-[h,p,ci,stats] = ttest( V2p)% 140Hz
-%df=25,  0.0319
-%% trans between DBS cond
-[h,p,ci,stats] = ttest2(V2s, V1s) %
-%df=45,    0.9125
-%% sust between DBS cond
-[h,p,ci,stats] = ttest2(V2s2, V1s2) %
-%df=45,  0.1281
-[h,p,ci,stats] = ttest2(V1p, V2p) %
-
 if 0
+
+    %% Vm average plots (smoothed)
+    V1=nanmean(allVmSM(:, stim_type==0),2);
+    V1s=nanstd(allVmSM(:, stim_type==0),[],2)./sqrt(length(find(stim_type==0)));
+    V2=nanmean(allVmSM(:, stim_type==1),2);
+    V2s=nanstd(allVmSM(:, stim_type==1),[],2)./sqrt(length(find(stim_type==1)));
+    figure('COlor','w','Position',[300 300 250 pheight],'Renderer', 'painters'),
+    plot(tim_axis,V1,'k','Linewidth',1.5)
+    fill_error_area2(tim_axis,V1,V1s, [ 0.5 0.5 0.5]);
+    axis tight;; xlim([-0.7 1.7]);ylim([-0.3 1.2])
+    print(gcf, '-dpdf' , '-r300' ,'-painters', [ savepath 'smooth_Vm_av_40.pdf'])
+    %savefig(gcf, [ savepath 'smooth_Vm_av_40.fig'])
+    figure('COlor','w','Position',[300 300 250 pheight],'Renderer', 'painters'),
+    plot(tim_axis,V2,'k','Linewidth',1.5)
+    fill_error_area2(tim_axis,V2,V2s, [ 0.5 0.5 0.5]);
+    axis tight; xlim([-0.7 1.7]);ylim([-0.3 1.2])
+    print(gcf, '-dpdf' , '-r300' ,'-painters', [ savepath 'smooth_Vm_av_140.pdf'])
+    %savefig(gcf, [ savepath 'smooth_Vm_av_140.fig'])
+    
+    %% Vm bar plots /quantifications
+    
+    V1b=nanmean(allVmSM(baseTimsel, stim_type==0),1);
+    V2b=nanmean(allVmSM(baseTimsel, stim_type==1),1);
+    V1s=nanmean(allVmSM(StimTimselTR, stim_type==0),1);
+    V2s=nanmean(allVmSM(StimTimselTR, stim_type==1),1);
+    V1s2=nanmean(allVmSM(StimTimselSU, stim_type==0),1);
+    V2s2=nanmean(allVmSM(StimTimselSU, stim_type==1),1);
+    V1p=nanmean(allVmSM(PostTimsel, stim_type==0),1);
+    V2p=nanmean(allVmSM(PostTimsel, stim_type==1),1);
+    %% STATS
+    %% Base vs trans
+    [h,p,ci,stats] = ttest(V1s) % 40Hz%
+    %df=20,  0.0067
+    [h,p,ci,stats] = ttest(V2s)% 140Hz
+    %df=22, 1.6927e-04
+    %% Base vs sustained
+    [h,p,ci,stats] = ttest( V1s2) % 40Hz
+    %df=20, 0.0032
+    [h,p,ci,stats] = ttest( V2s2)% 140Hz
+    %df=22, 0.0013
+    %%
+    
+    [h,p,ci,stats] = ttest( V1s,V1s2) % 40Hz
+    %df=20, 0.0416
+    [h,p,ci,stats] = ttest( V2s,V2s2) % 40Hz
+    %df=22, 0.0416
+    
+    
+    
+    %%
+    %% Base vs post
+    [h,p,ci,stats] = ttest( V1p) % 40Hz
+    % df=20, 0.3230
+    [h,p,ci,stats] = ttest( V2p)% 140Hz
+    %df=22, 0.5219
+    %% trans between DBS cond
+    [h,p,ci,stats] = ttest2(V2s, V1s) %
+    %df=42,  0.0082
+    %% sust between DBS cond
+    [h,p,ci,stats] = ttest2(V2s2, V1s2) %
+    %df=42,  0.3584
+    
+    figure('COlor','w','Position', [ 300 400 250 pheight],'Renderer', 'painters') 
+    M=[V1s', V1s2'];M2=[ V2s', V2s2'];
+    b1=bar(2,nanmean(V1s),'Facecolor',[ 0 0 0.9]);hold on,
+    set(b1,'FaceAlpha',0.7)
+    b1=bar(3,nanmean(V1s2),'Facecolor',[ 0 0 0.9]);hold on,
+    set(b1,'FaceAlpha',0.4)
+    b1=bar(5,nanmean(V2s),'Facecolor',[ 0.9 0 0]);hold on,
+    set(b1,'FaceAlpha',0.7)
+    b1=bar(6,nanmean(V2s2),'Facecolor',[ 0.9 0 0]);hold on,
+    set(b1,'FaceAlpha',0.4)
+    errorbar([2 3 ],nanmean(M,1), nanstd(M)./sqrt(size(M,1)),'.k')
+    errorbar([5 6],nanmean(M2,1), nanstd(M2)./sqrt(size(M2,1)),'.k')
+    ylim([0 1.2])
+    print(gcf, '-dpdf' , '-r300' ,'-painters', [ savepath 'Vm_av_barplot.pdf'])
+    %savefig(gcf, [ savepath 'Vm_av_barplot.fig'])
+    
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %% FIRING RATE %%
+    
+    
+    V1=nanmean(allfiringSM(:, stim_type==0),2);
+    V1s=nanstd(allfiringSM(:, stim_type==0),[],2)./sqrt(length(find(stim_type==0)));
+    V2=nanmean(allfiringSM(:, stim_type==1),2);
+    V2s=nanstd(allfiringSM(:, stim_type==1),[],2)./sqrt(length(find(stim_type==1)));
+    SPM=firing_conc(:,stim_type_tr==0)==1;
+    figure('COlor','w','Position',[300 300 250 pheight],'Renderer', 'painters'),
+    fill_error_area2(tim_axis,fastsmooth(V1,10,1,1),V1s, [ 0.5 0.5 0.5]);
+    plot(tim_axis,fastsmooth(V1,10,1,1),'k','Linewidth',1)
+    
+    axis tight;; xlim([-0.7 1.7]);%ylim([-0.3 1.2])
+    % for ind=1:size(SPM,2)
+    %    plot(tim_axis(SPM(:,ind)),  ones(1,length(find(SPM(:,ind))))*ind+32,'r.');  hold on,
+    % end
+    print(gcf, '-dpdf' , '-r300' ,'-painters', [ savepath 'Firing_40_sm.pdf'])
+    %savefig(gcf, [ savepath 'Firing_40_sm.fig'])
+    
+    figure('COlor','w','Position',[300 300 250 pheight],'Renderer', 'painters'),
+    fill_error_area2(tim_axis,fastsmooth(V2,10,1,1),V2s, [ 0.5 0.5 0.5]);
+    plot(tim_axis,fastsmooth(V2,10,1,1),'k','Linewidth',1.5)
+    axis tight; xlim([-0.7 1.7]);%ylim([-0.3 1.2])
+    print(gcf, '-dpdf' , '-r300' ,'-painters', [ savepath 'Firing_140_sm.pdf'])
+    %savefig(gcf, [ savepath 'Firing_140_sm.fig'])
+    
+    %% BARPLOT FIRING
+    V1b=nanmean(allfiringSM(baseTimsel, stim_type==0),1);
+    V2b=nanmean(allfiringSM(baseTimsel, stim_type==1),1);
+    V1s=nanmean(allfiringSM(StimTimselTR, stim_type==0),1);
+    V2s=nanmean(allfiringSM(StimTimselTR, stim_type==1),1);
+    V1s2=nanmean(allfiringSM(StimTimselSU, stim_type==0),1);
+    V2s2=nanmean(allfiringSM(StimTimselSU, stim_type==1),1);
+    
+    V1p=nanmean(allfiringSM(PostTimsel, stim_type==0),1);
+    V2p=nanmean(allfiringSM(PostTimsel, stim_type==1),1);
+    figure('COlor','w','Position', [ 300 400 250 pheight],'Renderer', 'painters') 
+    M=[V1s', V1s2'];M2=[V2s', V2s2'];
+    b1=bar(2,nanmean(V1s),'Facecolor',[ 0 0 0.9]);hold on,
+    set(b1,'FaceAlpha',0.7)
+    b1=bar(3,nanmean(V1s2),'Facecolor',[ 0 0 0.9]);hold on,
+    set(b1,'FaceAlpha',0.4)
+    b1=bar(5,nanmean(V2s),'Facecolor',[ 0.9 0 0]);hold on,
+    set(b1,'FaceAlpha',0.7)
+    b1=bar(6,nanmean(V2s2),'Facecolor',[ 0.9 0 0]);hold on,
+    set(b1,'FaceAlpha',0.4)
+    errorbar([ 2 3 ],nanmean(M,1), nanstd(M)./sqrt(size(M,1)),'.k')
+    errorbar([ 5 6],nanmean(M2,1), nanstd(M2)./sqrt(size(M2,1)),'.k')
+    ylim([-5 22])
+    print(gcf, '-dpdf' , '-r300' ,'-painters', [ savepath 'Firing_barplot.pdf'])
+    %savefig(gcf, [ savepath 'Firing_barplot.fig'])
+    
+    
+    %% Base vs trans
+    [h,p,ci,stats] = ttest(V1s) % 40Hz%
+    %df=20,   0.0011
+    [h,p,ci,stats] = ttest(V2s)% 140Hz
+    %df=25, 0.0031
+    %% Base vs sustained
+    [h,p,ci,stats] = ttest( V1s2) % 40Hz
+    %df=20, 0.0017
+    [h,p,ci,stats] = ttest( V2s2)% 140Hz
+    %df=25,   0.0653
+    [h,p,ci,stats] = ttest(V1s, V1s2)% 140Hz
+    %df=20,  0.1511
+    [h,p,ci,stats] = ttest(V2s, V2s2)% 140Hz
+    %df=25,   0.0055
+    
+    %% Base vs post
+    [h,p,ci,stats] = ttest( V1p) % 40Hz
+    % df=20,  0.4546
+    [h,p,ci,stats] = ttest( V2p)% 140Hz
+    %df=25,  0.0319
+    %% trans between DBS cond
+    [h,p,ci,stats] = ttest2(V2s, V1s) %
+    %df=45,    0.9125
+    %% sust between DBS cond
+    [h,p,ci,stats] = ttest2(V2s2, V1s2) %
+    %df=45,  0.1281
+    [h,p,ci,stats] = ttest2(V1p, V2p) %
+
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     
     %%%  Spectral power %%%%%%%%%%%%
