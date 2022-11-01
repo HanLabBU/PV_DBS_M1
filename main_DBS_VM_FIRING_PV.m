@@ -1,9 +1,9 @@
 clear all;
 % Linux server
-%server_root_path = '/home/pierfier/handata_server/';
+server_root_path = '/home/pierfier/handata_server/';
 
 % Windows server
-server_root_path = 'Z:\';
+%server_root_path = 'Z:\';
 
 f = filesep;
 
@@ -217,13 +217,15 @@ tim_axis=([1:size(allV,1)]-(FS-10))./FS;
 %%%%
 savepath= [server_root_path 'Pierre Fabris' f 'PV DBS neocortex' f];
 pheight=150;
+
 %%%%%%%%%%%%%%%%%%
 V1=nanmedian(allVm(:, stim_type==0),2);
 V1s=nanstd(allVm(:, stim_type==0),[],2)./sqrt(length(find(stim_type==0)));
 V2=nanmedian(allVm(:, stim_type==1),2);
 V2s=nanstd(allVm(:, stim_type==1),[],2)./sqrt(length(find(stim_type==1)));
+
 %% NOn smoothed Vm , overlay 40 and 140
-   figure('COlor','w','Position',[300 300 250 pheight],'Renderer', 'painters'),
+figure('COlor','w','Position',[300 300 250 pheight],'Renderer', 'painters'),
 plot(tim_axis,V1,'b','Linewidth',1.5)
 hold on,plot(tim_axis,V2,'r','Linewidth',1.5)
 axis tight;xlim([-0.7 1.7])
@@ -235,13 +237,15 @@ V1=nanmean(allVmSM(:, stim_type==0),2);
 V1s=nanstd(allVmSM(:, stim_type==0),[],2)./sqrt(length(find(stim_type==0)));
 V2=nanmean(allVmSM(:, stim_type==1),2);
 V2s=nanstd(allVmSM(:, stim_type==1),[],2)./sqrt(length(find(stim_type==1)));
-   figure('COlor','w','Position',[300 300 250 pheight],'Renderer', 'painters'),
+
+figure('COlor','w','Position',[300 300 250 pheight],'Renderer', 'painters'),
 plot(tim_axis,V1,'k','Linewidth',1.5)
 fill_error_area2(tim_axis,V1,V1s, [ 0.5 0.5 0.5]);
 axis tight;; xlim([-0.7 1.7]);ylim([-0.3 1.2])
 print(gcf, '-dpdf' , '-r300' ,'-painters', [ savepath 'smooth_Vm_av_40.pdf'])
+
 %savefig(gcf, [ savepath 'smooth_Vm_av_40.fig'])
- figure('COlor','w','Position',[300 300 250 pheight],'Renderer', 'painters'),
+figure('COlor','w','Position',[300 300 250 pheight],'Renderer', 'painters'),
 plot(tim_axis,V2,'k','Linewidth',1.5)
 fill_error_area2(tim_axis,V2,V2s, [ 0.5 0.5 0.5]);
 axis tight; xlim([-0.7 1.7]);ylim([-0.3 1.2])
@@ -249,7 +253,6 @@ print(gcf, '-dpdf' , '-r300' ,'-painters', [ savepath 'smooth_Vm_av_140.pdf'])
 %savefig(gcf, [ savepath 'smooth_Vm_av_140.fig'])
 
 %% Vm bar plots /quantifications
-
 V1b=nanmean(allVmSM(baseTimsel, stim_type==0),1);
 V2b=nanmean(allVmSM(baseTimsel, stim_type==1),1);
 V1s=nanmean(allVmSM(StimTimselTR, stim_type==0),1);
@@ -258,6 +261,7 @@ V1s2=nanmean(allVmSM(StimTimselSU, stim_type==0),1);
 V2s2=nanmean(allVmSM(StimTimselSU, stim_type==1),1);
 V1p=nanmean(allVmSM(PostTimsel, stim_type==0),1);
 V2p=nanmean(allVmSM(PostTimsel, stim_type==1),1);
+
 %% STATS
 %% Base vs trans
 [h,p,ci,stats] = ttest(V1s) % 40Hz%
@@ -276,8 +280,6 @@ V2p=nanmean(allVmSM(PostTimsel, stim_type==1),1);
 [h,p,ci,stats] = ttest( V2s,V2s2) % 40Hz
 %df=22, 0.0416
 
-
-
 %%
 %% Base vs post
 [h,p,ci,stats] = ttest( V1p) % 40Hz
@@ -291,15 +293,15 @@ V2p=nanmean(allVmSM(PostTimsel, stim_type==1),1);
 [h,p,ci,stats] = ttest2(V2s2, V1s2) %
 %df=42,  0.3584
 
-  figure('COlor','w','Position', [ 300 400 250 pheight],'Renderer', 'painters') 
-  M=[V1s', V1s2'];M2=[ V2s', V2s2'];
-  b1=bar(2,nanmean(V1s),'Facecolor',[ 0 0 0.9]);hold on,
+figure('COlor','w','Position', [ 300 400 250 pheight],'Renderer', 'painters') 
+M=[V1s', V1s2'];M2=[ V2s', V2s2'];
+b1=bar(2,nanmean(V1s),'Facecolor',[ 0 0 0.9]);hold on,
 set(b1,'FaceAlpha',0.7)
-  b1=bar(3,nanmean(V1s2),'Facecolor',[ 0 0 0.9]);hold on,
+b1=bar(3,nanmean(V1s2),'Facecolor',[ 0 0 0.9]);hold on,
 set(b1,'FaceAlpha',0.4)
-  b1=bar(5,nanmean(V2s),'Facecolor',[ 0.9 0 0]);hold on,
+b1=bar(5,nanmean(V2s),'Facecolor',[ 0.9 0 0]);hold on,
 set(b1,'FaceAlpha',0.7)
-  b1=bar(6,nanmean(V2s2),'Facecolor',[ 0.9 0 0]);hold on,
+b1=bar(6,nanmean(V2s2),'Facecolor',[ 0.9 0 0]);hold on,
 set(b1,'FaceAlpha',0.4)
 errorbar([2 3 ],nanmean(M,1), nanstd(M)./sqrt(size(M,1)),'.k')
 errorbar([5 6],nanmean(M2,1), nanstd(M2)./sqrt(size(M2,1)),'.k')
@@ -315,8 +317,8 @@ V1=nanmean(allfiringSM(:, stim_type==0),2);
 V1s=nanstd(allfiringSM(:, stim_type==0),[],2)./sqrt(length(find(stim_type==0)));
 V2=nanmean(allfiringSM(:, stim_type==1),2);
 V2s=nanstd(allfiringSM(:, stim_type==1),[],2)./sqrt(length(find(stim_type==1)));
- SPM=firing_conc(:,stim_type_tr==0)==1;
-   figure('COlor','w','Position',[300 300 250 pheight],'Renderer', 'painters'),
+SPM=firing_conc(:,stim_type_tr==0)==1;
+figure('COlor','w','Position',[300 300 250 pheight],'Renderer', 'painters'),
 fill_error_area2(tim_axis,fastsmooth(V1,10,1,1),V1s, [ 0.5 0.5 0.5]);
 plot(tim_axis,fastsmooth(V1,10,1,1),'k','Linewidth',1)
 
@@ -327,7 +329,7 @@ axis tight;; xlim([-0.7 1.7]);%ylim([-0.3 1.2])
 print(gcf, '-dpdf' , '-r300' ,'-painters', [ savepath 'Firing_40_sm.pdf'])
 %savefig(gcf, [ savepath 'Firing_40_sm.fig'])
 
-   figure('COlor','w','Position',[300 300 250 pheight],'Renderer', 'painters'),
+figure('COlor','w','Position',[300 300 250 pheight],'Renderer', 'painters'),
 fill_error_area2(tim_axis,fastsmooth(V2,10,1,1),V2s, [ 0.5 0.5 0.5]);
 plot(tim_axis,fastsmooth(V2,10,1,1),'k','Linewidth',1.5)
 axis tight; xlim([-0.7 1.7]);%ylim([-0.3 1.2])
@@ -344,22 +346,21 @@ V2s2=nanmean(allfiringSM(StimTimselSU, stim_type==1),1);
 
 V1p=nanmean(allfiringSM(PostTimsel, stim_type==0),1);
 V2p=nanmean(allfiringSM(PostTimsel, stim_type==1),1);
-  figure('COlor','w','Position', [ 300 400 250 pheight],'Renderer', 'painters') 
-  M=[V1s', V1s2'];M2=[V2s', V2s2'];
-  b1=bar(2,nanmean(V1s),'Facecolor',[ 0 0 0.9]);hold on,
+figure('COlor','w','Position', [ 300 400 250 pheight],'Renderer', 'painters') 
+M=[V1s', V1s2'];M2=[V2s', V2s2'];
+b1=bar(2,nanmean(V1s),'Facecolor',[ 0 0 0.9]);hold on,
 set(b1,'FaceAlpha',0.7)
-  b1=bar(3,nanmean(V1s2),'Facecolor',[ 0 0 0.9]);hold on,
+b1=bar(3,nanmean(V1s2),'Facecolor',[ 0 0 0.9]);hold on,
 set(b1,'FaceAlpha',0.4)
-  b1=bar(5,nanmean(V2s),'Facecolor',[ 0.9 0 0]);hold on,
+b1=bar(5,nanmean(V2s),'Facecolor',[ 0.9 0 0]);hold on,
 set(b1,'FaceAlpha',0.7)
-  b1=bar(6,nanmean(V2s2),'Facecolor',[ 0.9 0 0]);hold on,
+b1=bar(6,nanmean(V2s2),'Facecolor',[ 0.9 0 0]);hold on,
 set(b1,'FaceAlpha',0.4)
 errorbar([ 2 3 ],nanmean(M,1), nanstd(M)./sqrt(size(M,1)),'.k')
 errorbar([ 5 6],nanmean(M2,1), nanstd(M2)./sqrt(size(M2,1)),'.k')
 ylim([-5 22])
 print(gcf, '-dpdf' , '-r300' ,'-painters', [ savepath 'Firing_barplot.pdf'])
 %savefig(gcf, [ savepath 'Firing_barplot.fig'])
-
 
 %% Base vs trans
 [h,p,ci,stats] = ttest(V1s) % 40Hz%
@@ -392,9 +393,9 @@ print(gcf, '-dpdf' , '-r300' ,'-painters', [ savepath 'Firing_barplot.pdf'])
 
 
 if 0
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%%%  Spectral power %%%%%%%%%%%%
+    %%%  Spectral power %%%%%%%%%%%%
 
  Pow_40=nanmean(allpow(:,:,stim_type==0),3);
  %Pow_40=bsxfun(@rdivide, Pow_40, nanmean(Pow_40(baseTimsel,:)));
