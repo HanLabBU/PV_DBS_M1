@@ -27,6 +27,7 @@ for stim_freq=[ 0  1]
         cd([server_root_path 'EricLowet' f 'DBS' f 'PV' f '140' f ])
     else
         cd([server_root_path 'EricLowet' f 'DBS' f 'PV' f '40' f ])
+        
     end
     
     ses=dir('*.mat');
