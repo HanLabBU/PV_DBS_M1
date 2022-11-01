@@ -1,9 +1,9 @@
 clear all;
 % Linux server
-server_root_path = '/home/pierfier/handata_server/';
+%server_root_path = '/home/pierfier/handata_server/';
 
 % Windows server
-%server_root_path = 'Z:\';
+server_root_path = 'Z:\';
 
 f = filesep;
 
@@ -47,6 +47,7 @@ for stim_freq=[ 0  1]
             %result.traces(:,1)= result.traces(:,1)-LFPg; %% Camera noise removal
             %%
             lfp=[];
+            
             clear allV allS alls1  allV40 allV140
             tr=0;
             
@@ -232,6 +233,8 @@ axis tight;xlim([-0.7 1.7])
 print(gcf, '-dpdf' , '-r300' ,'-painters', [ savepath 'Nonsmooth_Vm_av_40_140t.pdf'])
 %savefig(gcf, [ savepath 'Nonsmooth_Vm_av_40_140.fig'])
 
+if 0
+
 %% Vm average plots (smoothed)
 V1=nanmean(allVmSM(:, stim_type==0),2);
 V1s=nanstd(allVmSM(:, stim_type==0),[],2)./sqrt(length(find(stim_type==0)));
@@ -391,35 +394,33 @@ print(gcf, '-dpdf' , '-r300' ,'-painters', [ savepath 'Firing_barplot.pdf'])
 [h,p,ci,stats] = ttest2(V1p, V2p) %
 
 
-
-if 0
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     %%%  Spectral power %%%%%%%%%%%%
 
- Pow_40=nanmean(allpow(:,:,stim_type==0),3);
- %Pow_40=bsxfun(@rdivide, Pow_40, nanmean(Pow_40(baseTimsel,:)));
- Pow_140=nanmean(allpow(:,:,stim_type==1),3);
+Pow_40=nanmean(allpow(:,:,stim_type==0),3);
+%Pow_40=bsxfun(@rdivide, Pow_40, nanmean(Pow_40(baseTimsel,:)));
+Pow_140=nanmean(allpow(:,:,stim_type==1),3);
 
-  figure('COlor','w','Position', [ 300 400 250 pheight],'Renderer', 'painters') 
+figure('COlor','w','Position', [ 300 400 250 pheight],'Renderer', 'painters') 
 imagesc(tim_axis,freq2.freq,(Pow_40.*repmat(freq2.freq.^0.5,length(tim_axis),1)  )');axis xy
 colormap(jet); xlim([-0.7 1.7])
 %print(gcf, '-dpdf' , '-r300' ,'-painters', [ savepath 'TFR_40.pdf'])
 %savefig(gcf, [ savepath 'TFR_40.fig'])
 
-  figure('COlor','w','Position', [ 300 400 250 pheight],'Renderer', 'painters') 
+figure('COlor','w','Position', [ 300 400 250 pheight],'Renderer', 'painters') 
 imagesc(tim_axis,freq2.freq,(Pow_140.*repmat(freq2.freq.^0.5,length(tim_axis),1)  )');axis xy
 colormap(jet); xlim([-0.7 1.7])
 %print(gcf, '-dpdf' , '-r300' ,'-painters', [ savepath 'TFR_140.pdf'])
 %savefig(gcf, [ savepath 'TFR_140.fig'])
 
- Pow_40b=nanmean(nanmean(allpow(baseTimsel,:,stim_type==0),3),1);
- Pow_40s=nanmean(nanmean(allpow(StimTimsel,:,stim_type==0),3),1);
- Pow_40p=nanmean(nanmean(allpow(PostTimsel,:,stim_type==0),3),1);
- Pow_40bS=nanmean(nanstd(allpow(baseTimsel,:,stim_type==0),[],3),1)./sqrt(length(stim_type==0));
- Pow_40sS=nanmean(nanstd(allpow(StimTimsel,:,stim_type==0),[],3),1)./sqrt(length(stim_type==0));
- Pow_40pS=nanmean(nanstd(allpow(PostTimsel,:,stim_type==0),[],3),1)./sqrt(length(stim_type==0));
-  figure('COlor','w','Position', [ 300 400 250 pheight],'Renderer', 'painters') 
+Pow_40b=nanmean(nanmean(allpow(baseTimsel,:,stim_type==0),3),1);
+Pow_40s=nanmean(nanmean(allpow(StimTimsel,:,stim_type==0),3),1);
+Pow_40p=nanmean(nanmean(allpow(PostTimsel,:,stim_type==0),3),1);
+Pow_40bS=nanmean(nanstd(allpow(baseTimsel,:,stim_type==0),[],3),1)./sqrt(length(stim_type==0));
+Pow_40sS=nanmean(nanstd(allpow(StimTimsel,:,stim_type==0),[],3),1)./sqrt(length(stim_type==0));
+Pow_40pS=nanmean(nanstd(allpow(PostTimsel,:,stim_type==0),[],3),1)./sqrt(length(stim_type==0));
+figure('COlor','w','Position', [ 300 400 250 pheight],'Renderer', 'painters') 
 plot(freq2.freq,Pow_40b,'k','COlor',[ 0 0 0.3]);hold on,
 plot(freq2.freq,Pow_40s,'k','COlor',[ 0 0 0.8])
 plot(freq2.freq,Pow_40p,'k','COlor',[ 0 0.3 0.4])
@@ -434,13 +435,13 @@ set(gca,'Xscale','log')
 
 
 %%
- Pow_140b=nanmean(nanmean(allpow(baseTimsel,:,stim_type==0),3),1);
- Pow_140s=nanmean(nanmean(allpow(StimTimsel,:,stim_type==0),3),1);
- Pow_140p=nanmean(nanmean(allpow(PostTimsel,:,stim_type==0),3),1);
- Pow_140bS=nanstd(squeeze(nanmean(allpow(StimTimsel,:,stim_type==0),1))./squeeze(nanmean(allpow(baseTimsel,:,stim_type==0),1)),[],2)./sqrt(length(stim_type==0));
- Pow_140sS=nanmean(nanstd(allpow(StimTimsel,:,stim_type==1),[],3),1)./sqrt(length(stim_type==1));
- Pow_140pS=nanmean(nanstd(allpow(PostTimsel,:,stim_type==1),[],3),1)./sqrt(length(stim_type==1));
-  figure('COlor','w','Position', [ 300 400 250 pheight],'Renderer', 'painters') 
+Pow_140b=nanmean(nanmean(allpow(baseTimsel,:,stim_type==0),3),1);
+Pow_140s=nanmean(nanmean(allpow(StimTimsel,:,stim_type==0),3),1);
+Pow_140p=nanmean(nanmean(allpow(PostTimsel,:,stim_type==0),3),1);
+Pow_140bS=nanstd(squeeze(nanmean(allpow(StimTimsel,:,stim_type==0),1))./squeeze(nanmean(allpow(baseTimsel,:,stim_type==0),1)),[],2)./sqrt(length(stim_type==0));
+Pow_140sS=nanmean(nanstd(allpow(StimTimsel,:,stim_type==1),[],3),1)./sqrt(length(stim_type==1));
+Pow_140pS=nanmean(nanstd(allpow(PostTimsel,:,stim_type==1),[],3),1)./sqrt(length(stim_type==1));
+figure('COlor','w','Position', [ 300 400 250 pheight],'Renderer', 'painters') 
 plot(freq2.freq,Pow_140s./Pow_140b,'k','COlor',[ 0 0 0.8]);hold on,
 %plot(freq2.freq,Pow_140s,'k','COlor',[ 0.8 0 0])
 %plot(freq2.freq,Pow_140p,'k','COlor',[ 0.4 0.3 0])
@@ -454,13 +455,13 @@ set(gca,'Xscale','log')
 %savefig(gcf, [ savepath 'Powplots_40.fig'])
 
 %%
- Pow_140b=nanmean(nanmean(allpow(baseTimsel,:,stim_type==1),3),1);
- Pow_140s=nanmean(nanmean(allpow(StimTimsel,:,stim_type==1),3),1);
- Pow_140p=nanmean(nanmean(allpow(PostTimsel,:,stim_type==1),3),1);
- Pow_140bS=nanstd(squeeze(nanmean(allpow(StimTimsel,:,stim_type==1),1))./squeeze(nanmean(allpow(baseTimsel,:,stim_type==1),1)),[],2)./sqrt(length(stim_type==1));
- Pow_140sS=nanmean(nanstd(allpow(StimTimsel,:,stim_type==1),[],3),1)./sqrt(length(stim_type==1));
- Pow_140pS=nanmean(nanstd(allpow(PostTimsel,:,stim_type==1),[],3),1)./sqrt(length(stim_type==1));
-  figure('COlor','w','Position', [ 300 400 250 pheight],'Renderer', 'painters') 
+Pow_140b=nanmean(nanmean(allpow(baseTimsel,:,stim_type==1),3),1);
+Pow_140s=nanmean(nanmean(allpow(StimTimsel,:,stim_type==1),3),1);
+Pow_140p=nanmean(nanmean(allpow(PostTimsel,:,stim_type==1),3),1);
+Pow_140bS=nanstd(squeeze(nanmean(allpow(StimTimsel,:,stim_type==1),1))./squeeze(nanmean(allpow(baseTimsel,:,stim_type==1),1)),[],2)./sqrt(length(stim_type==1));
+Pow_140sS=nanmean(nanstd(allpow(StimTimsel,:,stim_type==1),[],3),1)./sqrt(length(stim_type==1));
+Pow_140pS=nanmean(nanstd(allpow(PostTimsel,:,stim_type==1),[],3),1)./sqrt(length(stim_type==1));
+figure('COlor','w','Position', [ 300 400 250 pheight],'Renderer', 'painters') 
 plot(freq2.freq,Pow_140s./Pow_140b,'k','COlor',[ 0.8 0 0]);hold on,
 %plot(freq2.freq,Pow_140s,'k','COlor',[ 0.8 0 0])
 %plot(freq2.freq,Pow_140p,'k','COlor',[ 0.4 0.3 0])
