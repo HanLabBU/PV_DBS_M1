@@ -116,65 +116,90 @@ for ind=1:length(ses)
         wavD = angle(squeeze(freq2.fourierspctrm));
         wavA = abs(squeeze(freq2.fourierspctrm));
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-mr=mr+1;
- allname{mr}=  Cpath;
-
- allpow(1:size(wavA,3),:,mr)= squeeze(nanmean(wavA,1))';
-
- allfiring(:,mr)= nanmean(allS.*FS,2);
-  sm=50 ;%smoothing parameter (rectangular window)
- allfiringSM(:,mr)= nanfastsmooth(nanmean(allS.*FS,2),sm,1,1);
-   allfiringSM(:,mr)= allfiringSM(:,mr)-nanmean(allfiringSM(5:800,mr));
- allVm(:,mr)= nanmean(allV,2)./nanmean(samp);
- sm=50 ;%smoothing parameter (rectangular window)
-  allVmSM(:,mr)= nanfastsmooth(nanmean(allV,2),sm,1,1)./nanmean(samp);
-   allVmSM(:,mr)= allVmSM(:,mr)-nanmean(allVmSM(50:750,mr));
- firing_conc=[ firing_conc,allS];
-  Vm_conc=[Vm_conc,bsxfun(@rdivide,allV, nanmean(samp))];   
- stim_type=[stim_type, stim_freq];   
- stim_type_tr=[ stim_type_tr, ones(1,size(allS,2)).*stim_freq];
- %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
- 
- baseTimsel= [100:800];
-StimTimsel= [830:1600];
-PostTimsel= [1690:2490];
-
-clear s
-  M= wavD(:,:,baseTimsel); 
-  for tr1=1:size(allS,2); s{tr1}=alls1(baseTimsel,tr1)'; end
-[ PLV_b]= spike_field_ppcDBS(M,s,1);
-clear s
-  M= wavD(:,:,StimTimsel); 
-  for tr1=1:size(allS,2); s{tr1}=alls1(StimTimsel,tr1)'; end
-[ PLV_s]= spike_field_ppcDBS(M,s,1);
-  M= wavD(:,:,PostTimsel); 
-  for tr1=1:size(allS,2); s{tr1}=alls1(StimTimsel,tr1)'; end
-[ PLV_p]= spike_field_ppcDBS(M,s,1);
-
- allPLVb(:,mr)=PLV_b;
-  allPLVs(:,mr)=PLV_s;
-   allPLVp(:,mr)=PLV_p;
-   
-   %%%%%%%%%%%%%%
-   %% PLV with filtered signals
-   allS1= alls1;
-   allS1([1:800 1650:size(allS1,2)],:)=0;
-   allangs140= [allangs140; allV140(allS1==1)];
-   allangs40= [allangs40; allV40(allS1==1)];
-    stim_type_sp=[ stim_type_sp, ones(1,length(find(allS1==1))).*stim_freq];
-    Z=abs(nanmean(exp(1i.*allV140(allS1==1))));
-   Za=angle(nanmean(exp(1i.*allV140(allS1==1))));NT=sum(sum(allS1==1));
-   if NT>5;  % Mimnimum of spikes
-       allPLVf140(mr)=Z; allPLVf140a(mr)=Za;else allPLVf140(mr)=NaN;allPLVf140a(mr)=NaN;end
-       
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        mr=mr+1;
+        allname{mr}=  Cpath;
+        
+        allpow(1:size(wavA,3),:,mr)= squeeze(nanmean(wavA,1))';
+        
+        allfiring(:,mr)= nanmean(allS.*FS,2);
+        sm=50 ;%smoothing parameter (rectangular window)
+        allfiringSM(:,mr)= nanfastsmooth(nanmean(allS.*FS,2),sm,1,1);
+        allfiringSM(:,mr)= allfiringSM(:,mr)-nanmean(allfiringSM(5:800,mr));
+        allVm(:,mr)= nanmean(allV,2)./nanmean(samp);
+        sm=50 ;%smoothing parameter (rectangular window)
+        allVmSM(:,mr)= nanfastsmooth(nanmean(allV,2),sm,1,1)./nanmean(samp);
+        allVmSM(:,mr)= allVmSM(:,mr)-nanmean(allVmSM(50:750,mr));
+        firing_conc=[ firing_conc,allS];
+        Vm_conc=[Vm_conc,bsxfun(@rdivide,allV, nanmean(samp))];   
+        stim_type=[stim_type, stim_freq];   
+        stim_type_tr=[ stim_type_tr, ones(1,size(allS,2)).*stim_freq];
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        
+        baseTimsel= [100:800];
+        StimTimsel= [830:1600];
+        PostTimsel= [1690:2490];
+        
+        clear s
+        M= wavD(:,:,baseTimsel); 
+        for tr1=1:size(allS,2); 
+            s{tr1}=alls1(baseTimsel,tr1)'; 
+        end
+        
+        [ PLV_b]= spike_field_ppcDBS(M,s,1);
+        
+        clear s
+        M= wavD(:,:,StimTimsel); 
+        
+        for tr1=1:size(allS,2); 
+            s{tr1}=alls1(StimTimsel,tr1)'; 
+        end
+        
+        [ PLV_s]= spike_field_ppcDBS(M,s,1);
+        M= wavD(:,:,PostTimsel); 
+        
+        for tr1=1:size(allS,2); 
+            s{tr1}=alls1(StimTimsel,tr1)'; 
+        end
+        
+        [ PLV_p]= spike_field_ppcDBS(M,s,1);
+        
+        allPLVb(:,mr)=PLV_b;
+        allPLVs(:,mr)=PLV_s;
+        allPLVp(:,mr)=PLV_p;
+          
+        %%%%%%%%%%%%%%
+        %% PLV with filtered signals
+        allS1= alls1;
+        allS1([1:800 1650:size(allS1,2)],:)=0;
+        allangs140= [allangs140; allV140(allS1==1)];
+        allangs40= [allangs40; allV40(allS1==1)];
+        stim_type_sp=[ stim_type_sp, ones(1,length(find(allS1==1))).*stim_freq];
+        Z=abs(nanmean(exp(1i.*allV140(allS1==1))));
+        Za=angle(nanmean(exp(1i.*allV140(allS1==1))));
+        NT=sum(sum(allS1==1));
+        
+        if NT>5  % Mimnimum of spikes
+            allPLVf140(mr)=Z; 
+            allPLVf140a(mr)=Za;
+        else 
+            allPLVf140(mr)=NaN;
+            allPLVf140a(mr)=NaN;
+        end
+            
         Z=abs(nanmean(exp(1i.*allV40(allS1==1))));
-   Za=angle(nanmean(exp(1i.*allV40(allS1==1))));NT=sum(sum(allS1==1)); 
-   if NT>5; allPLVf40(mr)=Z; allPLVf40a(mr)=Za;else allPLVf40(mr)=NaN;allPLVf40a(mr)=NaN;end
-    
-    end  
-end % sessions
+        Za=angle(nanmean(exp(1i.*allV40(allS1==1))));
+        NT=sum(sum(allS1==1)); 
+        if NT>5 
+            allPLVf40(mr)=Z; 
+            allPLVf40a(mr)=Za;
+        else 
+            allPLVf40(mr)=NaN;
+            allPLVf40a(mr)=NaN;
+        end
+         
+         end  
+    end % sessions
 
 end % stimulation type
 %allS(allS==0)=NaN;
@@ -192,7 +217,7 @@ PostTimsel= [1657+10:2490];
 tim_axis=([1:size(allV,1)]-(FS-10))./FS;
 
 %%%%
-savepath='\\engnas.bu.edu\research\eng_research_handata\EricLowet\DBS\PV_figure\'
+savepath= [server_root_path 'Pierre Fabris' f 'PV DBS neocortex' f];
 pheight=150;
 %%%%%%%%%%%%%%%%%%
 V1=nanmedian(allVm(:, stim_type==0),2);
