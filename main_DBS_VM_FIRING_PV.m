@@ -23,182 +23,180 @@ stim_type_sp=[];
 mr=0;
 
 for stim_freq=[ 0  1]
-
     if stim_freq==1
         cd([server_root_path 'EricLowet' f 'DBS' f 'PV' f '140' f ])
     else
         cd([server_root_path 'EricLowet' f 'DBS' f 'PV' f '40' f ])
     end
-
-
-ses=dir('*.mat');
-
-for ind=1:length(ses)
-    Cpath= ses(ind).name;
-    load(Cpath)  %loading
     
-    trial_numb=unique(result.trial_vec);
+    ses=dir('*.mat');
     
-    if length(find(result.trial_vec==trial_numb(1) )) <3500 & length(trial_numb)>2
-    
-        %%  denoise
-        FS=828;
-        Fn = FS/2;FB=[ 86.5 88.5];
-        [B, A] = butter(2, [min(FB)/Fn max(FB)/Fn]);
-        LFPg= ((filtfilt(B,A,    result.traces(:,1))));
-        %result.traces(:,1)= result.traces(:,1)-LFPg; %% Camera noise removal
-        %%
-        lfp=[];
-        clear allV allS alls1  allV40 allV140
-        tr=0;
+    for ind=1:length(ses)
+        Cpath= ses(ind).name;
+        load(Cpath)  %loading
         
-        for  ne=unique(result.trial_vec) % trials
-            tr=tr+1;
-            %% Vm
-            v= result.traces(result.trial_vec==ne,1)  ;
-            v=v(10:2500);
-            
-            vsub= result.resultS{ne}.trace_ws(1,:)'  ;
-            vsub=vsub(10:2500);
-           
-            Fn = FS/2;FB=[ 35 45];
+        trial_numb=unique(result.trial_vec);
+        
+        if length(find(result.trial_vec==trial_numb(1) )) <3500 & length(trial_numb)>2
+        
+            %%  denoise
+            FS=828;
+            Fn = FS/2;FB=[ 86.5 88.5];
             [B, A] = butter(2, [min(FB)/Fn max(FB)/Fn]);
-            Vsub40= angle(hilbert(filtfilt(B,A,     vsub)));
-            Fn = FS/2;FB=[ 135 145];
-            [B, A] = butter(2, [min(FB)/Fn max(FB)/Fn]);
-            Vsub140= angle(hilbert(filtfilt(B,A,     vsub)));
+            LFPg= ((filtfilt(B,A,    result.traces(:,1))));
+            %result.traces(:,1)= result.traces(:,1)-LFPg; %% Camera noise removal
+            %%
+            lfp=[];
+            clear allV allS alls1  allV40 allV140
+            tr=0;
             
-            %v=v-mean(v);
-            %  v=v-fastsmooth(v,2300,1,1);
+            for  ne=unique(result.trial_vec) % trials
+                tr=tr+1;
+                %% Vm
+                v= result.traces(result.trial_vec==ne,1)  ;
+                v=v(10:2500);
+                
+                vsub= result.resultS{ne}.trace_ws(1,:)'  ;
+                vsub=vsub(10:2500);
+               
+                Fn = FS/2;FB=[ 35 45];
+                [B, A] = butter(2, [min(FB)/Fn max(FB)/Fn]);
+                Vsub40= angle(hilbert(filtfilt(B,A,     vsub)));
+                Fn = FS/2;FB=[ 135 145];
+                [B, A] = butter(2, [min(FB)/Fn max(FB)/Fn]);
+                Vsub140= angle(hilbert(filtfilt(B,A,     vsub)));
+                
+                %v=v-mean(v);
+                %  v=v-fastsmooth(v,2300,1,1);
+          
+                % exponential fitting to remove photobleaching
+                [ fitbaseline, coeff]=exp_fit_Fx(v,FS);
       
-            % exponential fitting to remove photobleaching
-            [ fitbaseline, coeff]=exp_fit_Fx(v,FS);
-  
-            v=(v-fitbaseline');
-            % v(1:10)=NaN;
-            lfp.trial{tr}= ( vsub)';
-            lfp.time{tr}= (1:size(v,1))./FS;
-            allV(1:length(v),ne)=v;
-            allV40(1:length(v),ne)=Vsub40;
-            allV140(1:length(v),ne)=Vsub140;
-            %%spikes
-            strain= result.resultS{ne}.roaster(10:2500);
-            allS(1:length(strain),tr)=strain;
-            sid=result.resultS{ne}.spike_idx{1};sid=sid-15;sid(sid<1)=[];
-            vect=zeros(1,size(allS,1));vect(sid)=1;
-            alls1( :,tr)=vect(1:2491);
-            spx= result.resultS{ne}.spike_idx{1}   ;
-            samp= result.resultS{ne}.spike_amplitude{1};
-            samp(spx <10)=NaN;
-     
-            allsamp=[allsamp ,samp];
-        end
-     
-        for id=1%:size(vsig,2)
-            lfp.label{id}= num2str(id);
-        end  
- 
-    
-        []; %block_type == cfg.blk
-        cfg.method ='wavelet'; %'mvar';
-        cfg.output ='fourier';
-        cfg.taper='hanning';
-        cfg.keeptapers ='yes';
-        cfg.keeptrials ='yes';
-        cfg.trials='all';cfg.tapsmofrq =5;%
-        cfg.channel= 'all'%; %chans=cfg.channel;
-        cfg.foi= [2:10:220];
-        cfg.toi=lfp.time{1}(1:1:end) ;
-        cfg.width =6;
-        cfg.t_ftimwin =[ones(1,length(cfg.foi))*0.4];
-        freq2 = ft_freqanalysis(cfg, lfp);
-          
-        wavD = angle(squeeze(freq2.fourierspctrm));
-        wavA = abs(squeeze(freq2.fourierspctrm));
-
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        mr=mr+1;
-        allname{mr}=  Cpath;
-        
-        allpow(1:size(wavA,3),:,mr)= squeeze(nanmean(wavA,1))';
-        
-        allfiring(:,mr)= nanmean(allS.*FS,2);
-        sm=50 ;%smoothing parameter (rectangular window)
-        allfiringSM(:,mr)= nanfastsmooth(nanmean(allS.*FS,2),sm,1,1);
-        allfiringSM(:,mr)= allfiringSM(:,mr)-nanmean(allfiringSM(5:800,mr));
-        allVm(:,mr)= nanmean(allV,2)./nanmean(samp);
-        sm=50 ;%smoothing parameter (rectangular window)
-        allVmSM(:,mr)= nanfastsmooth(nanmean(allV,2),sm,1,1)./nanmean(samp);
-        allVmSM(:,mr)= allVmSM(:,mr)-nanmean(allVmSM(50:750,mr));
-        firing_conc=[ firing_conc,allS];
-        Vm_conc=[Vm_conc,bsxfun(@rdivide,allV, nanmean(samp))];   
-        stim_type=[stim_type, stim_freq];   
-        stim_type_tr=[ stim_type_tr, ones(1,size(allS,2)).*stim_freq];
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        
-        baseTimsel= [100:800];
-        StimTimsel= [830:1600];
-        PostTimsel= [1690:2490];
-        
-        clear s
-        M= wavD(:,:,baseTimsel); 
-        for tr1=1:size(allS,2); 
-            s{tr1}=alls1(baseTimsel,tr1)'; 
-        end
-        
-        [ PLV_b]= spike_field_ppcDBS(M,s,1);
-        
-        clear s
-        M= wavD(:,:,StimTimsel); 
-        
-        for tr1=1:size(allS,2); 
-            s{tr1}=alls1(StimTimsel,tr1)'; 
-        end
-        
-        [ PLV_s]= spike_field_ppcDBS(M,s,1);
-        M= wavD(:,:,PostTimsel); 
-        
-        for tr1=1:size(allS,2); 
-            s{tr1}=alls1(StimTimsel,tr1)'; 
-        end
-        
-        [ PLV_p]= spike_field_ppcDBS(M,s,1);
-        
-        allPLVb(:,mr)=PLV_b;
-        allPLVs(:,mr)=PLV_s;
-        allPLVp(:,mr)=PLV_p;
-          
-        %%%%%%%%%%%%%%
-        %% PLV with filtered signals
-        allS1= alls1;
-        allS1([1:800 1650:size(allS1,2)],:)=0;
-        allangs140= [allangs140; allV140(allS1==1)];
-        allangs40= [allangs40; allV40(allS1==1)];
-        stim_type_sp=[ stim_type_sp, ones(1,length(find(allS1==1))).*stim_freq];
-        Z=abs(nanmean(exp(1i.*allV140(allS1==1))));
-        Za=angle(nanmean(exp(1i.*allV140(allS1==1))));
-        NT=sum(sum(allS1==1));
-        
-        if NT>5  % Mimnimum of spikes
-            allPLVf140(mr)=Z; 
-            allPLVf140a(mr)=Za;
-        else 
-            allPLVf140(mr)=NaN;
-            allPLVf140a(mr)=NaN;
-        end
-            
-        Z=abs(nanmean(exp(1i.*allV40(allS1==1))));
-        Za=angle(nanmean(exp(1i.*allV40(allS1==1))));
-        NT=sum(sum(allS1==1)); 
-        if NT>5 
-            allPLVf40(mr)=Z; 
-            allPLVf40a(mr)=Za;
-        else 
-            allPLVf40(mr)=NaN;
-            allPLVf40a(mr)=NaN;
-        end
+                v=(v-fitbaseline');
+                % v(1:10)=NaN;
+                lfp.trial{tr}= ( vsub)';
+                lfp.time{tr}= (1:size(v,1))./FS;
+                allV(1:length(v),ne)=v;
+                allV40(1:length(v),ne)=Vsub40;
+                allV140(1:length(v),ne)=Vsub140;
+                %%spikes
+                strain= result.resultS{ne}.roaster(10:2500);
+                allS(1:length(strain),tr)=strain;
+                sid=result.resultS{ne}.spike_idx{1};sid=sid-15;sid(sid<1)=[];
+                vect=zeros(1,size(allS,1));vect(sid)=1;
+                alls1( :,tr)=vect(1:2491);
+                spx= result.resultS{ne}.spike_idx{1}   ;
+                samp= result.resultS{ne}.spike_amplitude{1};
+                samp(spx <10)=NaN;
          
-         end  
+                allsamp=[allsamp ,samp];
+            end
+         
+            for id=1%:size(vsig,2)
+                lfp.label{id}= num2str(id);
+            end  
+     
+        
+            []; %block_type == cfg.blk
+            cfg.method ='wavelet'; %'mvar';
+            cfg.output ='fourier';
+            cfg.taper='hanning';
+            cfg.keeptapers ='yes';
+            cfg.keeptrials ='yes';
+            cfg.trials='all';cfg.tapsmofrq =5;%
+            cfg.channel= 'all'%; %chans=cfg.channel;
+            cfg.foi= [2:10:220];
+            cfg.toi=lfp.time{1}(1:1:end) ;
+            cfg.width =6;
+            cfg.t_ftimwin =[ones(1,length(cfg.foi))*0.4];
+            freq2 = ft_freqanalysis(cfg, lfp);
+              
+            wavD = angle(squeeze(freq2.fourierspctrm));
+            wavA = abs(squeeze(freq2.fourierspctrm));
+    
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            mr=mr+1;
+            allname{mr}=  Cpath;
+            
+            allpow(1:size(wavA,3),:,mr)= squeeze(nanmean(wavA,1))';
+            
+            allfiring(:,mr)= nanmean(allS.*FS,2);
+            sm=50 ;%smoothing parameter (rectangular window)
+            allfiringSM(:,mr)= nanfastsmooth(nanmean(allS.*FS,2),sm,1,1);
+            allfiringSM(:,mr)= allfiringSM(:,mr)-nanmean(allfiringSM(5:800,mr));
+            allVm(:,mr)= nanmean(allV,2)./nanmean(samp);
+            sm=50 ;%smoothing parameter (rectangular window)
+            allVmSM(:,mr)= nanfastsmooth(nanmean(allV,2),sm,1,1)./nanmean(samp);
+            allVmSM(:,mr)= allVmSM(:,mr)-nanmean(allVmSM(50:750,mr));
+            firing_conc=[ firing_conc,allS];
+            Vm_conc=[Vm_conc,bsxfun(@rdivide,allV, nanmean(samp))];   
+            stim_type=[stim_type, stim_freq];   
+            stim_type_tr=[ stim_type_tr, ones(1,size(allS,2)).*stim_freq];
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            
+            baseTimsel= [100:800];
+            StimTimsel= [830:1600];
+            PostTimsel= [1690:2490];
+            
+            clear s
+            M= wavD(:,:,baseTimsel); 
+            for tr1=1:size(allS,2); 
+                s{tr1}=alls1(baseTimsel,tr1)'; 
+            end
+            
+            [ PLV_b]= spike_field_ppcDBS(M,s,1);
+            
+            clear s
+            M= wavD(:,:,StimTimsel); 
+            
+            for tr1=1:size(allS,2); 
+                s{tr1}=alls1(StimTimsel,tr1)'; 
+            end
+            
+            [ PLV_s]= spike_field_ppcDBS(M,s,1);
+            M= wavD(:,:,PostTimsel); 
+            
+            for tr1=1:size(allS,2); 
+                s{tr1}=alls1(StimTimsel,tr1)'; 
+            end
+            
+            [ PLV_p]= spike_field_ppcDBS(M,s,1);
+            
+            allPLVb(:,mr)=PLV_b;
+            allPLVs(:,mr)=PLV_s;
+            allPLVp(:,mr)=PLV_p;
+              
+            %%%%%%%%%%%%%%
+            %% PLV with filtered signals
+            allS1= alls1;
+            allS1([1:800 1650:size(allS1,2)],:)=0;
+            allangs140= [allangs140; allV140(allS1==1)];
+            allangs40= [allangs40; allV40(allS1==1)];
+            stim_type_sp=[ stim_type_sp, ones(1,length(find(allS1==1))).*stim_freq];
+            Z=abs(nanmean(exp(1i.*allV140(allS1==1))));
+            Za=angle(nanmean(exp(1i.*allV140(allS1==1))));
+            NT=sum(sum(allS1==1));
+            
+            if NT>5  % Mimnimum of spikes
+                allPLVf140(mr)=Z; 
+                allPLVf140a(mr)=Za;
+            else 
+                allPLVf140(mr)=NaN;
+                allPLVf140a(mr)=NaN;
+            end
+                
+            Z=abs(nanmean(exp(1i.*allV40(allS1==1))));
+            Za=angle(nanmean(exp(1i.*allV40(allS1==1))));
+            NT=sum(sum(allS1==1)); 
+            if NT>5 
+                allPLVf40(mr)=Z; 
+                allPLVf40a(mr)=Za;
+            else 
+                allPLVf40(mr)=NaN;
+                allPLVf40a(mr)=NaN;
+            end
+             
+        end  
     end % sessions
 
 end % stimulation type
