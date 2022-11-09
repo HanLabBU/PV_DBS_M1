@@ -22,6 +22,8 @@ allangs140=[];
 stim_type_sp=[];
 mr=0;
 
+savepath= [server_root_path 'Pierre Fabris' f 'PV DBS neocortex' f];
+
 for stim_freq=[ 0  1]
     if stim_freq==1
         cd([server_root_path 'EricLowet' f 'DBS' f 'PV' f '140' f ])
@@ -217,7 +219,6 @@ PostTimsel= [1657+10:2490];
 tim_axis=([1:size(allV,1)]-(FS-10))./FS;
 
 %%%%
-savepath= [server_root_path 'Pierre Fabris' f 'PV DBS neocortex' f];
 pheight=150;
 
 %%%%%%%%%%%%%%%%%%

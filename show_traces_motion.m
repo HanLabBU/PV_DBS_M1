@@ -3,21 +3,24 @@ f = filesep;
 %USER modify everything below here
 %% Specific to the computer being used
 %DMD
-%server_rootpath = 'Z:\';
+server_rootpath = 'Z:\';
 
 %Dual scope
 %server_rootpath = '\\engnas.bu.edu\research\eng_research_handata\';
 
 % Maingear office computer
-server_rootpath = '/home/pierfier/handata_server/';
+%server_rootpath = '/home/pierfier/handata_server/';
 
 % Folder location of all the saved and aligned data
 data_path = [server_rootpath 'EricLowet' f 'DBS' f 'PV' f];
 
-frame_exp = 1.2;
-frame_freq = 1/(1.2*10^-3);
-
 %USER END modification
+
+frame_exp = 1.2;
+Fs = 1/(1.2*10^-3);
+
+front_frame_drop = 15;
+back_frame_drop = 2500;
 
 % Scripts folder for performing data alignment and saving relevant data to mat files
 addpath([server_rootpath 'Pierre Fabris' f 'Imaging Scripts' f 'sharedLabCode' f 'LFP_Trace_Alignment' ]);
@@ -35,19 +38,30 @@ for i=1:length(matfile_names)
     % Loop through each trial
     for  ne=unique(result.trial_vec)
         
-        %DEBUG
-        traces_sice = size(result.traces);
-    
-
         v= result.traces(result.trial_vec==ne); %eb edited 20211111
+        
+        % Including just the frames without any artefacts
+        v = v(front_frame_drop:back_frame_drop);
+        [x, y] = exp_fit(v, Fs);
+        trace_exp_sub = v - y';
         %   v= result.traces(result.trial_vec==ne,3);%./result.tracesB(result.trial_vec==ne)   ;
         v=v-fastsmooth(v,1400,1,1); 
-        %Dropping the first 50 frames, there appears to be artefacts
-        v(1:50) = NaN;
         nexttile;
-        plot([1:length(v)]/frame_freq, v);
+        plot([1:length(v)]/Fs, v, '-r');
+        hold on;
+        plot([1:length(v)]/Fs, trace_exp_sub, '-b');
+        
+        
     end
     
     % Set the title of the Figure
     sgtitle(matfile_names{i}, 'Interpreter', 'none');
+end
+
+% Perform exponential fit
+function [x, y]  = exp_fit(trace, Fs)
+    t = 1:length(trace);
+    f2 = fit(t', trace, 'exp2');
+    y = f2.a*exp(f2.b*t) + f2.c*exp(f2.d*t);
+    x = t;
 end
