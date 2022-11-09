@@ -51,14 +51,6 @@ for cond=stim_conditions
                 
                 [x, y] = exp_fit(cur_stim_traces(:, end), Fs);
                 cur_stim_traces(:, end) = cur_stim_traces(:, end) - y';
-                
-                %DEBUG for the exponential fit
-                %figure;
-                %tiledlayout(2, 1, 'TileSpacing', 'compact', 'Padding', 'compact');
-                %nexttile;
-                %plot(trace);
-                %nexttile;
-                %plot(cur_stim_traces(:, end));
 
                 % Only use spikes within truncated region
                 spx = data.result.resultS{trial}.spike_idx{1};
