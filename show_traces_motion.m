@@ -42,14 +42,12 @@ for i=1:length(matfile_names)
         
         % Including just the frames without any artefacts
         v = v(front_frame_drop:back_frame_drop);
-        [x, y] = exp_fit(v, Fs);
-        trace_exp_sub = v - y';
+        [x, y] = exp_fit(v(:), Fs);
+        detrend_trace = v - y';
         %   v= result.traces(result.trial_vec==ne,3);%./result.tracesB(result.trial_vec==ne)   ;
         v=v-fastsmooth(v,1400,1,1); 
         nexttile;
-        plot([1:length(v)]/Fs, v, '-r');
-        hold on;
-        plot([1:length(v)]/Fs, trace_exp_sub, '-b');
+        plot([1:length(v)]/Fs, detrend_trace, '-b');
         
         
     end

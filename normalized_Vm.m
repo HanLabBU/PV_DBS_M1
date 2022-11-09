@@ -47,7 +47,6 @@ for cond=stim_conditions
                 % Grab the full voltage trace
                 trace = data.result.traces(trial == data.result.trial_vec);
 
-                %TODO got to detrend with the exponential fit
                 cur_stim_traces(:, end+1) = trace(front_frame_drop:back_frame_drop);
                 
                 [x, y] = exp_fit(cur_stim_traces(:, end), Fs);
