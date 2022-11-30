@@ -31,6 +31,7 @@ matfile_names = {matfile_names.name};
 
 % Loop through each FOV matfile
 for i=1:length(matfile_names)
+    %TODO should change this to a variable such as 'data' to prevent variable remenance into subsequent loops
     load([data_path matfile_names{i}]);
     
     figure('Position', [0, 0, 1000, 5000]);

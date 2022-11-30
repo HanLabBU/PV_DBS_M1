@@ -8,12 +8,10 @@ f = filesep;
 
 %% USER modification
 % Pierre's Linux defined rootpath
-%server_rootpath = '/home/pierfier/handata_server/';
+server_rootpath = '/home/pierfier/handata_server/';
 
-server_rootpath = 'Z:\';
+%server_rootpath = 'Z:\';
 
-% Filepath where the matfiles will be saved to
-savepath = [server_rootpath 'Pierre Fabris' f 'PV DBS neocortex project' f 'PV_Data' f];
 
 % Flags for the code todo during extractio
 save_matfile = 1;
@@ -39,7 +37,7 @@ code_new = 1;
 
 % To navigate quickly to correct folder, switch desired variable to 1 and
 % set others to 0.
-cd([server_rootpath 'Pierre Fabris' f 'PV DBS neocortex project' f 'Mice voltage recordings' f]);
+cd([server_rootpath 'Pierre Fabris' f 'PV DBS neocortex' f 'Mice voltage recordings' f]);
 
 %DBS_new = 1;
 %DBS_old = 0;
@@ -57,6 +55,9 @@ cd([server_rootpath 'Pierre Fabris' f 'PV DBS neocortex project' f 'Mice voltage
 
 
 [file, path1] = uigetfile('*.dcimg');
+
+% Modify savepath based on where the files are selected
+savepath = path1;
 
 cd(path1)
 file_split = split(file, '_');
