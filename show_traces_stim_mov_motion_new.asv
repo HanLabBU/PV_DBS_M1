@@ -7,10 +7,10 @@ f = filesep;
 
 %USER modification
 % Server root path
-%server_rootpath = 'Z:\';
+server_rootpath = 'Z:\';
 
 % Maingear office computer
-server_rootpath = '/home/pierfier/handata_server/';
+%server_rootpath = '/home/pierfier/handata_server/';
 
 % Folder location of the saved and aligned data
 data_path = [server_rootpath 'Pierre Fabris' f 'PV DBS neocortex' f 'PV_Data' f];
@@ -22,14 +22,14 @@ matfile_names = dir([data_path '*.mat']);
 matfile_names = {matfile_names.name};
 
 % Loop through each matfile
-for i=1:length(matfile_names)
+for i=1:2 %length(matfile_names)
     data = load([data_path matfile_names{i}]);
 
     % Loop through each trial
     for tr=1:length(data.align.trial)
         
         % Setup figure to show alignment data for all trials
-        figure('Position', [0, 0, 800, 1000]);
+        figure('Position', [0, 0, 1000, 3000]);
         tiledlayout(size(data.align.trial{tr}.detrend_traces, 2)*2 + 2, 1, 'TileSpacing', 'compact', 'Padding', 'compact');
         
         % Temporarily save this trial
@@ -64,12 +64,11 @@ for i=1:length(matfile_names)
         nexttile;
         plot(trial_data.camera_frame_time, trial_data.img_correct_vec);
 
-        % Plot the movement, if the variable exists
-        if isfield(trial_data, 'speed')
-            nexttile;
-            plot(trial_data.speed_timestamp, trial_data.speed);
-            title('Raw Movement');
-        end
+        % Plot the movement
+        nexttile;
+        plot(trial_data.speed_timestamp, trial_data.speed);
+        title('Raw Movement');
+
         % Set the title of the Figure
         sgtitle([matfile_names{i} ' trial: ' num2str(tr)], 'Interpreter', 'none');
     end
