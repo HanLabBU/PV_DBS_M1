@@ -1,0 +1,71 @@
+% Read in .csv file to a dictionary structure that stores which traces to ignore
+function [result_dict] = csv_to_struct(csv_pathname)    
+    global func_debug;    
+        
+    % Read in csv file    
+    opts = detectImportOptions(csv_pathname);    
+    opts = setvartype(opts, {'mouse', 'rec_date', 'FOV', 'roi_trial_dict'}, 'string');
+        
+    T = readtable(csv_pathname, opts);    
+    
+    % Loop through each row    
+    for i=1:length(T.Var1)      
+        mouse_key = ['mouse_' char(T.mouse(i))];    
+        rec_key = ['rec_' char(T.rec_date(i))];    
+        FOV_key = ['FOV' char(T.FOV(i))];    
+        result_dict.(mouse_key).(rec_key).(FOV_key) = str_to_dict(T.roi_trial_dict(i));
+    end            
+end
+
+% Convert string representation of a dictionary with specific trials to ignore and create them into a matlab dictionary structure to save which files to ignore
+% The expectation is that there is a curly brace dictionary structure to convert
+function [result_dict] = str_to_dict(string_dict)
+    func_debug = 0;
+    f = filesep;
+
+    string_dict = string_dict{1};
+    if func_debug
+        fprintf(['Indexed argument ' string_dict '\n']);
+    end
+
+    % If not a dictionary structure, exit out of function
+    if strcmp(string_dict, 'all')
+        result_dict = 'all';
+        return;
+    end
+    
+    % Remove all spaces in string
+    string_dict = erase(string_dict, " ");
+    string_dict = erase(string_dict, "{");
+    string_dict = erase(string_dict, "}");
+    
+    if func_debug
+        fprintf(['No spaces: ' string_dict '\n']);
+    end
+
+    % Split elements by each key grouping
+    entries = split(string_dict, "],");
+
+    % Loop through each element and create an indexable thing
+    for i=1:length(entries)
+        entries{i} = erase(entries{i}, '[');
+        entries{i} = erase(entries{i}, ']');
+        elem = split(entries{i}, ":");
+        
+        if func_debug
+            disp(['The ROI number: ' elem{1}])
+            fprintf(['The corresponding elements list: ' elem{2} '\n'])
+        end
+        
+        % Construct the ROI key and value pairing
+        roi_key = ['ROI' elem{1}];
+        roi_value = elem{2};
+
+        % Check if ignoring a list of trials or all trials
+        if strcmp(roi_value, 'all')
+            result_dict.(roi_key) = roi_value;
+        else 
+            result_dict.(roi_key) = str2num(roi_value);
+        end
+    end
+end

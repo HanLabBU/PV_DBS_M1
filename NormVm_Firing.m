@@ -25,8 +25,6 @@ savepath = [server_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Figures' f]
 
 %% Specify analysis parameters
 Fs = 828;
-front_frame_drop = 15;
-back_frame_drop = 2500;
 stim_conditions = {'40', '140'};
 
 %% Spike rate stuff
@@ -51,7 +49,7 @@ for cond=stim_conditions
         % Load the data
         data = load([pv_data_path ses(idx).name]);
         
-        % Use some filtering condition
+        % Use some trace criteria
         if length(find(data.result.trial_vec==1 )) < 3500 & length(unique(data.result.trial_vec)) > 2 & isfield(data.result, 'resultS')
             fov_stim_traces = [];
             fov_spike_amp = [];
