@@ -40,6 +40,8 @@ all_matfiles = {ses.name};
 
 % Store trace aspect data by each individual stimulation condition
 data_bystim = struct();
+% Store all of the calculated sampling frequencies
+all_Fs = [];
 
 % Loop through each stimulation condition
 for field = fieldnames(matfile_stim)'
@@ -65,6 +67,9 @@ for field = fieldnames(matfile_stim)'
             if isempty(trial_data)
                 continue;
             end
+            
+            % Store the camera framerate
+            all_Fs(end+1) = trial_data.camera_framerate;
 
             % Grab the subthreshold Vm
             % Chop the respective frames
@@ -84,20 +89,31 @@ for field = fieldnames(matfile_stim)'
 
         % Average for each neuron and save the subthreshold Vm
         temp = data_bystim.(field).neuron_Vm;
-        data_bystim.(field).neuron_Vm = horzcat_pad(temp, nanmean(cur_fov_subVm, 2));
+        data_bystim.(field).neuron_Vm = horzcat_pad(temp, cur_fov_subVm);
     end % End looping through FOVs of a condition
 end 
 
 % Plot all of the subthreshold Vm for each stimulation condition
+%TODO find the stimulation onset with the timestamps from the stimulation and camera
 stims = fieldnames(data_bystim);
+avg_Fs = nanmean(all_Fs);
+% Calculate the trial timeline, convert the idx's into timestamps
+% Adding 4 here to account for the timestamps dropped by the alignment and motion correction
+timeline = ( (4+(front_frame_drop:back_frame_drop) )./avg_Fs) - 1;
 figure('Renderer', 'Painters', 'Position', [200 200 1000 1000]);
 for stim=stims'
-    plot(nanmean(data_bystim.(stim{1}).neuron_Vm, 2));
+    plot(timeline, nanmean(data_bystim.(stim{1}).neuron_Vm, 2));
     hold on;
 end
 legend(stims, 'Interpreter', 'none');
 title('Average Sub Vm by Stimulation condition', 'Interpreter', 'none');
 
+% Plot all traces of 1000Hz subthreshold
+figure('Renderer', 'Painters', 'Position', [200 200 1000 1000]);
+for trace=1:size(data_bystim.f_1000.neuron_Vm, 2)
+    plot(timeline, data_bystim.f_1000.neuron_Vm(:, trace));
+    hold on;
+end
 %% Specific functions for determining which FOVs to look at
 
 % Return matfiles by stimulation condition

@@ -12,8 +12,10 @@ f = filesep;
 % Maingear office computer
 server_rootpath = '/home/pierfier/handata_server/';
 
-% Folder location of the saved and aligned data
-data_path = [server_rootpath 'Pierre Fabris' f 'PV DBS neocortex' f 'PV_Data' f];
+% Server folder location of the saved and aligned data
+%data_path = [server_rootpath 'Pierre Fabris' f 'PV DBS neocortex' f 'PV_Data' f];
+% Local linux machine
+data_path = ['~/Projects' f 'PV DBS Project' f 'PV_Data' f];
 
 %END modification
 
