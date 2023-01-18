@@ -19,7 +19,7 @@ pv_data_path = ['~/Projects' f 'PV DBS Project' f 'PV_Data' f];
 
 % Specify which ignore trials to use
 ignore_trial_dict = Multi_func.csv_to_struct([server_root_path 'Pierre Fabris' f 'PV DBS neocortex' f ...
-                                       'Recordings' f 'Data_Config' f 'byvis_ignore.csv']);
+                                       'Recordings' f 'Data_Config' f 'thres_2.5_ignore.csv']);
 %%%----- END Modification---------
 
 % Check that the server path exists
@@ -56,19 +56,35 @@ for field = fieldnames(matfile_stim)'
         % Read in the mat file of the current condition
         data = load([pv_data_path matfile{1}]);
  
-        %TODO I should just encapsulate this into a try/catch block and then catch with num_ignore = 0
-        % Grab the number of trials to ignore from this neuron
-        ri = strsplit(matfile{1}, '_');
-        if isfield(ignore_trial_dict.(['mouse_' ri{1}]), (['rec_' erase(ri{3}, 'rec')])) && ...
-            isfield(ignore_trial_dict.(['mouse_' ri{1}]).(['rec_' erase(ri{3}, 'rec')]), (ri{4})) && ...
-            isfield(ignore_trial_dict.(['mouse_' ri{1}]).(['rec_' erase(ri{3}, 'rec')]).(ri{4}), (['f_' ri{5}]))
+        %TODO need to loop through ROIs
 
-            num_ignore = ignore_trial_dict.(['mouse_' ri{1}]).(['rec_' erase(ri{3}, 'rec')]).(ri{4}).(['f_' ri{5}]).ROI1;
-        else
+        %% OLD CODE
+        % Grab the number of trials to ignore from this neuron
+        %ri = strsplit(matfile{1}, '_');
+        %if isfield(ignore_trial_dict.(['mouse_' ri{1}]), (['rec_' erase(ri{3}, 'rec')])) && ...
+        %    isfield(ignore_trial_dict.(['mouse_' ri{1}]).(['rec_' erase(ri{3}, 'rec')]), (ri{4})) && ...
+        %    isfield(ignore_trial_dict.(['mouse_' ri{1}]).(['rec_' erase(ri{3}, 'rec')]).(ri{4}), (['f_' ri{5}]))
+
+        %    num_ignore = ignore_trial_dict.(['mouse_' ri{1}]).(['rec_' erase(ri{3}, 'rec')]).(ri{4}).(['f_' ri{5}]).ROI1;
+        %else
+        %    num_ignore = 0;
+        %end
+
+        %TODO I should just encapsulate this into a try/catch block and then catch with num_ignore = 0
+        ri = strsplit(matfile{1}, '_');
+        try 
+            % Try to grab ROI1's ignoring, if doesn't exist look at ROI2 
+            try
+                num_ignore = ignore_trial_dict.(['mouse_' ri{1}]).(['rec_' erase(ri{3}, 'rec')]).(ri{4}).(['f_' ri{5}]).ROI1;
+            catch
+                num_ignore = ignore_trial_dict.(['mouse_' ri{1}]).(['rec_' erase(ri{3}, 'rec')]).(ri{4}).(['f_' ri{5}]).ROI2;
+            end
+            
+            num_ignore = length(num_ignore);
+        catch
             num_ignore = 0;
         end
 
-        num_ignore = length(num_ignore);
         % Add the number of trials for this specific neuron and check if at least one trial is included in calculation
         cond_stats.(field).trial_nums(end + 1) = length(data.align.trial) - num_ignore;
         

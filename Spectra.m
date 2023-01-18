@@ -54,7 +54,8 @@ for field = fieldnames(matfile_stim)'
 
     % Initialize field subthreshold array
     data_bystim.(field) = struct();
-    data_bystim.(field).neuron_Vm = [];
+    data_bystim.(field).sub_spectra_wt = [];
+    data_bystim.(field).sub_spectra_f = [];
     
 
     % Loop through each matfile of the current stimulation condition
@@ -62,7 +63,9 @@ for field = fieldnames(matfile_stim)'
         % Read in the mat file of the current condition
         data = load([pv_data_path matfile{1}]);
         
-        cur_fov_subVm = [];
+
+        cur_fov_wt = [];
+        cur_fov_f = [];
         % Loop through each trial
         for tr_idx=1:length(data.align.trial)
             trial_data = data.align.trial{tr_idx};
@@ -92,7 +95,12 @@ for field = fieldnames(matfile_stim)'
                 % Grab the subthreshold Vm
                 % Chop the respective frames
                 cur_trace_ws = trial_data.spike_info.trace_ws(roi_idx, front_frame_drop:back_frame_drop);
-                cur_fov_subVm = horzcat_pad(cur_fov_subVm, cur_trace_ws');
+                [wt, f] = cwt(cur_trace_ws, all_Fs(end));
+                
+                cur_fov_wt = cat(3, cur_fov_wt, wt);
+                cur_fov_f = [cur_fov_f, f];
+                % Hopefully I do not need to pad the concatenation
+                %cur_fov_subVm = horzcat_pad(cur_fov_subVm, cur_trace_ws');
             end
         end
         
@@ -101,8 +109,10 @@ for field = fieldnames(matfile_stim)'
         %plot(nanmean(cur_fov_subVm, 2));
 
         % Average for each neuron and save the subthreshold Vm
-        temp = data_bystim.(field).neuron_Vm;
-        data_bystim.(field).neuron_Vm = horzcat_pad(temp, cur_fov_subVm);
+        temp = data_bystim.(field).sub_spectra_wt;
+        data_bystim.(field).sub_spectra_wt = cat(3, temp, cur_fov_wt);
+        data_bystim.(field).sub_spectra_f = [data_bystim.(field).sub_spectra_f, cur_fov_f]; 
+
     end % End looping through FOVs of a condition
 end 
 
@@ -116,28 +126,15 @@ timeline = ( (4+(front_frame_drop:back_frame_drop) )./avg_Fs) - 1;
 figure('Renderer', 'Painters', 'Position', [200 200 1000 1000]);
 tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
 for stim=stims'
+    avg_wt = nanmean(data_bystim.(stim{1}).sub_spectra_wt, 3);
+    avg_f = nanmean(data_bystim.(stim{1}).sub_spectra_f, 2);
     nexttile;
-    plot(timeline, nanmean(data_bystim.(stim{1}).neuron_Vm, 2));
+    imagesc([0, 3], [min(avg_f) max(avg_f)], abs(avg_wt));
+    yticks(flip(avg_f(1:10:length(avg_f))));
+    yticklabels(avg_f(1:10:length(avg_f)));
     title(stim, 'Interpreter', 'none');
 end
-sgtitle('Average Sub Vm by Stimulation condition', 'Interpreter', 'none');
-
-% Quick FT check
-figure('Renderer', 'Painters', 'Position', [200 200 1000 1000]);
-tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
-for stim=stims'
-    cur_subVm = nanmean(data_bystim.(stim{1}).neuron_Vm, 2);
-    nexttile;
-    [wt, f] = cwt(cur_subVm, avg_Fs);
-    imagesc(abs(wt));
-    
-    % Find evenly spaced out Frequencies
-    f
-    yticks(f());
-    yticklabels();
-    title(stim, 'Interpreter', 'none');
-end
-sgtitle('Spectra from averaged Sub Vm Trace');
+sgtitle('Average of spectra from each individual trace');
 
 %% Specific functions for determining which FOVs to look at
 

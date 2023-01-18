@@ -30,7 +30,7 @@ total_num_trials = 0;
 ignored_num_trials = 0;
 all_trial_snr = [];
 
-snr_threshold_trace = 3;
+snr_threshold_trace = 3.5;
 
 % Loop through each FOV matfile
 for matfile_idx=1:length(matfile_names)
@@ -60,6 +60,13 @@ for matfile_idx=1:length(matfile_names)
             ave_snr = mean(trial_data.spike_info.spike_snr{k}); 
             all_trial_snr = [all_trial_snr ave_snr];
             total_num_trials = total_num_trials + 1;
+
+            %DEBUG
+            if ave_snr > 5
+                matfile_names{matfile_idx}
+                j
+                k
+            end
 
             % Ignore based on the SNR threshold
             if ave_snr < snr_threshold_trace
