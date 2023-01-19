@@ -124,7 +124,7 @@ sgtitle('Average Sub Vm by Stimulation condition', 'Interpreter', 'none');
 
 % Quick FT check
 figure('Renderer', 'Painters', 'Position', [200 200 1000 1000]);
-tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
+tiledlayout(length(stims), 2, 'TileSpacing', 'compact', 'Padding', 'compact');
 for stim=stims'
     cur_subVm = nanmean(data_bystim.(stim{1}).neuron_Vm, 2);
     nexttile;
@@ -132,12 +132,15 @@ for stim=stims'
                        SamplingFrequency=avg_Fs,...
                        FrequencyLimits=[0 90]);
     [wt, f] = cwt(cur_subVm, FilterBank=fb);
+    contourf(timeline, f, abs(wt), 'edgecolor', 'none');
+    title(stim, 'Interpreter', 'none');
+    nexttile;
     imagesc(timeline, f, abs(wt));
     % Find evenly spaced out Frequencies
     %TODO change scale for showing the frequencies
     %f
-    %yticks(f());
-    %yticklabels();
+    yticks(flip(f([1, 12, 24, 64])));
+    yticklabels(string(flip(f([1, 12, 24, 64] ))));
     title(stim, 'Interpreter', 'none');
 end
 sgtitle('Spectra from averaged Sub Vm Trace');
