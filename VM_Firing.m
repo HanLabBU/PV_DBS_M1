@@ -128,13 +128,16 @@ tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
 for stim=stims'
     cur_subVm = nanmean(data_bystim.(stim{1}).neuron_Vm, 2);
     nexttile;
-    [wt, f] = cwt(cur_subVm, avg_Fs);
-    imagesc(abs(wt));
-    
+    fb = cwtfilterbank(SignalLength=length(cur_subVm),...
+                       SamplingFrequency=avg_Fs,...
+                       FrequencyLimits=[0 90]);
+    [wt, f] = cwt(cur_subVm, FilterBank=fb);
+    imagesc(timeline, f, abs(wt));
     % Find evenly spaced out Frequencies
-    f
-    yticks(f());
-    yticklabels();
+    %TODO change scale for showing the frequencies
+    %f
+    %yticks(f());
+    %yticklabels();
     title(stim, 'Interpreter', 'none');
 end
 sgtitle('Spectra from averaged Sub Vm Trace');
