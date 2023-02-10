@@ -28,5 +28,43 @@ classdef Multi_func
                 result_dict.(mouse_key).(rec_key).(FOV_key).(cond_key) = Ignore_trials_class.str_to_dict(T.roi_trial_dict(i));    
             end    
         end
+
+        % Select specific parameters from matfiles
+
+        %% Specific functions for determining which FOVs to look at
+        function [region_struct] = find_region(matfile_names)
+            region_struct = struct();
+        
+            for i=1:length(matfile_names)
+                file_parts = split(matfile_names{i}, '_');
+                reg = file_parts{2};
+                
+                % Create region field if it does not exist
+                if ~isfield(region_struct, ['r_' reg])
+                    region_struct.(['r_' reg]).names = {};
+                end
+        
+                region_struct.(['r_' reg]).names{end+1} = matfile_names{i};
+            end
+        end
+
+        
+        % Return matfiles by stimulation condition
+        function [cond_struct] = stim_cond(matfile_names)
+            cond_struct = struct();
+            
+            % Loop through each matfilename and group by stimulation conditions
+            for i=1:length(matfile_names)
+                    file_parts = split(matfile_names{i}, '_');
+                    stim = file_parts{5};
+                    
+                    % Create stimulation field if it does not exist
+                    if ~isfield(cond_struct, ['f_' stim])
+                        cond_struct.(['f_' stim]).names = {};
+                    end
+        
+                    cond_struct.(['f_' stim]).names{end+1} = matfile_names{i};
+            end
+        end
     end
 end

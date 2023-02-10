@@ -5,19 +5,30 @@ close all;
 
 f = filesep;
 
-%USER modification
+%------------ USER modification
 % Server root path
 %server_rootpath = 'Z:\';
 
 % Maingear office computer
-server_rootpath = '/home/pierfier/handata_server/';
+server_rootpath = '/home/pierfier/Projects/';
 
 % Server folder location of the saved and aligned data
 %data_path = [server_rootpath 'Pierre Fabris' f 'PV DBS neocortex' f 'PV_Data' f];
 % Local linux machine
-data_path = ['~/Projects' f 'PV DBS Project' f 'PV_Data' f];
+data_path = [server_rootpath 'Pierre Fabris' f 'PV DBS neocortex' f 'PV_Data' f];
 
-%END modification
+save_path = [server_rootpath 'Pierre Fabris' f 'PV DBS neocortex' f 'All_Traces' f];
+
+% Filepath name for ignoring individual trial csv
+ignore_trial_csv = [server_rootpath 'Pierre Fabris' f 'PV DBS neocortex' f 'Recordings' f 'Data_Config' f 'byvis_ignore.csv'];
+
+% Determine whether to show ignored or not ignored traces
+show_ignored = 1;
+
+%------------- END modification
+
+% Get all of the trials that are being ignored
+ignore_trial_dict = Multi_func.csv_to_struct(ignore_trial_csv);
 
 % Get all FOV matfiles
 matfile_names = dir([data_path '*.mat']);
@@ -36,15 +47,24 @@ for i=1:length(matfile_names)
             continue;
         end
 
-        %EBUG
-        %disp(['Trial ' num2str(tr)]);
+        % Check if trial is in the ignore list
+        ri = strsplit(matfile_names{i}, '_');
+        try
+            trial_ignr_list = ignore_trial_dict.(['mouse_' ri{1}]).(['rec_' erase(ri{3}, 'rec')]).(ri{4}).(['f_' ri{5}]).('ROI1'); % Always assuming ROI 1
+        catch
+            trial_ignr_list = [];
+        end
+
+        % Check if current trial is in the ignore list
+        if ismember(tr, trial_ignr_list) == show_ignored
+            continue;
+        end
 
         % Setup figure to show alignment data for all trials
-        figure('Position', [0, 0, 800, 1000]);
+        figure('Position', [0, 0, 800, 1000], 'visible', 'off');
         tiledlayout((size(data.align.trial{tr}.detrend_traces, 2)*2) + 2, 1, 'TileSpacing', 'compact', 'Padding', 'compact');
-        
 
-        % Temporarily save this trial
+        % Save current trial
         trial_data = data.align.trial{tr};
         
         %EBUG
@@ -83,12 +103,12 @@ for i=1:length(matfile_names)
             hold on;
             % Plot spikes detected
             spikes_idx = data.align.trial{tr}.spike_info.spike_idx{1};
-            plot(trial_data.camera_frame_time(spikes_idx), detrend_trace(spikes_idx), '.r', 'MarkerSize', 4);
+            plot(trial_data.camera_frame_time(spikes_idx), detrend_trace(spikes_idx), 'or', 'MarkerSize', 4);
             
             % Grab neuron's SNRs
             snrs = trial_data.spike_info.spike_snr{1};
 
-            legend(['SNR ' num2str(nanmean(snrs))]);    
+            legend(['SNR ' num2str(nanmean(snrs)) ' Num spikes: ' num2str(length(snrs))]);    
             title('Detrended Trace');
         end
         
@@ -105,6 +125,9 @@ for i=1:length(matfile_names)
         
         % Set the title of the Figure
         sgtitle([matfile_names{i} ' trial: ' num2str(tr)], 'Interpreter', 'none');
+        
+        % Save figure as a jpeg
+        saveas(gcf, [save_path matfile_names{i}(1:end-4) num2str(tr) '.png']);
     end
     
 
