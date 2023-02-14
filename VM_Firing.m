@@ -17,6 +17,8 @@ back_frame_drop = 2496;
 % Data on local linux machine
 pv_data_path = [server_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'PV_Data' f];
 
+figure_path = [server_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Figures' f];
+
 % CSV file to determine which trials to ignore
 ignore_trial_dict = Multi_func.csv_to_struct([server_root_path 'Pierre Fabris' f 'PV DBS neocortex' f ...
                                        'Recordings' f 'Data_Config' f 'byvis_ignore.csv']);
@@ -73,6 +75,7 @@ region_data = struct();
             for roi_idx=1:size(trial_data.detrend_traces, 2)
                 cur_fov_subVm = [];
                 cur_fov_srate = [];
+                cur_fov_raster = [];
 
                 % Store the camera framerate
                 all_Fs(end+1) = trial_data.camera_framerate;
@@ -109,6 +112,9 @@ region_data = struct();
                     cur_spikerate = cur_raster.*trial_data.camera_framerate;
                     cur_spikerate = nanfastsmooth(cur_spikerate, srate_win, 1, 1);
                     cur_fov_srate = horzcat_pad(cur_fov_srate, cur_spikerate');            
+                    
+                    % Save the raster plot
+                    cur_fov_raster = horzcat_pad(cur_fov_raster, cur_raster');
 
                     % Keep track of the figure being used
                     %if strcmp(ri{5}, '1000') == 1
@@ -119,6 +125,16 @@ region_data = struct();
                     %    close gcf;
                     %end
                 end
+
+                % Plot each neuron's raster
+                figure('visible', 'off');
+                for i = 1:size(cur_fov_raster, 2)
+                    plot(cur_fov_raster(:, i)*i*0.2, '.');
+                    hold on;
+                end
+                ylim([0.1, (size(cur_fov_raster, 2)*0.2) + 1]);
+                title(['Raster of ' matfile{1}(1:end-4)], 'Interpreter', 'none');
+                saveas(gcf, [figure_path 'Raster plots' f matfile{1}(1:end-4) '.png']);
             end
             
             %EBUG
@@ -204,7 +220,7 @@ region_data = struct();
 avg_Fs = nanmean(all_Fs);
 timeline = ( (4+(front_frame_drop:back_frame_drop) )./avg_Fs) - 1;
 
-%% Full collective subthreshold
+%% Full collective subthreshold spectra
 stims = fieldnames(data_bystim);
 figure('Renderer', 'Painters', 'Position', [200 200 1000 1000]);
 tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
@@ -249,6 +265,25 @@ for stim=stims'
     title(stim{1}(3:end), 'Interpreter', 'none');
 end
 sgtitle('Average Spike rate');
+
+
+figure('Renderer', 'Painters', 'Position', [200 200 1000 1000]);
+tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
+for stim=stims'
+    stim{1}
+    cur_Vm = nanmean(data_bystim.(stim{1}).neuron_Vm, 2);
+    nexttile;
+    plot(cur_Vm);
+    %nexttile;
+    %imagesc(timeline, f, abs(wt));
+    %
+    %%TODO change scale for showing the frequencies
+    %yticks(flip(f([1, 12, 24, 64])));
+    %yticklabels(string(flip(f([1, 12, 24, 64] ))));
+    title(stim{1}(3:end), 'Interpreter', 'none');
+end
+sgtitle('Average subthreshold Vm');
+
 
 %% Specific functions for determining which FOVs to look at
 % Return matfiles by stimulation condition
