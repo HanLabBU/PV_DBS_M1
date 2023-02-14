@@ -127,14 +127,14 @@ region_data = struct();
                 end
 
                 % Plot each neuron's raster
-                figure('visible', 'off');
-                for i = 1:size(cur_fov_raster, 2)
-                    plot(cur_fov_raster(:, i)*i*0.2, '.');
-                    hold on;
-                end
-                ylim([0.1, (size(cur_fov_raster, 2)*0.2) + 1]);
-                title(['Raster of ' matfile{1}(1:end-4)], 'Interpreter', 'none');
-                saveas(gcf, [figure_path 'Raster plots' f matfile{1}(1:end-4) '.png']);
+                %figure('visible', 'off');
+                %for i = 1:size(cur_fov_raster, 2)
+                %    plot(cur_fov_raster(:, i)*i*0.2, '.');
+                %    hold on;
+                %end
+                %ylim([0.1, (size(cur_fov_raster, 2)*0.2) + 1]);
+                %title(['Raster of ' matfile{1}(1:end-4)], 'Interpreter', 'none');
+                %saveas(gcf, [figure_path 'Raster plots' f matfile{1}(1:end-4) '.png']);
             end
             
             %EBUG
@@ -226,15 +226,26 @@ figure('Renderer', 'Painters', 'Position', [200 200 1000 1000]);
 tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
 freqLimits = [0 150];
 
+% Loop through each stimulation parameter
 for stim=stims'
     
-    cur_subVm = nanmean(data_bystim.(stim{1}).neuron_Vm, 2);
+    % Loop through each neuron
+    all_abs_wt = [];
+    for i=1:size(data_bystim.(stim{1}).neuron_Vm, 2)
+        cur_subVm = data_bystim.(stim{1}).neuron_Vm(:, i);
+        
+        % Check if there are nans in the trace
+        if isnan(cur_subVm)
+            continue;
+        end
+        fb = cwtfilterbank(SignalLength=length(cur_subVm),...
+                           SamplingFrequency=avg_Fs,...
+                           FrequencyLimits=freqLimits);
+        [wt, f] = cwt(cur_subVm, FilterBank=fb);
+        all_abs_wt = cat(3, all_abs_wt, abs(wt));
+    end
     nexttile;
-    fb = cwtfilterbank(SignalLength=length(cur_subVm),...
-                       SamplingFrequency=avg_Fs,...
-                       FrequencyLimits=freqLimits);
-    [wt, f] = cwt(cur_subVm, FilterBank=fb);
-    contourf(timeline, f, abs(wt), 'edgecolor', 'none');
+    surface(timeline, f, nanmean(all_abs_wt, 3), 'CDataMapping', 'scaled', 'FaceColor', 'texturemap', 'edgecolor', 'none');
     colorbar;
     title(stim{1}(3:end), 'Interpreter', 'none');
     %nexttile;
@@ -265,7 +276,6 @@ for stim=stims'
     title(stim{1}(3:end), 'Interpreter', 'none');
 end
 sgtitle('Average Spike rate');
-
 
 figure('Renderer', 'Painters', 'Position', [200 200 1000 1000]);
 tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');

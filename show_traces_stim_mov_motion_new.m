@@ -17,13 +17,13 @@ server_rootpath = '/home/pierfier/Projects/';
 % Local linux machine
 data_path = [server_rootpath 'Pierre Fabris' f 'PV DBS neocortex' f 'PV_Data' f];
 
-save_path = [server_rootpath 'Pierre Fabris' f 'PV DBS neocortex' f 'All_Traces' f];
+save_path = [server_rootpath 'Pierre Fabris' f 'PV DBS neocortex' f 'Kept_Traces' f];
 
 % Filepath name for ignoring individual trial csv
 ignore_trial_csv = [server_rootpath 'Pierre Fabris' f 'PV DBS neocortex' f 'Recordings' f 'Data_Config' f 'byvis_ignore.csv'];
 
-% Determine whether to show ignored or not ignored traces
-show_ignored = 1;
+% Determine whether to save the ignored traces (1) or not ignored traces (0)
+show_ignored = 0;
 
 %------------- END modification
 
@@ -56,7 +56,7 @@ for i=1:length(matfile_names)
         end
 
         % Check if current trial is in the ignore list
-        if ismember(tr, trial_ignr_list) == show_ignored
+        if ismember(tr, trial_ignr_list) ~= show_ignored
             continue;
         end
 
