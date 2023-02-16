@@ -63,27 +63,31 @@ region_data = struct();
         data_bystim.(f_stim) = struct();
         data_bystim.(f_stim).neuron_Vm = [];
         data_bystim.(f_stim).neuron_srate = [];
-    
+        data_bystim.(f_stim).neuron_spec_power = [];
+        data_bystim.(f_stim).neuron_spec_freq = [];
+        data_bystim.(f_stim).stim_timestamps = [];
+        data_bystim.(f_stim).trace_timestamps = [];
+
         % Loop through each matfile of the current stimulation condition
         for matfile = matfiles
             % Read in the mat file of the current condition
             data = load([pv_data_path matfile{1}]);
             trial_idxs = find(~cellfun(@isempty, data.align.trial));
             trial_data = data.align.trial{trial_idxs(1)};    
+            cur_fov_Fs = [];
+            cur_fov_subVm = [];
+            cur_fov_srate = [];
+            cur_fov_raster = [];
+            cur_fov_stim_time = [];
+            cur_fov_trace_time = [];
 
             % Loop through each ROI
             for roi_idx=1:size(trial_data.detrend_traces, 2)
-                cur_fov_subVm = [];
-                cur_fov_srate = [];
-                cur_fov_raster = [];
-
-                % Store the camera framerate
-                all_Fs(end+1) = trial_data.camera_framerate;
-                
                 % Loop through each trial                
                 for tr_idx=trial_idxs        
                     trial_data = data.align.trial{tr_idx};
-                    
+                    raw_trial_data = data.raw.trial{tr_idx};
+
                     %Determine whether this roi is to be ignored for this particular trial
                     ri = strsplit(matfile{1}, '_');
                     try
@@ -101,7 +105,11 @@ region_data = struct();
                     if isempty(trial_data)
                         continue;
                     end
-    
+
+                    % Store the camera framerate
+                    all_Fs(end+1) = trial_data.camera_framerate;
+                    cur_fov_Fs(end + 1) = trial_data.camera_framerate;
+
                     % Grab the subthreshold Vm
                     % Chop the respective frames
                     cur_trace_ws = trial_data.spike_info.trace_ws(roi_idx, front_frame_drop:back_frame_drop);
@@ -113,39 +121,40 @@ region_data = struct();
                     cur_spikerate = nanfastsmooth(cur_spikerate, srate_win, 1, 1);
                     cur_fov_srate = horzcat_pad(cur_fov_srate, cur_spikerate');            
                     
-                    % Save the raster plot
+                    % Store the raster plot
                     cur_fov_raster = horzcat_pad(cur_fov_raster, cur_raster');
 
-                    % Keep track of the figure being used
-                    %if strcmp(ri{5}, '1000') == 1
-                    %    figure('visible', 'off');
-                    %    plot(cur_trace_ws)
-                    %    title([matfile{1} ' ROI#' num2str(roi_idx) ' Trial ' num2str(tr_idx)], 'Interpreter', 'none');
-                    %    saveas(gcf, ['debug/' matfile{1}(1:end-4) '.png']);
-                    %    close gcf;
-                    %end
-                end
+                    % Store all of the timestamp info
+                    %TODO need to shift all of the times from the raw_stimulation start
+                    stim_start = raw_trial_data.raw_stimulation_time(1);
+                    cur_fov_stim_time = horzcat_pad(cur_fov_stim_time, raw_trial_data.raw_stimulation_time - stim_start);
+                    cur_fov_trace_time = horzcat_pad(cur_fov_trace_time, trial_data.camera_frame_time(front_frame_drop:back_frame_drop) - stim_start);
 
-                % Plot each neuron's raster
-                %figure('visible', 'off');
-                %for i = 1:size(cur_fov_raster, 2)
-                %    plot(cur_fov_raster(:, i)*i*0.2, '.');
-                %    hold on;
-                %end
-                %ylim([0.1, (size(cur_fov_raster, 2)*0.2) + 1]);
-                %title(['Raster of ' matfile{1}(1:end-4)], 'Interpreter', 'none');
-                %saveas(gcf, [figure_path 'Raster plots' f matfile{1}(1:end-4) '.png']);
+                end % End looping through each neuron
             end
             
-            %EBUG
-            %figure;
-            %plot(nanmean(cur_fov_subVm, 2));
-    
+            % Skip rest of the calculations if the subthreshold Vm is nan
+            if sum(isnan(cur_fov_subVm(:))) || isempty(cur_fov_subVm)
+                continue;
+            end
+
             % Average for each neuron and save the subthreshold Vm
             temp = data_bystim.(f_stim).neuron_Vm;
             data_bystim.(f_stim).neuron_Vm = horzcat_pad(temp, nanmean(cur_fov_subVm, 2));
+            % Store average spike rate for each neuron
             temp = data_bystim.(f_stim).neuron_srate;
             data_bystim.(f_stim).neuron_srate = horzcat_pad(temp, nanmean(cur_fov_srate, 2));
+            % Store the timestamp data
+            temp = data_bystim.(f_stim).stim_timestamps;
+            data_bystim.(f_stim).stim_timestamps = horzcat_pad(temp, nanmean(cur_fov_stim_time, 2));
+            temp = data_bystim.(f_stim).trace_timestamps;
+            data_bystim.(f_stim).trace_timestamps = horzcat_pad(temp, nanmean(cur_fov_trace_time, 2));
+            % Calculate and save frequency data
+            [wt, f] = get_power_spec(nanmean(cur_fov_subVm, 2)', nanmean(cur_fov_Fs));
+            temp = data_bystim.(f_stim).neuron_spec_power;
+            data_bystim.(f_stim).neuron_spec_power = cat(3, temp, wt);
+            temp = data_bystim.(f_stim).neuron_spec_freq;
+            data_bystim.(f_stim).neuron_spec_freq = cat(3, temp, f);
 
         end % End looping through FOVs of a condition
     end
@@ -220,34 +229,17 @@ region_data = struct();
 avg_Fs = nanmean(all_Fs);
 timeline = ( (4+(front_frame_drop:back_frame_drop) )./avg_Fs) - 1;
 
-%% Full collective subthreshold spectra
+%% All PV neurons summary
+%Raw subthreshold spectra
 stims = fieldnames(data_bystim);
 figure('Renderer', 'Painters', 'Position', [200 200 1000 1000]);
 tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
-freqLimits = [0 150];
-
 % Loop through each stimulation parameter
-for stim=stims'
-    
-    % Loop through each neuron
-    all_abs_wt = [];
-    for i=1:size(data_bystim.(stim{1}).neuron_Vm, 2)
-        cur_subVm = data_bystim.(stim{1}).neuron_Vm(:, i);
-        
-        % Check if there are nans in the trace
-        if isnan(cur_subVm)
-            continue;
-        end
-        fb = cwtfilterbank(SignalLength=length(cur_subVm),...
-                           SamplingFrequency=avg_Fs,...
-                           FrequencyLimits=freqLimits);
-        [wt, f] = cwt(cur_subVm, FilterBank=fb);
-        all_abs_wt = cat(3, all_abs_wt, abs(wt));
-    end
+for f_stim=stims'
     nexttile;
-    surface(timeline, f, nanmean(all_abs_wt, 3), 'CDataMapping', 'scaled', 'FaceColor', 'texturemap', 'edgecolor', 'none');
+    surface(timeline, nanmean(data_bystim.(f_stim{1}).neuron_spec_freq, 3), nanmean(abs(data_bystim.(f_stim{1}).neuron_spec_power), 3), 'CDataMapping', 'scaled', 'FaceColor', 'texturemap', 'edgecolor', 'none');
     colorbar;
-    title(stim{1}(3:end), 'Interpreter', 'none');
+    title(f_stim{1}(3:end), 'Interpreter', 'none');
     %nexttile;
     %imagesc(timeline, f, abs(wt));
     %
@@ -258,9 +250,43 @@ for stim=stims'
 end
 sgtitle('Spectra from averaged Sub Vm Trace');
 
-% Full collective spike rate over time
+% Subthreshold spectra with baseline period ratio-normalization to every point
 stims = fieldnames(data_bystim);
 figure('Renderer', 'Painters', 'Position', [200 200 1000 1000]);
+tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
+% Loop through each stimulation parameter
+for f_stim=stims'
+    nexttile;
+   
+    % Normalize ratio
+    % First calculate by doing the ratios for each neuron first and then averaging
+    cur_spec_pow = data_bystim.(f_stim{1}).neuron_spec_power;
+
+    % Plot the starting time point for each neuron
+    hold on;
+    sz = size(data_bystim.(f_stim{1}).trace_timestamps);
+
+    % Loop throug each neuron
+    for i = 1:size(data_bystim.(f_stim{1}).trace_timestamps, 2)
+        baseline_idx = find(data_bystim.(f_stim{1}).trace_timestamps(:, i) < data_bystim.(f_stim{1}).stim_timestamps(1, i));
+        %plot(baseline_idx, i*5, '.r');
+        %hold on;
+        base_power = nanmean(abs(cur_spec_pow(:, baseline_idx, i)), 2);
+        cur_spec_pow(:, :, i) = abs(cur_spec_pow(:, :, i)) - base_power;
+    end
+    surface(nanmean(data_bystim.(f_stim{1}).trace_timestamps, 2)', ... 
+            nanmean(data_bystim.(f_stim{1}).neuron_spec_freq, 3), ...
+            nanmean(cur_spec_pow, 3), 'CDataMapping', 'scaled', 'FaceColor', 'texturemap', 'edgecolor', 'none');
+    colorbar;
+    %avg_power = nanmean(data_bystim.(f_stim{1}).neuron_spec_power, 3);
+
+    title(f_stim{1}(3:end), 'Interpreter', 'none');
+end
+sgtitle('Spectra with baseline-subtracted Sub Vm Trace');
+
+% Full collective spike rate over time
+stims = fieldnames(data_bystim);
+figure('visible', 'off', 'Renderer', 'Painters', 'Position', [200 200 1000 1000]);
 tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
 for stim=stims'
     
@@ -277,10 +303,10 @@ for stim=stims'
 end
 sgtitle('Average Spike rate');
 
-figure('Renderer', 'Painters', 'Position', [200 200 1000 1000]);
+figure('visible', 'off', 'Renderer', 'Painters', 'Position', [200 200 1000 1000]);
 tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
 for stim=stims'
-    stim{1}
+    stim{1};
     cur_Vm = nanmean(data_bystim.(stim{1}).neuron_Vm, 2);
     nexttile;
     plot(cur_Vm);
@@ -290,10 +316,19 @@ for stim=stims'
     %%TODO change scale for showing the frequencies
     %yticks(flip(f([1, 12, 24, 64])));
     %yticklabels(string(flip(f([1, 12, 24, 64] ))));
+
     title(stim{1}(3:end), 'Interpreter', 'none');
 end
 sgtitle('Average subthreshold Vm');
 
+% Calculate cwt for input signal and 
+function [wt, f] = get_power_spec(signal, samp_freq)
+    freqLimits = [0 150];
+    fb = cwtfilterbank(SignalLength=length(signal),...
+                       SamplingFrequency=samp_freq,...
+                       FrequencyLimits=freqLimits);
+    [wt, f] = cwt(signal, FilterBank=fb);
+end
 
 %% Specific functions for determining which FOVs to look at
 % Return matfiles by stimulation condition
