@@ -232,7 +232,7 @@ timeline = ( (4+(front_frame_drop:back_frame_drop) )./avg_Fs) - 1;
 %% All PV neurons summary
 %Raw subthreshold spectra
 stims = fieldnames(data_bystim);
-figure('Renderer', 'Painters', 'Position', [200 200 1000 1000]);
+figure('visible', 'off', 'Renderer', 'Painters', 'Position', [200 200 1000 1000]);
 tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
 % Loop through each stimulation parameter
 for f_stim=stims'
@@ -240,19 +240,13 @@ for f_stim=stims'
     surface(timeline, nanmean(data_bystim.(f_stim{1}).neuron_spec_freq, 3), nanmean(abs(data_bystim.(f_stim{1}).neuron_spec_power), 3), 'CDataMapping', 'scaled', 'FaceColor', 'texturemap', 'edgecolor', 'none');
     colorbar;
     title(f_stim{1}(3:end), 'Interpreter', 'none');
-    %nexttile;
-    %imagesc(timeline, f, abs(wt));
-    %
-    %%TODO change scale for showing the frequencies
-    %yticks(flip(f([1, 12, 24, 64])));
-    %yticklabels(string(flip(f([1, 12, 24, 64] ))));
-    %title(stim, 'Interpreter', 'none');
 end
 sgtitle('Spectra from averaged Sub Vm Trace');
 
-% Subthreshold spectra with baseline period ratio-normalization to every point
+% Subthreshold spectra with baseline period ratio-normalization for each neuron and 
+% Averaged afterwards
 stims = fieldnames(data_bystim);
-figure('Renderer', 'Painters', 'Position', [200 200 1000 1000]);
+figure('visible', 'off','Renderer', 'Painters', 'Position', [200 200 1000 1000]);
 tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
 % Loop through each stimulation parameter
 for f_stim=stims'
@@ -263,7 +257,6 @@ for f_stim=stims'
     cur_spec_pow = data_bystim.(f_stim{1}).neuron_spec_power;
 
     % Plot the starting time point for each neuron
-    hold on;
     sz = size(data_bystim.(f_stim{1}).trace_timestamps);
 
     % Loop throug each neuron
@@ -272,54 +265,100 @@ for f_stim=stims'
         %plot(baseline_idx, i*5, '.r');
         %hold on;
         base_power = nanmean(abs(cur_spec_pow(:, baseline_idx, i)), 2);
-        cur_spec_pow(:, :, i) = abs(cur_spec_pow(:, :, i)) - base_power;
+        cur_spec_pow(:, :, i) = abs(cur_spec_pow(:, :, i))./base_power;
     end
     surface(nanmean(data_bystim.(f_stim{1}).trace_timestamps, 2)', ... 
             nanmean(data_bystim.(f_stim{1}).neuron_spec_freq, 3), ...
             nanmean(cur_spec_pow, 3), 'CDataMapping', 'scaled', 'FaceColor', 'texturemap', 'edgecolor', 'none');
     colorbar;
+    set(gca, 'color', 'none');
     %avg_power = nanmean(data_bystim.(f_stim{1}).neuron_spec_power, 3);
 
     title(f_stim{1}(3:end), 'Interpreter', 'none');
 end
-sgtitle('Spectra with baseline-subtracted Sub Vm Trace');
+sgtitle('Spectra with baseline-ratio normalized individually Sub Vm Trace');
+
+% Peform normalization after average subthreshold
+figure('visible', 'off','Renderer', 'Painters', 'Position', [200 200 1000 1000]);
+tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
+% Loop through each stimulation parameter
+for f_stim=stims'
+    nexttile;
+   
+    % Get the average spectra
+    cur_spec_pow = nanmean(abs(data_bystim.(f_stim{1}).neuron_spec_power), 3);
+    % Average the stimulation start time
+    cur_stim_start = nanmean(data_bystim.(f_stim{1}).stim_timestamps(1, :));
+    % Average trace timestamps
+    cur_trace_time = nanmean(data_bystim.(f_stim{1}).trace_timestamps, 2);
+
+    % Grab the baseline spec power
+    baseline_idx = find(cur_trace_time < cur_stim_start);
+    base_power = nanmean(abs(cur_spec_pow(:, baseline_idx)), 2);
+    cur_spec_pow = abs(cur_spec_pow)./base_power;
+
+    surface(cur_trace_time', ... 
+            nanmean(data_bystim.(f_stim{1}).neuron_spec_freq, 3), ...
+            cur_spec_pow, 'CDataMapping', 'scaled', 'FaceColor', 'texturemap', 'edgecolor', 'none');
+    colorbar;
+    %avg_power = nanmean(data_bystim.(f_stim{1}).neuron_spec_power, 3);
+
+    title(f_stim{1}(3:end), 'Interpreter', 'none');
+end
+sgtitle('Spectra with baseline-ratio normalized from the averages Sub Vm Trace');
+
+% Raw subthreshold Vm spectra
+figure('visible', 'off', 'Renderer', 'Painters', 'Position', [200 200 1000 1000]);
+tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
+% Loop through each stimulation parameter
+for f_stim=stims'
+    nexttile;
+    surface(timeline, nanmean(data_bystim.(f_stim{1}).neuron_spec_freq, 3), nanmean(abs(data_bystim.(f_stim{1}).neuron_spec_power), 3), 'CDataMapping', 'scaled', 'FaceColor', 'texturemap', 'edgecolor', 'none');
+    colorbar;
+    title(f_stim{1}(3:end), 'Interpreter', 'none');
+end
+sgtitle('Spectra from averaged Sub Vm Trace');
 
 % Full collective spike rate over time
 stims = fieldnames(data_bystim);
-figure('visible', 'off', 'Renderer', 'Painters', 'Position', [200 200 1000 1000]);
+figure('Renderer', 'Painters', 'Position', [200 200 1000 1000]);
 tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
 for stim=stims'
-    
-    cur_srate = nanmean(data_bystim.(stim{1}).neuron_srate, 2);
+    cur_srate = mean(data_bystim.(stim{1}).neuron_srate, 2, 'omitnan');
+    std_srate = std(data_bystim.(stim{1}).neuron_srate, 0, 2, 'omitnan');
+    num_neurons = size(data_bystim.(stim{1}).neuron_srate, 2);
+    num_points = size(data_bystim.(stim{1}).neuron_srate, 1);
+    sem_srate = cur_srate./sqrt(num_neurons);
     nexttile;
+    fill([[1:num_points]'; [num_points:-1:1]'], [cur_srate + sem_srate; flipud(cur_srate - sem_srate)], 'r', 'FaceAlpha',0.5, 'LineStyle','none');
+    hold on;
     plot(cur_srate);
-    %nexttile;
-    %imagesc(timeline, f, abs(wt));
-    %
-    %%TODO change scale for showing the frequencies
-    %yticks(flip(f([1, 12, 24, 64])));
-    %yticklabels(string(flip(f([1, 12, 24, 64] ))));
+    set(gca, 'color', 'none')
     title(stim{1}(3:end), 'Interpreter', 'none');
 end
 sgtitle('Average Spike rate');
 
-figure('visible', 'off', 'Renderer', 'Painters', 'Position', [200 200 1000 1000]);
+% Subthreshold Vm
+figure( 'Renderer', 'Painters', 'Position', [200 200 1000 1000]);
 tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
 for stim=stims'
     stim{1};
-    cur_Vm = nanmean(data_bystim.(stim{1}).neuron_Vm, 2);
+    cur_Vm = mean(data_bystim.(stim{1}).neuron_Vm, 2, 'omitnan');
+    std_Vm = std(data_bystim.(stim{1}).neuron_Vm, 0, 2, 'omitnan');
+    num_neurons = size(data_bystim.(stim{1}).neuron_Vm, 2);
+    sem_Vm = std_Vm./sqrt(num_neurons);
+    num_points = size(data_bystim.(stim{1}).neuron_Vm, 1);
     nexttile;
+    fill([[1:num_points]'; [num_points:-1:1]'], [cur_Vm + sem_Vm; flipud(cur_Vm - sem_Vm)], 'r', 'FaceAlpha',0.5, 'LineStyle','none');
+    hold on;
     plot(cur_Vm);
-    %nexttile;
-    %imagesc(timeline, f, abs(wt));
-    %
-    %%TODO change scale for showing the frequencies
-    %yticks(flip(f([1, 12, 24, 64])));
-    %yticklabels(string(flip(f([1, 12, 24, 64] ))));
-
     title(stim{1}(3:end), 'Interpreter', 'none');
+    set(gca, 'color', 'none')
 end
 sgtitle('Average subthreshold Vm');
+saveas(gcf, [figure_path 'Average/Average_sub_thres.png']);
+saveas(gcf, [figure_path 'Average/Average_sub_thres.eps']);
+
 
 % Calculate cwt for input signal and 
 function [wt, f] = get_power_spec(signal, samp_freq)

@@ -47,7 +47,6 @@ classdef Multi_func
                 region_struct.(['r_' reg]).names{end+1} = matfile_names{i};
             end
         end
-
         
         % Return matfiles by stimulation condition
         function [cond_struct] = stim_cond(matfile_names)
@@ -65,6 +64,23 @@ classdef Multi_func
         
                     cond_struct.(['f_' stim]).names{end+1} = matfile_names{i};
             end
+        end
+
+        % Return line of best exponential fit
+        function [x, y]  = exp_fit(trace)
+            t = 1:length(trace);
+            f2 = fit(t', trace, 'exp2');
+            y = f2.a*exp(f2.b*t) + f2.c*exp(f2.d*t);
+            x = t;
+        end
+
+        % Calculate cwt for input signal and 
+        function [wt, f] = get_power_spec(signal, samp_freq)
+            freqLimits = [0 150];
+            fb = cwtfilterbank(SignalLength=length(signal),...
+                               SamplingFrequency=samp_freq,...
+                               FrequencyLimits=freqLimits);
+            [wt, f] = cwt(signal, FilterBank=fb);
         end
     end
 end
