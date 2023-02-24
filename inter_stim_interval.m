@@ -149,22 +149,7 @@ region_data = struct();
             % Average for each neuron and save the subthreshold Vm
             temp = data_bystim.(f_stim).neuron_base_Vm;
             data_bystim.(f_stim).neuron_base_Vm = horzcat_pad(temp, nanmean(cur_fov_base_Vm));
-            % Save average Vm during stimulation
-            temp = data_bystim.(f_stim).neuron_stim_Vm;
-            data_bystim.(f_stim).neuron_stim_Vm = horzcat_pad(temp, nanmean(cur_fov_stim_Vm));
-            % Save average Vm during offset
-            temp = data_bystim.(f_stim).neuron_offset_Vm;
-            data_bystim.(f_stim).neuron_offset_Vm = horzcat_pad(temp, nanmean(cur_fov_offset_Vm));
-            % Store baseline spike rate for each neuron
-            temp = data_bystim.(f_stim).neuron_base_srate;
-            data_bystim.(f_stim).neuron_base_srate = horzcat_pad(temp, nanmean(cur_fov_base_srate));
-            % Store stimulation spike rate for each neuron
-            temp = data_bystim.(f_stim).neuron_stim_srate;
-            data_bystim.(f_stim).neuron_stim_srate = horzcat_pad(temp, nanmean(cur_fov_stim_srate));
 
-            % Store offset spike rate for each neuron
-            temp = data_bystim.(f_stim).neuron_offset_srate;
-            data_bystim.(f_stim).neuron_offset_srate = horzcat_pad(temp, nanmean(cur_fov_offset_srate));
         end % End looping through FOVs of a condition
     end
 
@@ -201,32 +186,6 @@ for f_stim=stims'
     title([f_stim{1}(3:end) ' p-val: ' num2str(p)], 'Interpreter', 'none');
 end
 sgtitle('Average baseline, stim, and offset Vm');
-
-
-
-figure('Renderer', 'Painters', 'Position', [200 200 500 1000]);
-tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
-% Loop through each stimulation parameter
-for f_stim=stims'
-    nexttile;
-    violin([data_bystim.(f_stim{1}).neuron_base_srate', data_bystim.(f_stim{1}).neuron_stim_srate', data_bystim.(f_stim{1}).neuron_offset_srate'], 'xlabel', {'Base', 'Stim', 'Offset'});
-    hold on;
-    plot(repmat(1, length(data_bystim.(f_stim{1}).neuron_base_srate), 1), data_bystim.(f_stim{1}).neuron_base_srate, 'ko');
-    hold on;
-    plot(repmat(2, length(data_bystim.(f_stim{1}).neuron_stim_srate), 1), data_bystim.(f_stim{1}).neuron_stim_srate, 'ko');
-    hold on;
-    plot(repmat(3, length(data_bystim.(f_stim{1}).neuron_offset_srate), 1), data_bystim.(f_stim{1}).neuron_offset_srate, 'ko');
-    
-    ylabel('Firing Rate (Hz)');
-    legend('off');
-
-    % Statisitics for firing rate
-    disp('Firing rate statistics');
-    f_stim{1}
-    [h,p,ci,stats] = ttest(data_bystim.(f_stim{1}).neuron_base_Vm', data_bystim.(f_stim{1}).neuron_stim_Vm')
-    title([f_stim{1}(3:end) ' p-val: ' num2str(p)], 'Interpreter', 'none');
-end
-sgtitle('Baseline, stim, and offset firing rate');
 
 %% Specific functions for determining which FOVs to look at
 % Return matfiles by stimulation condition
