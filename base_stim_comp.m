@@ -185,11 +185,7 @@ for f_stim=stims'
     nexttile;
     violin([data_bystim.(f_stim{1}).neuron_base_Vm', data_bystim.(f_stim{1}).neuron_stim_Vm', data_bystim.(f_stim{1}).neuron_offset_Vm'], 'xlabel', {'Base', 'Stim','Offset'});
     hold on;
-    plot(repmat(1, length(data_bystim.(f_stim{1}).neuron_base_Vm), 1), data_bystim.(f_stim{1}).neuron_base_Vm, 'ko');
-    hold on;
-    plot(repmat(2, length(data_bystim.(f_stim{1}).neuron_stim_Vm), 1), data_bystim.(f_stim{1}).neuron_stim_Vm, 'ko');
-    hold on;
-    plot(repmat(3, length(data_bystim.(f_stim{1}).neuron_offset_Vm), 1), data_bystim.(f_stim{1}).neuron_offset_Vm, 'ko');
+    plot([1, 2, 3], [data_bystim.(f_stim{1}).neuron_base_Vm; data_bystim.(f_stim{1}).neuron_stim_Vm; data_bystim.(f_stim{1}).neuron_offset_Vm], 'k-o');
   
     ylabel('Vm (A.U.)');
     legend('off');
@@ -211,11 +207,7 @@ for f_stim=stims'
     nexttile;
     violin([data_bystim.(f_stim{1}).neuron_base_srate', data_bystim.(f_stim{1}).neuron_stim_srate', data_bystim.(f_stim{1}).neuron_offset_srate'], 'xlabel', {'Base', 'Stim', 'Offset'});
     hold on;
-    plot(repmat(1, length(data_bystim.(f_stim{1}).neuron_base_srate), 1), data_bystim.(f_stim{1}).neuron_base_srate, 'ko');
-    hold on;
-    plot(repmat(2, length(data_bystim.(f_stim{1}).neuron_stim_srate), 1), data_bystim.(f_stim{1}).neuron_stim_srate, 'ko');
-    hold on;
-    plot(repmat(3, length(data_bystim.(f_stim{1}).neuron_offset_srate), 1), data_bystim.(f_stim{1}).neuron_offset_srate, 'ko');
+    plot([1, 2, 3], [data_bystim.(f_stim{1}).neuron_base_srate; data_bystim.(f_stim{1}).neuron_stim_srate; data_bystim.(f_stim{1}).neuron_offset_srate], 'k-o');
     
     ylabel('Firing Rate (Hz)');
     legend('off');

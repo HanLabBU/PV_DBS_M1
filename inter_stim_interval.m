@@ -168,22 +168,7 @@ tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
 % Loop through each stimulation parameter
 for f_stim=stims'
     nexttile;
-    violin([data_bystim.(f_stim{1}).neuron_base_Vm', data_bystim.(f_stim{1}).neuron_stim_Vm', data_bystim.(f_stim{1}).neuron_offset_Vm'], 'xlabel', {'Base', 'Stim','Offset'});
-    hold on;
-    plot(repmat(1, length(data_bystim.(f_stim{1}).neuron_base_Vm), 1), data_bystim.(f_stim{1}).neuron_base_Vm, 'ko');
-    hold on;
-    plot(repmat(2, length(data_bystim.(f_stim{1}).neuron_stim_Vm), 1), data_bystim.(f_stim{1}).neuron_stim_Vm, 'ko');
-    hold on;
-    plot(repmat(3, length(data_bystim.(f_stim{1}).neuron_offset_Vm), 1), data_bystim.(f_stim{1}).neuron_offset_Vm, 'ko');
-  
-    ylabel('Vm (A.U.)');
-    legend('off');
-    
-    % Statisitics for subthreshold
-    disp('Subthreshold Vm statistics');
-    f_stim{1}
-    [h,p,ci,stats] = ttest(data_bystim.(f_stim{1}).neuron_base_Vm', data_bystim.(f_stim{1}).neuron_stim_Vm')
-    title([f_stim{1}(3:end) ' p-val: ' num2str(p)], 'Interpreter', 'none');
+    title([f_stim{1}(3:end)], 'Interpreter', 'none');
 end
 sgtitle('Average baseline, stim, and offset Vm');
 
