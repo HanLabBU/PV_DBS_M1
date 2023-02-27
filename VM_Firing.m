@@ -129,6 +129,16 @@ region_data = struct();
                     stim_start = raw_trial_data.raw_stimulation_time(1);
                     cur_fov_stim_time = horzcat_pad(cur_fov_stim_time, raw_trial_data.raw_stimulation_time - stim_start);
                     cur_fov_trace_time = horzcat_pad(cur_fov_trace_time, trial_data.camera_frame_time(front_frame_drop:back_frame_drop) - stim_start);
+                    % DEBUG
+                    if max(cur_fov_trace_time(:, end)) < 2
+                        stim_trace_sz = size(cur_fov_stim_time)
+                        trace_time_sz = size(cur_fov_trace_time)
+
+                        pause;
+                        matfile{1}
+                            
+                    end
+
 
                 end % End looping through each neuron
             end
@@ -278,6 +288,53 @@ for f_stim=stims'
 end
 sgtitle('Spectra with baseline-ratio normalized individually Sub Vm Trace');
 
+
+% Subthreshold spectra with (x - A)/(A + B) normalization for each neuron and 
+% Averaged afterwards
+stims = fieldnames(data_bystim);
+figure('Renderer', 'Painters', 'Position', [200 200 1000 1000]);
+tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
+% Loop through each stimulation parameter
+for f_stim=stims'
+    nexttile;
+   
+    % Normalize ratio
+    % First calculate by doing the ratios for each neuron first and then averaging
+    cur_spec_pow = data_bystim.(f_stim{1}).neuron_spec_power;
+
+    % Plot the starting time point for each neuron
+    sz = size(data_bystim.(f_stim{1}).trace_timestamps);
+
+    % Loop throug each neuron
+    for i = 1:size(data_bystim.(f_stim{1}).trace_timestamps, 2)
+        % Get the indices define the periods within in the trace
+        baseline_idx = find(data_bystim.(f_stim{1}).trace_timestamps(:, i) < data_bystim.(f_stim{1}).stim_timestamps(1, i));
+        stim_idx = find(data_bystim.(f_stim{1}).trace_timestamps(:, i) >= data_bystim.(f_stim{1}).stim_timestamps(1, i) & ...
+                        data_bystim.(f_stim{1}).trace_timestamps(:, i) <= data_bystim.(f_stim{1}).stim_timestamps(end, i));
+        %plot(baseline_idx, i*5, '.r');
+        %hold on;
+        base_power = nanmean(abs(cur_spec_pow(:, baseline_idx, i)), 2);
+        stim_power = nanmean(abs(cur_spec_pow(:, stim_idx, i)), 2);
+        cur_spec_pow(:, :, i) = (abs(cur_spec_pow(:, :, i)) - base_power)./(base_power + stim_power);
+    end
+    surface(nanmean(data_bystim.(f_stim{1}).trace_timestamps, 2)', ... 
+            nanmean(data_bystim.(f_stim{1}).neuron_spec_freq, 3), ...
+            nanmean(cur_spec_pow, 3), 'CDataMapping', 'scaled', 'FaceColor', 'texturemap', 'edgecolor', 'none');
+    a = colorbar;
+    a.Label.String = 'Power (A.U.)';
+
+    set(gca, 'color', 'none');
+    %avg_power = nanmean(data_bystim.(f_stim{1}).neuron_spec_power, 3);
+    xlabel('Time from Stim onset(sec)');
+    ylabel('Freq (Hz)');
+    title(f_stim{1}(3:end), 'Interpreter', 'none');
+end
+sgtitle('Spectra with (x - A)/(A + B) normalization individually Sub Vm Trace');
+
+saveas(gcf, [figure_path 'Spectra/A_B_Normalization_Spectra.png']);
+saveas(gcf, [figure_path 'Spectra/A_B_Normalization_Spectra.eps']);
+
+
 % Peform normalization after average subthreshold
 figure('visible', 'off','Renderer', 'Painters', 'Position', [200 200 1000 1000]);
 tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
@@ -321,7 +378,7 @@ sgtitle('Spectra from averaged Sub Vm Trace');
 
 % Full collective spike rate over time
 stims = fieldnames(data_bystim);
-figure('Renderer', 'Painters', 'Position', [200 200 1000 1000]);
+figure('visible', 'off', 'Renderer', 'Painters', 'Position', [200 200 1000 1000]);
 tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
 for stim=stims'
     cur_srate = mean(data_bystim.(stim{1}).neuron_srate, 2, 'omitnan');
@@ -339,7 +396,7 @@ end
 sgtitle('Average Spike rate');
 
 % Subthreshold Vm
-figure( 'Renderer', 'Painters', 'Position', [200 200 1000 1000]);
+figure('visible', 'off', 'Renderer', 'Painters', 'Position', [200 200 1000 1000]);
 tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
 for stim=stims'
     stim{1};
