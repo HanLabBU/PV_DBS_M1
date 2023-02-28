@@ -70,7 +70,7 @@ region_data = struct();
             trial_idxs = find(~cellfun(@isempty, data.align.trial));
             trial_data = data.align.trial{trial_idxs(1)};    
             cur_fov_Fs = [];
-            cur_fov_stim_avg = [];
+            cur_fov_base_inter = [];
 
             % Loop through each ROI
             for roi_idx=1:size(trial_data.detrend_traces, 2)

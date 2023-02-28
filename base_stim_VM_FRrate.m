@@ -197,7 +197,8 @@ for f_stim=stims'
     title([f_stim{1}(3:end) ' p-val: ' num2str(p)], 'Interpreter', 'none');
 end
 sgtitle('Average baseline, stim, and offset Vm');
-
+saveas(gcf, [figure_path 'Average/Base_vs_Stim_VM.png']);
+saveas(gcf, [figure_path 'Average/Base_vs_Stim_VM.eps']);
 
 
 figure('Renderer', 'Painters', 'Position', [200 200 500 1000]);
@@ -219,6 +220,8 @@ for f_stim=stims'
     title([f_stim{1}(3:end) ' p-val: ' num2str(p)], 'Interpreter', 'none');
 end
 sgtitle('Baseline, stim, and offset firing rate');
+saveas(gcf, [figure_path 'Average/Base_vs_Stim_FR.png']);
+saveas(gcf, [figure_path 'Average/Base_vs_Stim_FR.eps']);
 
 %% Specific functions for determining which FOVs to look at
 % Return matfiles by stimulation condition

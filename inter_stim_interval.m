@@ -23,8 +23,8 @@ figure_path = [server_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Figures'
 ignore_trial_dict = Multi_func.csv_to_struct([server_root_path 'Pierre Fabris' f 'PV DBS neocortex' f ...
                                        'Recordings' f 'Data_Config' f 'byvis_ignore.csv']);
 
-% Smoothing parameter for spike rate
-srate_win = 50;
+% Parameter to determine how much before and after a stimulation pulse to take the average
+trace_sur = 10; % This is ~6ms before and after stim pulse
 
 %%% END Modification
 
@@ -61,16 +61,8 @@ region_data = struct();
     
         % Initialize field subthreshold array
         data_bystim.(f_stim) = struct();
-        data_bystim.(f_stim).neuron_base_Vm = [];
-        data_bystim.(f_stim).neuron_stim_Vm = [];
-        data_bystim.(f_stim).neuron_offset_Vm = [];
-        
-        data_bystim.(f_stim).neuron_base_srate = [];
-        data_bystim.(f_stim).neuron_stim_srate = [];
-        data_bystim.(f_stim).neuron_offset_srate = [];
-               
-        %data_bystim.(f_stim).stim_timestamps = [];
-        %data_bystim.(f_stim).trace_timestamps = [];
+        data_bystim.(f_stim).neuron_base_inter = [];
+        data_bystim.(f_stim).neuron_stim_inter = [];
 
         % Loop through each matfile of the current stimulation condition
         for matfile = matfiles
@@ -79,12 +71,8 @@ region_data = struct();
             trial_idxs = find(~cellfun(@isempty, data.align.trial));
             trial_data = data.align.trial{trial_idxs(1)};    
             cur_fov_Fs = [];
-            cur_fov_base_srate = [];
-            cur_fov_base_Vm = [];
-            cur_fov_stim_srate = [];
-            cur_fov_stim_Vm = [];
-            cur_fov_offset_srate = [];
-            cur_fov_offset_Vm = [];
+            cur_fov_base_inter = [];
+            cur_fov_stim_inter = [];
 
             % Loop through each ROI
             for roi_idx=1:size(trial_data.detrend_traces, 2)
@@ -111,44 +99,64 @@ region_data = struct();
                         continue;
                     end
 
+                    % Only perform calculation for trials that have more than 5 spikes
+                    if length(trial_data.spike_info.spike_idx{1}) < 5
+                        continue;
+                    end
+
                     % Store the camera framerate
                     all_Fs(end+1) = trial_data.camera_framerate;
                     cur_fov_Fs(end + 1) = trial_data.camera_framerate;
 
                     % Grab the subthreshold Vm
                     % Chop the respective frames
-                    cur_trace_ws = trial_data.spike_info.trace_ws(roi_idx, front_frame_drop:back_frame_drop);
+                    cur_trace = trial_data.detrend_traces(front_frame_drop:back_frame_drop, roi_idx);
+                    cur_raster = trial_data.spike_info.roaster(roi_idx, front_frame_drop:back_frame_drop);
                     cur_stim_time = raw_trial_data.raw_stimulation_time;
                     cur_trace_time = trial_data.camera_frame_time(front_frame_drop:back_frame_drop);
-                    
-                    % Find the idxs of the baseline, stimulation, and offset periods
+
+                    % Get the spikes during baseline
                     baseline_idx = find(cur_trace_time < cur_stim_time(1));
-                    stim_idx = find(cur_trace_time >= cur_stim_time(1) & cur_trace_time <= cur_stim_time(end));
-                    offset_idx = find(cur_trace_time > cur_stim_time(end));
-
-                    cur_fov_base_Vm(end + 1) = nanmean(cur_trace_ws(baseline_idx));   
-                    cur_fov_stim_Vm(end + 1) = nanmean(cur_trace_ws(stim_idx));   
-                    cur_fov_offset_Vm(end + 1) = nanmean(cur_trace_ws(offset_idx));   
+                    baseline_raster = cur_raster(baseline_idx);
+                    base_trace_time = cur_trace_time(baseline_idx);
+                    cur_base_stimes = base_trace_time(find(baseline_raster == 1));
                     
+                    % Get the spikes during stim
+                    stim_idx = find(cur_trace_time >= cur_stim_time(1) & cur_trace_time <= cur_stim_time(end));
+                    stim_raster = cur_raster(stim_idx);
+                    stim_trace_time = cur_trace_time(stim_idx);
+                    cur_stim_stimes = stim_trace_time(find(stim_raster == 1));
+                    
+                    % Skip if there are not enough spikes during the baseline
+                    if length(cur_stim_stimes) < 2 | length(cur_base_stimes) < 2
+                        continue;
+                    end
 
-                    % Calculate the spike rate during baseline and stimulation period
-                    cur_raster = trial_data.spike_info.roaster(roi_idx, front_frame_drop:back_frame_drop);
-                                       
-                    cur_fov_base_srate(end + 1) = sum(cur_raster(baseline_idx))./range(cur_trace_time(baseline_idx));
-                    cur_fov_stim_srate(end + 1) = sum(cur_raster(stim_idx))./range(cur_trace_time(stim_idx));
-                    cur_fov_offset_srate(end + 1) = sum(cur_raster(offset_idx))./range(cur_trace_time(offset_idx));
+                    cur_fov_base_inter = [cur_fov_base_inter, diff(cur_base_stimes)'];
+                    cur_fov_stim_inter = [cur_fov_stim_inter, diff(cur_stim_stimes)'];
 
                 end % End looping through each neuron
             end
             
             % Skip rest of the calculations if the subthreshold Vm is nan
-            if sum(isnan(cur_fov_base_Vm(:))) || isempty(cur_fov_base_Vm)
+            if sum(isnan(cur_fov_base_inter(:))) || isempty(cur_fov_base_inter)
                 continue;
             end
 
-            % Average for each neuron and save the subthreshold Vm
-            temp = data_bystim.(f_stim).neuron_base_Vm;
-            data_bystim.(f_stim).neuron_base_Vm = horzcat_pad(temp, nanmean(cur_fov_base_Vm));
+            % Plot the average and all of the trace from the stim centers
+            figure('visible', 'off', 'Renderer', 'Painters', 'Position', [200 200 500 1000]);
+            histogram(cur_fov_base_inter);
+            hold on;
+            histogram(cur_fov_stim_inter);
+            legend('Base', 'Stim');
+            title([matfile{1}], 'Interpreter', 'none');
+            saveas(gcf, [figure_path 'Inter_Spike' f matfile{1}(1:end-4) '_inter_spike.png']);
+
+            % Save each FOV inter-spike intervals
+            temp = data_bystim.(f_stim).neuron_base_inter;
+            data_bystim.(f_stim).neuron_base_inter = horzcat_pad(temp, cur_fov_base_inter');
+            temp = data_bystim.(f_stim).neuron_stim_inter;
+            data_bystim.(f_stim).neuron_stim_inter = horzcat_pad(temp, cur_fov_stim_inter');
 
         end % End looping through FOVs of a condition
     end
@@ -161,16 +169,22 @@ region_data = struct();
 avg_Fs = nanmean(all_Fs);
 timeline = ( (4+(front_frame_drop:back_frame_drop) )./avg_Fs) - 1;
 
-%% Summary baseline vs stim vs offset properties
+%% Plot the histograms for all spike-intervals
 stims = fieldnames(data_bystim);
 figure('Renderer', 'Painters', 'Position', [200 200 500 1000]);
 tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
 % Loop through each stimulation parameter
 for f_stim=stims'
     nexttile;
+    histogram(data_bystim.(f_stim{1}).neuron_base_inter(:));
+    hold on;
+    histogram(data_bystim.(f_stim{1}).neuron_stim_inter(:));
+    legend('Base', 'Stim');
     title([f_stim{1}(3:end)], 'Interpreter', 'none');
 end
-sgtitle('Average baseline, stim, and offset Vm');
+sgtitle('Baseline vs stim spike-interval');
+saveas(gcf, [figure_path 'Inter_Spike' f matfile{1}(1:end-4) '_all_interspike.png']);
+saveas(gcf, [figure_path 'Inter_Spike' f matfile{1}(1:end-4) '_all_interspike.eps']);
 
 %% Specific functions for determining which FOVs to look at
 % Return matfiles by stimulation condition

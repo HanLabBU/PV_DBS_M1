@@ -15,7 +15,9 @@ back_frame_drop = 2496;
 % List path where all of the matfiles are stored
 %pv_data_path = [server_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'PV_Data' f];
 % Data on local linux machine
-pv_data_path = [server_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'PV_Data' f];
+%pv_data_path = [server_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'PV_Data' f];
+% Data on handata3 folder
+pv_data_path = ['~/handata_server' f 'eng_research_handata3' f 'Pierre Fabris' f 'PV Project' f 'PV_Data' f];
 
 figure_path = [server_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Figures' f];
 
@@ -112,11 +114,11 @@ region_data = struct();
 
                     % Grab the subthreshold Vm
                     % Chop the respective frames
-                    cur_trace_ws = trial_data.spike_info.trace_ws(roi_idx, front_frame_drop:back_frame_drop);
+                    cur_trace_ws = trial_data.spike_info2.trace_ws(roi_idx, front_frame_drop:back_frame_drop);
                     cur_fov_subVm = horzcat_pad(cur_fov_subVm, cur_trace_ws');
                     
                     % Calculate the spike rate
-                    cur_raster = trial_data.spike_info.roaster(roi_idx, front_frame_drop:back_frame_drop);
+                    cur_raster = trial_data.spike_info2.roaster(roi_idx, front_frame_drop:back_frame_drop);
                     cur_spikerate = cur_raster.*trial_data.camera_framerate;
                     cur_spikerate = nanfastsmooth(cur_spikerate, srate_win, 1, 1);
                     cur_fov_srate = horzcat_pad(cur_fov_srate, cur_spikerate');            
@@ -394,6 +396,8 @@ for stim=stims'
     title(stim{1}(3:end), 'Interpreter', 'none');
 end
 sgtitle('Average Spike rate');
+saveas(gcf, [figure_path 'Average/Summary_Cont_FR.png']);
+saveas(gcf, [figure_path 'Average/Summary_Cont_FR.eps']);
 
 % Subthreshold Vm
 figure('visible', 'off', 'Renderer', 'Painters', 'Position', [200 200 1000 1000]);
