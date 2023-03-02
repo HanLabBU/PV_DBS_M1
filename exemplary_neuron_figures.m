@@ -10,6 +10,9 @@ server_rootpath = '/home/pierfier/Projects/';
 % Local linux machine
 data_path = [server_rootpath 'Pierre Fabris' f 'PV DBS neocortex' f 'PV_Data' f];
 
+% Photobleaching script path
+addpath('/home/pierfier/handata_server/eng_research_handata3/Pierre Fabris/PV Project/Scripts_Eric');
+
 % Path to save the figures
 savefig_path = [server_rootpath 'Pierre Fabris' f 'PV DBS neocortex' f 'Figures' f 'Exemplary' f];
 
@@ -17,13 +20,13 @@ savefig_path = [server_rootpath 'Pierre Fabris' f 'PV DBS neocortex' f 'Figures'
 example_matfile = [data_path '611284_V1_rec20210827_FOV1_140_60_.mat'];
 data = load(example_matfile);
 trial_idx = 5;
-[x, y] = Multi_func.exp_fit(data.raw.trial{trial_idx}.raw_traces);
-detrend_traces = data.raw.trial{trial_idx}.raw_traces - y';
 trace_noise = data.align.trial{trial_idx}.spike_info.trace_noise;
 spike_idx = data.align.trial{trial_idx}.spike_info.spike_idx{1};
 sam_freq = data.align.trial{trial_idx}.camera_framerate;
 stim_idx = data.raw.trial{trial_idx}.raw_stimulation_time - data.raw.trial{trial_idx}.raw_camera_start_time;
 stim_idx = round(stim_idx*sam_freq);
+[baseline, coeff] = exp_fit_Fx(data.raw.trial{trial_idx}.raw_traces, round(sam_freq));
+detrend_traces = data.raw.trial{trial_idx}.raw_traces - baseline';
 
 % Generate figure
 figure('renderer', 'painters', 'Position', [0 0 1200 500]);
@@ -71,24 +74,24 @@ saveas(gcf, [savefig_path 'V1_140Hz_Trace.png']);
 
 
 %%From same exemplary trace as above, show the individual spectrum
-signal = data.align.trial{trial_idx}.spike_info.trace_ws;
-[wt, f] = Multi_func.get_power_spec(signal, sam_freq);
-
-% Generate figure
-figure('renderer', 'painters', 'Position', [0 0 1200 500]);
-surface(data.align.trial{trial_idx}.camera_frame_time, f, abs(wt), 'CDataMapping', 'scaled', 'FaceColor', 'texturemap', 'edgecolor', 'none');
-set(gca, 'color', 'none');
-title('Exemplary V1 140Hz Power Spectra');
+%signal = data.align.trial{trial_idx}.spike_info.trace_ws;
+%[wt, f] = Multi_func.get_power_spec(signal, sam_freq);
+%
+%% Generate figure
+%figure('renderer', 'painters', 'Position', [0 0 1200 500]);
+%surface(data.align.trial{trial_idx}.camera_frame_time, f, abs(wt), 'CDataMapping', 'scaled', 'FaceColor', 'texturemap', 'edgecolor', 'none');
+%set(gca, 'color', 'none');
+%title('Exemplary V1 140Hz Power Spectra');
 
 %% Get exemplary motor cortex trace at 140
 example_matfile = [data_path '617100_M1_rec20211111_FOV1_140_60_.mat'];
 data = load(example_matfile);
 trial_idx = 8;
-[x, y] = Multi_func.exp_fit(data.raw.trial{trial_idx}.raw_traces);
-detrend_traces = data.raw.trial{trial_idx}.raw_traces - y';
 trace_noise = data.align.trial{trial_idx}.spike_info.trace_noise;
 spike_idx = data.align.trial{trial_idx}.spike_info.spike_idx{1};
 sam_freq = data.align.trial{trial_idx}.camera_framerate;
+[baseline, coeff] = exp_fit_Fx(data.raw.trial{trial_idx}.raw_traces, round(sam_freq));
+detrend_traces = data.raw.trial{trial_idx}.raw_traces - baseline';
 stim_idx = data.raw.trial{trial_idx}.raw_stimulation_time - data.raw.trial{trial_idx}.raw_camera_start_time;
 stim_idx = round(stim_idx*sam_freq);
 
@@ -137,14 +140,14 @@ saveas(gcf, [savefig_path 'M1_140Hz_Trace.eps']);
 saveas(gcf, [savefig_path 'M1_140Hz_Trace.png']);
 
 %%From same exemplary trace as above, show the individual spectrum
-signal = data.align.trial{trial_idx}.spike_info.trace_ws;
-[wt, f] = Multi_func.get_power_spec(signal, sam_freq);
-
-% Generate figure
-figure('renderer', 'painters', 'Position', [0 0 1200 500]);
-surface(data.align.trial{trial_idx}.camera_frame_time, f, abs(wt), 'CDataMapping', 'scaled', 'FaceColor', 'texturemap', 'edgecolor', 'none');
-set(gca, 'color', 'none');
-title('Exemplary M1 140Hz Power Spectra');
+%signal = data.align.trial{trial_idx}.spike_info.trace_ws;
+%[wt, f] = Multi_func.get_power_spec(signal, sam_freq);
+%
+%% Generate figure
+%figure('renderer', 'painters', 'Position', [0 0 1200 500]);
+%surface(data.align.trial{trial_idx}.camera_frame_time, f, abs(wt), 'CDataMapping', 'scaled', 'FaceColor', 'texturemap', 'edgecolor', 'none');
+%set(gca, 'color', 'none');
+%title('Exemplary M1 140Hz Power Spectra');
 
 %------
 
@@ -152,11 +155,11 @@ title('Exemplary M1 140Hz Power Spectra');
 example_matfile = [data_path '23072_V1_rec20220217_FOV3_40_220_.mat'];
 data = load(example_matfile);
 trial_idx = 3;
-[x, y] = Multi_func.exp_fit(data.raw.trial{trial_idx}.raw_traces);
-detrend_traces = data.raw.trial{trial_idx}.raw_traces - y';
 trace_noise = data.align.trial{trial_idx}.spike_info.trace_noise;
 spike_idx = data.align.trial{trial_idx}.spike_info.spike_idx{1};
 sam_freq = data.align.trial{trial_idx}.camera_framerate;
+[baseline, coeff] = exp_fit_Fx(data.raw.trial{trial_idx}.raw_traces, round(sam_freq));
+detrend_traces = data.raw.trial{trial_idx}.raw_traces - baseline';
 stim_idx = data.raw.trial{trial_idx}.raw_stimulation_time - data.raw.trial{trial_idx}.raw_camera_start_time;
 stim_idx = round(stim_idx*sam_freq);
 
@@ -206,24 +209,24 @@ saveas(gcf, [savefig_path 'V1_40Hz_Trace.png']);
 
 
 %%From same exemplary trace as above, show the individual spectrum
-signal = data.align.trial{trial_idx}.spike_info.trace_ws;
-[wt, f] = Multi_func.get_power_spec(signal, sam_freq);
-
-% Generate figure
-figure('renderer', 'painters', 'Position', [0 0 1200 500]);
-surface(data.align.trial{trial_idx}.camera_frame_time, f, abs(wt), 'CDataMapping', 'scaled', 'FaceColor', 'texturemap', 'edgecolor', 'none');
-set(gca, 'color', 'none');
-title('Exemplary V1 40Hz Power Spectra');
+%signal = data.align.trial{trial_idx}.spike_info.trace_ws;
+%[wt, f] = Multi_func.get_power_spec(signal, sam_freq);
+%
+%% Generate figure
+%figure('renderer', 'painters', 'Position', [0 0 1200 500]);
+%surface(data.align.trial{trial_idx}.camera_frame_time, f, abs(wt), 'CDataMapping', 'scaled', 'FaceColor', 'texturemap', 'edgecolor', 'none');
+%set(gca, 'color', 'none');
+%title('Exemplary V1 40Hz Power Spectra');
 
 %% Get exemplary motor cortex trace at 40
 example_matfile = [data_path '617100_M1_rec20211110_FOV3_40_60_.mat'];
 data = load(example_matfile);
 trial_idx = 9;
-[x, y] = Multi_func.exp_fit(data.raw.trial{trial_idx}.raw_traces);
-detrend_traces = data.raw.trial{trial_idx}.raw_traces - y';
 trace_noise = data.align.trial{trial_idx}.spike_info.trace_noise;
 spike_idx = data.align.trial{trial_idx}.spike_info.spike_idx{1};
 sam_freq = data.align.trial{trial_idx}.camera_framerate;
+[baseline, coeff] = exp_fit_Fx(data.raw.trial{trial_idx}.raw_traces, round(sam_freq));
+detrend_traces = data.raw.trial{trial_idx}.raw_traces - baseline';
 stim_idx = data.raw.trial{trial_idx}.raw_stimulation_time - data.raw.trial{trial_idx}.raw_camera_start_time;
 stim_idx = round(stim_idx*sam_freq);
 
@@ -272,11 +275,11 @@ saveas(gcf, [savefig_path 'M1_40Hz_Trace.eps']);
 saveas(gcf, [savefig_path 'M1_40Hz_Trace.png']);
 
 %%From same exemplary trace as above, show the individual spectrum
-signal = data.align.trial{trial_idx}.spike_info.trace_ws;
-[wt, f] = Multi_func.get_power_spec(signal, sam_freq);
-
-% Generate figure
-figure('renderer', 'painters', 'Position', [0 0 1200 500]);
-surface(data.align.trial{trial_idx}.camera_frame_time, f, abs(wt), 'CDataMapping', 'scaled', 'FaceColor', 'texturemap', 'edgecolor', 'none');
-set(gca, 'color', 'none');
-title('Exemplary M1 40Hz Power Spectra');
+%signal = data.align.trial{trial_idx}.spike_info.trace_ws;
+%[wt, f] = Multi_func.get_power_spec(signal, sam_freq);
+%
+%% Generate figure
+%figure('renderer', 'painters', 'Position', [0 0 1200 500]);
+%surface(data.align.trial{trial_idx}.camera_frame_time, f, abs(wt), 'CDataMapping', 'scaled', 'FaceColor', 'texturemap', 'edgecolor', 'none');
+%set(gca, 'color', 'none');
+%title('Exemplary M1 40Hz Power Spectra');

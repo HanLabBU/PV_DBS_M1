@@ -15,12 +15,14 @@ server_rootpath = '/home/pierfier/Projects/';
 % Server folder location of the saved and aligned data
 %data_path = [server_rootpath 'Pierre Fabris' f 'PV DBS neocortex' f 'PV_Data' f];
 % Local linux machine
-data_path = [server_rootpath 'Pierre Fabris' f 'PV DBS neocortex' f 'PV_Data' f];
+%data_path = [server_rootpath 'Pierre Fabris' f 'PV DBS neocortex' f 'PV_Data' f];
+% Data share on server
+data_path = ['~/handata_server' f 'eng_research_handata3' f 'Pierre Fabris' f 'PV Project' f 'PV_Data' f];
 
 % Determine whether to save the ignored traces (1) or not ignored traces (0)
-show_ignored = 0;
+show_ignored = 1;
 % USER make sure this path changes based on the above line
-save_path = [server_rootpath 'Pierre Fabris' f 'PV DBS neocortex' f 'Kept_Traces' f];
+save_path = [server_rootpath 'Pierre Fabris' f 'PV DBS neocortex' f 'Ignored_Traces' f];
 
 % Filepath name for ignoring individual trial csv
 ignore_trial_csv = [server_rootpath 'Pierre Fabris' f 'PV DBS neocortex' f 'Recordings' f 'Data_Config' f 'byvis_ignore.csv'];
