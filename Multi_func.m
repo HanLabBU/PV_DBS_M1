@@ -67,11 +67,28 @@ classdef Multi_func
         end
 
         % Return line of best exponential fit
-        function [x, y]  = exp_fit(trace)
+        function [baseline, coeff]  = exp_fit(trace)
             t = 1:length(trace);
             f2 = fit(t', trace, 'exp2');
             y = f2.a*exp(f2.b*t) + f2.c*exp(f2.d*t);
-            x = t;
+            baseline = y;
+            coeff = f2;
+        end
+
+        % Return sophisticated exponential fit accounting for stimulation depolarization
+        function [ fitbaseline, coeff]=exp_fit_Fx(v,FS)    
+            %% fits an expoential to estimate the photobleaching    
+            v1=v;    
+            v1([FS-10:FS*2+20])= mean([ v([FS-40:FS-20 2*FS+20:2*FS+40 ])]);    
+            v1(1)=v1(2);    
+            F = @(x,xdata)x(1)+x(2)*exp(- xdata./x(3));%+ x(3)*exp(- xdata./x(4))  ;    
+            x0 = [mean(v1) 40 1.5   ] ;    
+            OPTIONS = optimoptions('lsqcurvefit','Algorithm','levenberg-marquardt');    
+            t = (1:length(v))./FS;    
+            tsel=1:length(t);    
+            [xunc,RESNORM,RESIDUAL] = lsqcurvefit(F, x0, t(tsel)', v1(tsel),[],[], OPTIONS);    
+            fitbaseline=xunc(1)+xunc(2)*exp(-t./xunc(3));    
+            coeff=xunc;    
         end
 
         % Calculate cwt for input signal and 

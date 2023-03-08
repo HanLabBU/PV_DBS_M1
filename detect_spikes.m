@@ -27,8 +27,8 @@ for i=1:length(matfile_names)
     for  tr=1:length(data.align.trial)
         if ~isempty(data.align.trial{tr})
             % Use DMD spike detection script
-            [spike_info] = spike_detect_SNR_v3b(data.raw.trial{tr}.raw_traces, 3.5);
-            data.align.trial{tr}.spike_info = spike_info;
+            [spike_info] = spike_detect_SNR_v3b(data.raw.trial{tr}.raw_traces, 3.75);
+            data.align.trial{tr}.spike_info375 = spike_info;
         end
     end
     

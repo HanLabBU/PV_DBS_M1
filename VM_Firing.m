@@ -15,9 +15,9 @@ back_frame_drop = 2496;
 % List path where all of the matfiles are stored
 %pv_data_path = [server_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'PV_Data' f];
 % Data on local linux machine
-%pv_data_path = [server_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'PV_Data' f];
+pv_data_path = [server_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'PV_Data' f];
 % Data on handata3 folder
-pv_data_path = ['~/handata_server' f 'eng_research_handata3' f 'Pierre Fabris' f 'PV Project' f 'PV_Data' f];
+%pv_data_path = ['~/handata_server' f 'eng_research_handata3' f 'Pierre Fabris' f 'PV Project' f 'PV_Data' f];
 
 figure_path = [server_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Figures' f];
 
@@ -114,11 +114,13 @@ region_data = struct();
 
                     % Grab the subthreshold Vm
                     % Chop the respective frames
-                    cur_trace_ws = trial_data.spike_info2.trace_ws(roi_idx, front_frame_drop:back_frame_drop);
+                    cur_trace_ws = trial_data.spike_info375.trace_ws(roi_idx, front_frame_drop:back_frame_drop);
+                    [baseline, coeff] = Multi_func.exp_fit_Fx(cur_trace_ws', round(trial_data.camera_framerate));
+                    detrend_trace = cur_trace_ws - baseline;
                     cur_fov_subVm = horzcat_pad(cur_fov_subVm, cur_trace_ws');
                     
                     % Calculate the spike rate
-                    cur_raster = trial_data.spike_info2.roaster(roi_idx, front_frame_drop:back_frame_drop);
+                    cur_raster = trial_data.spike_info375.roaster(roi_idx, front_frame_drop:back_frame_drop);
                     cur_spikerate = cur_raster.*trial_data.camera_framerate;
                     cur_spikerate = nanfastsmooth(cur_spikerate, srate_win, 1, 1);
                     cur_fov_srate = horzcat_pad(cur_fov_srate, cur_spikerate');            
@@ -127,7 +129,6 @@ region_data = struct();
                     cur_fov_raster = horzcat_pad(cur_fov_raster, cur_raster');
 
                     % Store all of the timestamp info
-                    %TODO need to shift all of the times from the raw_stimulation start
                     stim_start = raw_trial_data.raw_stimulation_time(1);
                     cur_fov_stim_time = horzcat_pad(cur_fov_stim_time, raw_trial_data.raw_stimulation_time - stim_start);
                     cur_fov_trace_time = horzcat_pad(cur_fov_trace_time, trial_data.camera_frame_time(front_frame_drop:back_frame_drop) - stim_start);
@@ -146,7 +147,7 @@ region_data = struct();
             end
             
             % Skip rest of the calculations if the subthreshold Vm is nan
-            if sum(isnan(cur_fov_subVm(:))) || isempty(cur_fov_subVm)
+            if sum(isnan(cur_fov_subVm(:))) > 0 || isempty(cur_fov_subVm)
                 continue;
             end
 
@@ -289,6 +290,54 @@ for f_stim=stims'
     title(f_stim{1}(3:end), 'Interpreter', 'none');
 end
 sgtitle('Spectra with baseline-ratio normalized individually Sub Vm Trace');
+
+% Plot the average spectra for baseline, stimulation, and offset periods
+stims = fieldnames(data_bystim);
+figure('visible', 'off','Renderer', 'Painters', 'Position', [200 200 1000 1000]);
+tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
+% Loop through each stimulation parameter
+for f_stim=stims'
+    nexttile;
+   
+    % Normalize ratio
+    % First calculate by doing the ratios for each neuron first and then averaging
+    cur_spec_pow = data_bystim.(f_stim{1}).neuron_spec_power;
+
+    % Plot the starting time point for each neuron
+    sz = size(data_bystim.(f_stim{1}).trace_timestamps);
+    
+    % Store the baseline power spectra values 
+    all_base_power = [];
+    all_stim_power = [];
+    all_offset_power = [];
+
+    % Loop throug each neuron
+    for i = 1:size(data_bystim.(f_stim{1}).trace_timestamps, 2)
+        baseline_idx = find(data_bystim.(f_stim{1}).trace_timestamps(:, i) < data_bystim.(f_stim{1}).stim_timestamps(1, i));
+        stim_idx = find(data_bystim.(f_stim{1}).trace_timestamps(:, i) >= data_bystim.(f_stim{1}).stim_timestamps(1, i) & ...
+                        data_bystim.(f_stim{1}).trace_timestamps(:, i) <= data_bystim.(f_stim{1}).stim_timestamps(end, i));
+                    %TODO I think the offset idx here is actually wrong?
+        offset_idx = find(data_bystim.(f_stim{1}).trace_timestamps(:, i) > data_bystim.(f_stim{1}).stim_timestamps(end, i));
+        
+        base_power = nanmean(abs(cur_spec_pow(:, baseline_idx, i)), 2);
+        all_base_power = horzcat(all_base_power, base_power);
+        stim_power = nanmean(abs(cur_spec_pow(:, stim_idx, i)), 2);
+        all_stim_power = horzcat(all_stim_power, stim_power);
+        offset_power = nanmean(abs(cur_spec_pow(:, offset_idx, i)), 2);
+        all_offset_power = horzcat(all_offset_power, offset_power);
+    end
+
+    % Get the average frequency 
+    spec_freq = nanmean(data_bystim.(f_stim{1}).neuron_spec_freq, 3);
+ 
+    % TODO keep working here
+    %plot(nanmean());
+    set(gca, 'color', 'none');
+    %avg_power = nanmean(data_bystim.(f_stim{1}).neuron_spec_power, 3);
+
+    title(f_stim{1}(3:end), 'Interpreter', 'none');
+end
+sgtitle('');
 
 
 % Subthreshold spectra with (x - A)/(A + B) normalization for each neuron and 
