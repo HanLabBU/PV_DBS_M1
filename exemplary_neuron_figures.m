@@ -18,8 +18,7 @@ data_path = [server_rootpath 'Pierre Fabris' f 'PV DBS neocortex' f 'PV_Data' f]
 savefig_path = [server_rootpath 'Pierre Fabris' f 'PV DBS neocortex' f 'Figures' f 'Exemplary' f];
 
 %% Get exemplary trace at 140 for V1
-example_matfile = [data_path '611284_V1_rec2021
-    detrend_trace = Multi_func.exp_fi0827_FOV1_140_60_.mat'];
+example_matfile = [data_path '611284_V1_rec20210827_FOV1_140_60_.mat'];
 data = load(example_matfile);
 trial_idx = 5;
 
@@ -238,7 +237,7 @@ saveas(gcf, [savefig_path 'V1_40Hz_Trace.png']);
 %set(gca, 'color', 'none');
 %title('Exemplary V1 40Hz Power Spectra');
 
-%% Get exemplary motor cortex trace at 40
+%% Get exemplary M1 trace at 40
 example_matfile = [data_path '617100_M1_rec20211110_FOV3_40_60_.mat'];
 data = load(example_matfile);
 trial_idx = 9;

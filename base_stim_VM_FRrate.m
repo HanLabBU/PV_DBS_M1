@@ -4,23 +4,29 @@ f = filesep;
 
 %%% USER Modification
 % Linux server
-server_root_path = '~/Projects/';
+local_root_path = '~/Projects/';
+% Handata Server on Linux
+server_root_path = '~/handata/eng_research_handata3/';
 % Windows server
-%server_root_path = 'Z:\';
+%local_root_path = 'Z:\';
 
 % Parameters for frames to chop off
 front_frame_drop = 15;
 back_frame_drop = 2496;
 
-% List path where all of the matfiles are stored
-%pv_data_path = [server_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'PV_Data' f];
+%-- PV Data matfiles --
 % Data on local linux machine
+%pv_data_path = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'PV_Data' f];
+% Server data path
 pv_data_path = [server_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'PV_Data' f];
 
+%-- Figures path
+% Server root 
 figure_path = [server_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Figures' f];
 
+
 % CSV file to determine which trials to ignore
-ignore_trial_dict = Multi_func.csv_to_struct([server_root_path 'Pierre Fabris' f 'PV DBS neocortex' f ...
+ignore_trial_dict = Multi_func.csv_to_struct([local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f ...
                                        'Recordings' f 'Data_Config' f 'byvis_ignore.csv']);
 
 % Smoothing parameter for spike rate
@@ -29,7 +35,7 @@ srate_win = 50;
 %%% END Modification
 
 % Check that the server path exists
-if ~isfolder(server_root_path)
+if ~isfolder(local_root_path)
     disp('Server rootpath does not exist!!!');
     return;
 end

@@ -116,8 +116,8 @@ region_data = struct();
                     % Chop the respective frames
                     cur_trace_ws = trial_data.spike_info375.trace_ws(roi_idx, front_frame_drop:back_frame_drop);
                     [baseline, coeff] = Multi_func.exp_fit_Fx(cur_trace_ws', round(trial_data.camera_framerate));
-                    detrend_trace = cur_trace_ws - baseline;
-                    cur_fov_subVm = horzcat_pad(cur_fov_subVm, cur_trace_ws');
+                    detrend_subVm = cur_trace_ws - baseline;
+                    cur_fov_subVm = horzcat_pad(cur_fov_subVm, detrend_subVm');
                     
                     % Calculate the spike rate
                     cur_raster = trial_data.spike_info375.roaster(roi_idx, front_frame_drop:back_frame_drop);
