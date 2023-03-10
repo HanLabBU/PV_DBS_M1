@@ -6,7 +6,7 @@ f = filesep;
 % Linux server
 local_root_path = '~/Projects/';
 % Handata Server on Linux
-server_root_path = '~/handata/eng_research_handata3/';
+server_root_path = '~/handata_server/eng_research_handata3/';
 % Windows server
 %local_root_path = 'Z:\';
 

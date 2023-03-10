@@ -90,7 +90,7 @@ saveas(gcf, [savefig_path 'V1_140Hz_Trace.png']);
 %set(gca, 'color', 'none');
 %title('Exemplary V1 140Hz Power Spectra');
 
-%% Get exemplary motor cortex trace at 140
+%% Get exemplary M1 trace at 140
 example_matfile = [data_path '617100_M1_rec20211111_FOV1_140_60_.mat'];
 data = load(example_matfile);
 trial_idx = 8;
