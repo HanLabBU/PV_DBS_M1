@@ -135,7 +135,6 @@ region_data = struct();
                     cur_fov_base_Vm(end + 1) = nanmean(cur_trace_ws(baseline_idx));   
                     cur_fov_stim_Vm(end + 1) = nanmean(cur_trace_ws(stim_idx));   
                     cur_fov_offset_Vm(end + 1) = nanmean(cur_trace_ws(offset_idx));   
-                    
 
                     % Calculate the spike rate during baseline and stimulation period
                     cur_raster = trial_data.spike_info.roaster(roi_idx, front_frame_drop:back_frame_drop);

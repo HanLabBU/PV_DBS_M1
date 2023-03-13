@@ -4,25 +4,27 @@ f = filesep;
 
 %%% USER Modification
 % Linux server
-server_root_path = '~/Projects/';
+local_root_path = '~/Projects/';
+server_root_path = '~/handata_server/';
 % Windows server
-%server_root_path = 'Z:\';
+%local_root_path = 'Z:\';
 
 % Parameters for frames to chop off
 front_frame_drop = 15;
 back_frame_drop = 2496;
 
 % List path where all of the matfiles are stored
-%pv_data_path = [server_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'PV_Data' f];
+%pv_data_path = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'PV_Data' f];
 % Data on local linux machine
-pv_data_path = [server_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'PV_Data' f];
+%pv_data_path = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'PV_Data' f];
 % Data on handata3 folder
-%pv_data_path = ['~/handata_server' f 'eng_research_handata3' f 'Pierre Fabris' f 'PV Project' f 'PV_Data' f];
+pv_data_path = [server_root_path 'eng_research_handata3' f 'Pierre Fabris' f 'PV Project' f 'PV_Data' f];
 
-figure_path = [server_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Figures' f];
+%figure_path = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Figures' f];
+figure_path = [server_root_path 'eng_research_handata3' f 'Pierre Fabris' f 'PV Project' f 'Figures' f];
 
 % CSV file to determine which trials to ignore
-ignore_trial_dict = Multi_func.csv_to_struct([server_root_path 'Pierre Fabris' f 'PV DBS neocortex' f ...
+ignore_trial_dict = Multi_func.csv_to_struct([local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f ...
                                        'Recordings' f 'Data_Config' f 'byvis_ignore.csv']);
 
 % Smoothing parameter for spike rate
@@ -31,7 +33,7 @@ srate_win = 50;
 %%% END Modification
 
 % Check that the server path exists
-if ~isfolder(server_root_path)
+if ~isfolder(local_root_path)
     disp('Server rootpath does not exist!!!');
     return;
 end
@@ -291,59 +293,10 @@ for f_stim=stims'
 end
 sgtitle('Spectra with baseline-ratio normalized individually Sub Vm Trace');
 
-% Plot the average spectra for baseline, stimulation, and offset periods
-stims = fieldnames(data_bystim);
-figure('visible', 'off','Renderer', 'Painters', 'Position', [200 200 1000 1000]);
-tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
-% Loop through each stimulation parameter
-for f_stim=stims'
-    nexttile;
-   
-    % Normalize ratio
-    % First calculate by doing the ratios for each neuron first and then averaging
-    cur_spec_pow = data_bystim.(f_stim{1}).neuron_spec_power;
-
-    % Plot the starting time point for each neuron
-    sz = size(data_bystim.(f_stim{1}).trace_timestamps);
-    
-    % Store the baseline power spectra values 
-    all_base_power = [];
-    all_stim_power = [];
-    all_offset_power = [];
-
-    % Loop throug each neuron
-    for i = 1:size(data_bystim.(f_stim{1}).trace_timestamps, 2)
-        baseline_idx = find(data_bystim.(f_stim{1}).trace_timestamps(:, i) < data_bystim.(f_stim{1}).stim_timestamps(1, i));
-        stim_idx = find(data_bystim.(f_stim{1}).trace_timestamps(:, i) >= data_bystim.(f_stim{1}).stim_timestamps(1, i) & ...
-                        data_bystim.(f_stim{1}).trace_timestamps(:, i) <= data_bystim.(f_stim{1}).stim_timestamps(end, i));
-                    %TODO I think the offset idx here is actually wrong?
-        offset_idx = find(data_bystim.(f_stim{1}).trace_timestamps(:, i) > data_bystim.(f_stim{1}).stim_timestamps(end, i));
-        
-        base_power = nanmean(abs(cur_spec_pow(:, baseline_idx, i)), 2);
-        all_base_power = horzcat(all_base_power, base_power);
-        stim_power = nanmean(abs(cur_spec_pow(:, stim_idx, i)), 2);
-        all_stim_power = horzcat(all_stim_power, stim_power);
-        offset_power = nanmean(abs(cur_spec_pow(:, offset_idx, i)), 2);
-        all_offset_power = horzcat(all_offset_power, offset_power);
-    end
-
-    % Get the average frequency 
-    spec_freq = nanmean(data_bystim.(f_stim{1}).neuron_spec_freq, 3);
- 
-    % TODO keep working here
-    %plot(nanmean());
-    set(gca, 'color', 'none');
-    %avg_power = nanmean(data_bystim.(f_stim{1}).neuron_spec_power, 3);
-
-    title(f_stim{1}(3:end), 'Interpreter', 'none');
-end
-sgtitle('');
-
-
 % Subthreshold spectra with (x - A)/(A + B) normalization for each neuron and 
 % Averaged afterwards
 stims = fieldnames(data_bystim);
-figure('Renderer', 'Painters', 'Position', [200 200 1000 1000]);
+figure('visible', 'off','Renderer', 'Painters', 'Position', [200 200 1000 1000]);
 tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
 % Loop through each stimulation parameter
 for f_stim=stims'
@@ -385,6 +338,128 @@ sgtitle('Spectra with (x - A)/(A + B) normalization individually Sub Vm Trace');
 saveas(gcf, [figure_path 'Spectra/A_B_Normalization_Spectra.png']);
 saveas(gcf, [figure_path 'Spectra/A_B_Normalization_Spectra.eps']);
 
+% Look at the change of 40Hz and theta frequency over time
+% Subthreshold spectra with (x - A)/(A + B) normalization for each neuron 
+%stims = {'f_40'};
+stims = fieldnames(data_bystim);
+figure('Renderer', 'Painters', 'Position', [200 200 1000 1000]);
+tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
+% Loop through each stimulation parameter
+for f_stim=stims'
+    nexttile;
+   
+    % Normalize ratio
+    % First calculate by doing the ratios for each neuron first and then averaging
+    cur_spec_pow = data_bystim.(f_stim{1}).neuron_spec_power;
+
+    % Plot the starting time point for each neuron
+    sz = size(data_bystim.(f_stim{1}).trace_timestamps);
+
+    % Loop throug each neuron
+    for i = 1:size(data_bystim.(f_stim{1}).trace_timestamps, 2)
+        % Get the indices define the periods within in the trace
+        baseline_idx = find(data_bystim.(f_stim{1}).trace_timestamps(:, i) < data_bystim.(f_stim{1}).stim_timestamps(1, i));
+        stim_idx = find(data_bystim.(f_stim{1}).trace_timestamps(:, i) >= data_bystim.(f_stim{1}).stim_timestamps(1, i) & ...
+                        data_bystim.(f_stim{1}).trace_timestamps(:, i) <= data_bystim.(f_stim{1}).stim_timestamps(end, i));
+        %plot(baseline_idx, i*5, '.r');
+        %hold on;
+        base_power = nanmean(abs(cur_spec_pow(:, baseline_idx, i)), 2);
+        stim_power = nanmean(abs(cur_spec_pow(:, stim_idx, i)), 2);
+        cur_spec_pow(:, :, i) = (abs(cur_spec_pow(:, :, i)) - base_power)./(base_power + stim_power);
+    end
+
+    time = nanmean(data_bystim.(f_stim{1}).trace_timestamps, 2);
+    freqs = nanmean(data_bystim.(f_stim{1}).neuron_spec_freq, 3);
+    spec = nanmean(cur_spec_pow, 3);
+
+    %40Hz broadband freq space
+    freq40_idx = find(freqs >= 40 - 4 & freqs <= 40 + 4);
+    spec40 = (nanmean(spec(freq40_idx, :), 1));
+    plot(time, spec40, 'DisplayName', '40Hz band');
+    hold on;
+
+    % Get theta broadbance space 
+    theta_idx = find(freqs >= 5 & freqs <= 10);
+    spec_theta = (nanmean(spec(theta_idx, :), 1));
+    plot(time, spec_theta, 'DisplayName', 'Theta Band');
+    legend();
+
+    %surface(nanmean(data_bystim.(f_stim{1}).trace_timestamps, 2)', ... 
+    %        nanmean(data_bystim.(f_stim{1}).neuron_spec_freq, 3), ...
+    %        nanmean(cur_spec_pow, 3), 'CDataMapping', 'scaled', 'FaceColor', 'texturemap', 'edgecolor', 'none');
+ 
+    set(gca, 'color', 'none');
+    %avg_power = nanmean(data_bystim.(f_stim{1}).neuron_spec_power, 3);
+    xlabel('Time from Stim onset(sec)');
+    ylabel('Power (A.U.)');
+    title(f_stim{1}(3:end), 'Interpreter', 'none');
+end
+sgtitle('(x - A)/(A + B) normalization 40Hz and Theta frequency for 40Hz DBS');
+
+saveas(gcf, [figure_path 'Spectra/A_B_Norm_freq_pow_time.png']);
+saveas(gcf, [figure_path 'Spectra/A_B_Norm_freq_pow_time.eps']);
+
+% Zscored across time to show frequency bumps for the different time periods
+% Subthreshold spectra with (x - A)/(A + B) normalization for each neuron and 
+% averaged across the baseline, stimulation, and offset period
+stims = fieldnames(data_bystim);
+figure('visible', 'off' , 'Renderer', 'Painters', 'Position', [200 200 1000 1000]);
+tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
+% Loop through each stimulation parameter
+for f_stim=stims'
+    nexttile;
+   
+    % Normalize ratio
+    % First calculate by doing the ratios for each neuron first and then averaging
+    cur_spec_pow = data_bystim.(f_stim{1}).neuron_spec_power;
+
+    % Plot the starting time point for each neuron
+    sz = size(data_bystim.(f_stim{1}).trace_timestamps);
+
+    %Variables for average power spectra for baseline, stim, and offset
+    base_psd = [];
+    stim_psd = [];
+    offset_psd = [];
+    
+    % Loop throug each neuron
+    for i = 1:size(data_bystim.(f_stim{1}).trace_timestamps, 2)
+        % Get the indices define the periods within in the trace
+        baseline_idx = find(data_bystim.(f_stim{1}).trace_timestamps(:, i) < data_bystim.(f_stim{1}).stim_timestamps(1, i));
+        stim_idx = find(data_bystim.(f_stim{1}).trace_timestamps(:, i) >= data_bystim.(f_stim{1}).stim_timestamps(1, i) & ...
+                        data_bystim.(f_stim{1}).trace_timestamps(:, i) <= data_bystim.(f_stim{1}).stim_timestamps(end, i));
+        offset_idx = find(data_bystim.(f_stim{1}).trace_timestamps(:, i) > data_bystim.(f_stim{1}).stim_timestamps(end, i));
+
+        % Calculate average frequency power across specified times
+        base_power = nanmean(abs(cur_spec_pow(:, baseline_idx, i)), 2);
+        stim_power = nanmean(abs(cur_spec_pow(:, stim_idx, i)), 2);
+        offset_power = nanmean(abs(cur_spec_pow(:, offset_idx, i)), 2);
+        
+        % Normalize the spectra
+        %neuron_spec = (abs(cur_spec_pow(:, :, i)) - base_power)./(base_power + stim_power);
+        neuron_spec = zscore(abs(cur_spec_pow(:, :, i)), [], 2);
+        
+        % Store the respective powers for neuron
+        base_psd = [base_psd, nanmean(neuron_spec(:, baseline_idx), 2)];
+        stim_psd = [stim_psd, nanmean(neuron_spec(:, stim_idx), 2)];
+        offset_psd = [offset_psd, nanmean(neuron_spec(:, offset_idx), 2)];
+    end
+
+    % Plot the power spectral densities
+    plot(nanmean(data_bystim.(f_stim{1}).neuron_spec_freq, 3), nanmean(base_psd, 2), '-k', 'DisplayName', 'Baseline');
+    hold on;
+    plot(nanmean(data_bystim.(f_stim{1}).neuron_spec_freq, 3), nanmean(stim_psd, 2), '-r', 'DisplayName', 'Stim');
+    hold on;
+    plot(nanmean(data_bystim.(f_stim{1}).neuron_spec_freq, 3), nanmean(offset_psd, 2), '-b', 'DisplayName', 'Offset');
+    set(gca, 'color', 'none');
+    xlabel('Freq (Hz)');
+    ylabel('Power (A.U.)');
+    legend();
+    title(f_stim{1}(3:end), 'Interpreter', 'none');
+end
+sgtitle('Power Spectral Density with zscore normalization individually Sub Vm Trace');
+
+saveas(gcf, [figure_path 'Spectra/A_B_Norm_Power_Spec_Density.png']);
+saveas(gcf, [figure_path 'Spectra/A_B_Norm_Power_Spec_Density.eps']);
 
 % Peform normalization after average subthreshold
 figure('visible', 'off','Renderer', 'Painters', 'Position', [200 200 1000 1000]);

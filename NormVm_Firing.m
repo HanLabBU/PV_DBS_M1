@@ -17,10 +17,8 @@ if ~isfolder(server_root_path)
     return;
 end
 
-
 % Specify the datapath, at the momement all of the data is in Eric's
 pv_data_path = [server_root_path 'EricLowet' f 'DBS' f 'PV' f ];
-
 savepath = [server_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Figures' f];
 
 %% Specify analysis parameters
