@@ -17,7 +17,8 @@ server_root_path = '~/handata_server/';
 pv_data_path = [server_root_path 'eng_research_handata3' f 'Pierre Fabris' f 'PV Project' f 'PV_Data' f];
 
 % Path to save the figures
-savefig_path = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Figures' f 'Exemplary' f];
+%savefig_path = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Figures' f 'Exemplary' f];
+savefig_path = [server_root_path 'eng_research_handata3' f 'Pierre Fabris' f 'PV Project' f 'Figures' f];
 
 %% Get exemplary trace at 140 for V1
 example_matfile = [pv_data_path '611284_V1_rec20210827_FOV1_140_60_.mat'];
@@ -41,19 +42,19 @@ stim_idx = round(stim_idx*sam_freq);
 % Generate figure
 figure('renderer', 'painters', 'Position', [0 0 1200 500]);
 %Plot the trace
-plot(detrend_traces./trace_noise);
+plot(detrend_traces./trace_noise, 'k');
 %set(gcf, 'color', 'none');
 %set(gca, 'color', 'none');
 axis off;
 hold on;
 
 % Plot spikes detected
-plot(spike_idx, detrend_traces(spike_idx)./trace_noise, '.r');
+plot(spike_idx, detrend_traces(spike_idx)./trace_noise, '.r', 'MarkerSize', 12);
 hold on;
 
 % Plot the stimulation time pulses
 posx = 3;
-posy = 12;
+posy = 15;
 plot(stim_idx, repmat(posy, length(stim_idx), 1), '|k');
 hold on;
 plot([1, length(detrend_traces)], [posy posy], '-k');
@@ -64,7 +65,7 @@ text(posx, posy + 1, '140 Hz Stimulation')
 posx = -20;
 posy = 0;
 snr_scale = 5;
-plot([posx posx], [posy posy+snr_scale], 'LineWidth', 2);
+plot([posx posx], [posy posy+snr_scale], 'k', 'LineWidth', 2);
 hold on;
 ht = text(posx - 25, posy , ['Spike SBR ' num2str(snr_scale)]);
 set(ht, 'rotation', 90);
@@ -74,7 +75,7 @@ hold on;
 posx = 0;
 posy = -7;
 time_scale = 500; % Plotting 500 ms
-plot([posx posy+time_scale]*sam_freq/1000, [posy posy], 'LineWidth', 2);
+plot([posx posy+time_scale]*sam_freq/1000, [posy posy], 'k', 'LineWidth', 2);
 hold on;
 text(posx, posy-1, [num2str(time_scale) 'ms']);
 ylim([posy-5 30]);
@@ -113,19 +114,19 @@ stim_idx = round(stim_idx*sam_freq);
 % Generate figure
 figure('renderer', 'painters', 'Position', [0 0 1200 500]);
 %Plot the trace
-plot(detrend_traces./trace_noise);
+plot(detrend_traces./trace_noise, 'k');
 %set(gcf, 'color', 'none');
 %set(gca, 'color', 'none');
 axis off;
 hold on;
 
 % Plot spikes detected
-plot(spike_idx, detrend_traces(spike_idx)./trace_noise, '.r');
+plot(spike_idx, detrend_traces(spike_idx)./trace_noise, '.r', 'MarkerSize', 12);
 hold on;
 
 % Plot the stimulation time pulses
 posx = 3;
-posy = 12;
+posy = 20;
 plot(stim_idx, repmat(posy, length(stim_idx), 1), '|k');
 hold on;
 plot([1, length(detrend_traces)], [posy posy], '-k');
@@ -136,7 +137,7 @@ text(posx, posy + 1, '140 Hz Stimulation')
 posx = -20;
 posy = 0;
 snr_scale = 5;
-plot([posx posx], [posy posy+snr_scale], 'LineWidth', 2);
+plot([posx posx], [posy posy+snr_scale], 'k', 'LineWidth', 2);
 hold on;
 ht = text(posx - 25, posy , ['Spike SBR ' num2str(snr_scale)]);
 set(ht, 'rotation', 90);
@@ -144,9 +145,9 @@ hold on;
 
 % Plot the timescale
 posx = 0;
-posy = -7;
+posy = -9;
 time_scale = 500; % Plotting 500 ms
-plot([posx posy+time_scale]*sam_freq/1000, [posy posy], 'LineWidth', 2);
+plot([posx posy+time_scale]*sam_freq/1000, [posy posy], 'k', 'LineWidth', 2);
 hold on;
 text(posx, posy-1, [num2str(time_scale) 'ms']);
 ylim([posy-5 30]);
@@ -187,19 +188,19 @@ stim_idx = round(stim_idx*sam_freq);
 % Generate figure
 figure('renderer', 'painters', 'Position', [0 0 1200 500]);
 %Plot the trace
-plot(detrend_traces./trace_noise);
+plot(detrend_traces./trace_noise, 'k');
 %set(gcf, 'color', 'none');
 %set(gca, 'color', 'none');
 axis off;
 hold on;
 
 % Plot spikes detected
-plot(spike_idx, detrend_traces(spike_idx)./trace_noise, '.r');
+plot(spike_idx, detrend_traces(spike_idx)./trace_noise, '.r', 'MarkerSize', 12);
 hold on;
 
 % Plot the stimulation time pulses
 posx = 3;
-posy = 12;
+posy = 15;
 plot(stim_idx, repmat(posy, length(stim_idx), 1), '|k');
 hold on;
 plot([1, length(detrend_traces)], [posy posy], '-k');
@@ -210,7 +211,7 @@ text(posx, posy + 1, '40 Hz Stimulation')
 posx = -20;
 posy = 0;
 snr_scale = 5;
-plot([posx posx], [posy posy+snr_scale], 'LineWidth', 2);
+plot([posx posx], [posy posy+snr_scale], 'k', 'LineWidth', 2);
 hold on;
 ht = text(posx - 25, posy , ['Spike SBR ' num2str(snr_scale)]);
 set(ht, 'rotation', 90);
@@ -218,9 +219,9 @@ hold on;
 
 % Plot the timescale
 posx = 0;
-posy = -7;
+posy = -10;
 time_scale = 500; % Plotting 500 ms
-plot([posx posy+time_scale]*sam_freq/1000, [posy posy], 'LineWidth', 2);
+plot([posx posy+time_scale]*sam_freq/1000, [posy posy], 'k', 'LineWidth', 2);
 hold on;
 text(posx, posy-1, [num2str(time_scale) 'ms']);
 ylim([posy-5 30]);
@@ -260,19 +261,19 @@ stim_idx = round(stim_idx*sam_freq);
 % Generate figure
 figure('renderer', 'painters', 'Position', [0 0 1200 500]);
 %Plot the trace
-plot(detrend_traces./trace_noise);
+plot(detrend_traces./trace_noise, 'k');
 %set(gcf, 'color', 'none');
 %set(gca, 'color', 'none');
 axis off;
 hold on;
 
 % Plot spikes detected
-plot(spike_idx, detrend_traces(spike_idx)./trace_noise, '.r');
+plot(spike_idx, detrend_traces(spike_idx)./trace_noise, '.r', 'MarkerSize', 12);
 hold on;
 
 % Plot the stimulation time pulses
 posx = 3;
-posy = 12;
+posy = 18;
 plot(stim_idx, repmat(posy, length(stim_idx), 1), '|k');
 hold on;
 plot([1, length(detrend_traces)], [posy posy], '-k');
@@ -283,7 +284,7 @@ text(posx, posy + 1, '40 Hz Stimulation')
 posx = -20;
 posy = 0;
 snr_scale = 5;
-plot([posx posx], [posy posy+snr_scale], 'LineWidth', 2);
+plot([posx posx], [posy posy+snr_scale], 'k', 'LineWidth', 2);
 hold on;
 ht = text(posx - 25, posy , ['Spike SBR ' num2str(snr_scale)]);
 set(ht, 'rotation', 90);
@@ -293,7 +294,7 @@ hold on;
 posx = 0;
 posy = -7;
 time_scale = 500; % Plotting 500 ms
-plot([posx posy+time_scale]*sam_freq/1000, [posy posy], 'LineWidth', 2);
+plot([posx posy+time_scale]*sam_freq/1000, [posy posy], 'k', 'LineWidth', 2);
 hold on;
 text(posx, posy-1, [num2str(time_scale) 'ms']);
 ylim([posy-5 30]);
