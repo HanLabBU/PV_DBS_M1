@@ -10,15 +10,17 @@ f = filesep;
 sophis_bleachdetrend = 1;
 
 % Maingear office computer
-server_rootpath = '/home/pierfier/Projects/';
+local_root_path = '/home/pierfier/Projects/';
+server_root_path = '~/handata_server/';
 % Local linux machine
-data_path = [server_rootpath 'Pierre Fabris' f 'PV DBS neocortex' f 'PV_Data' f];
+%data_path = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'PV_Data' f];
+pv_data_path = [server_root_path 'eng_research_handata3' f 'Pierre Fabris' f 'PV Project' f 'PV_Data' f];
 
 % Path to save the figures
-savefig_path = [server_rootpath 'Pierre Fabris' f 'PV DBS neocortex' f 'Figures' f 'Exemplary' f];
+savefig_path = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Figures' f 'Exemplary' f];
 
 %% Get exemplary trace at 140 for V1
-example_matfile = [data_path '611284_V1_rec20210827_FOV1_140_60_.mat'];
+example_matfile = [pv_data_path '611284_V1_rec20210827_FOV1_140_60_.mat'];
 data = load(example_matfile);
 trial_idx = 5;
 
@@ -30,8 +32,8 @@ else
 end
 
 detrend_traces = data.raw.trial{trial_idx}.raw_traces - baseline';
-trace_noise = data.align.trial{trial_idx}.spike_info.trace_noise;
-spike_idx = data.align.trial{trial_idx}.spike_info.spike_idx{1};
+trace_noise = data.align.trial{trial_idx}.spike_info375.trace_noise;
+spike_idx = data.align.trial{trial_idx}.spike_info375.spike_idx{1};
 sam_freq = data.align.trial{trial_idx}.camera_framerate;
 stim_idx = data.raw.trial{trial_idx}.raw_stimulation_time - data.raw.trial{trial_idx}.raw_camera_start_time;
 stim_idx = round(stim_idx*sam_freq);
@@ -81,7 +83,7 @@ saveas(gcf, [savefig_path 'V1_140Hz_Trace.eps'], 'epsc');
 saveas(gcf, [savefig_path 'V1_140Hz_Trace.png']);
 
 %%From same exemplary trace as above, show the individual spectrum
-%signal = data.align.trial{trial_idx}.spike_info.trace_ws;
+%signal = data.align.trial{trial_idx}.spike_info375.trace_ws;
 %[wt, f] = Multi_func.get_power_spec(signal, sam_freq);
 %
 %% Generate figure
@@ -91,7 +93,7 @@ saveas(gcf, [savefig_path 'V1_140Hz_Trace.png']);
 %title('Exemplary V1 140Hz Power Spectra');
 
 %% Get exemplary M1 trace at 140
-example_matfile = [data_path '617100_M1_rec20211111_FOV1_140_60_.mat'];
+example_matfile = [pv_data_path '617100_M1_rec20211111_FOV1_140_60_.mat'];
 data = load(example_matfile);
 trial_idx = 8;
 
@@ -102,8 +104,8 @@ else
     [baseline, coeff] = Multi_func.exp_fit(data.raw.trial{trial_idx}.raw_traces);
 end
 detrend_traces = data.raw.trial{trial_idx}.raw_traces - baseline';
-trace_noise = data.align.trial{trial_idx}.spike_info.trace_noise;
-spike_idx = data.align.trial{trial_idx}.spike_info.spike_idx{1};
+trace_noise = data.align.trial{trial_idx}.spike_info375.trace_noise;
+spike_idx = data.align.trial{trial_idx}.spike_info375.spike_idx{1};
 sam_freq = data.align.trial{trial_idx}.camera_framerate;
 stim_idx = data.raw.trial{trial_idx}.raw_stimulation_time - data.raw.trial{trial_idx}.raw_camera_start_time;
 stim_idx = round(stim_idx*sam_freq);
@@ -153,7 +155,7 @@ saveas(gcf, [savefig_path 'M1_140Hz_Trace.eps'], 'epsc');
 saveas(gcf, [savefig_path 'M1_140Hz_Trace.png']);
 
 %%From same exemplary trace as above, show the individual spectrum
-%signal = data.align.trial{trial_idx}.spike_info.trace_ws;
+%signal = data.align.trial{trial_idx}.spike_info375.trace_ws;
 %[wt, f] = Multi_func.get_power_spec(signal, sam_freq);
 %
 %% Generate figure
@@ -165,7 +167,7 @@ saveas(gcf, [savefig_path 'M1_140Hz_Trace.png']);
 %------
 
 %% Get exemplary trace at 40 for V1
-example_matfile = [data_path '23072_V1_rec20220217_FOV3_40_220_.mat'];
+example_matfile = [pv_data_path '23072_V1_rec20220217_FOV3_40_220_.mat'];
 data = load(example_matfile);
 trial_idx = 3;
 
@@ -176,8 +178,8 @@ else
     [baseline, coeff] = Multi_func.exp_fit(data.raw.trial{trial_idx}.raw_traces);
 end
 detrend_traces = data.raw.trial{trial_idx}.raw_traces - baseline';
-trace_noise = data.align.trial{trial_idx}.spike_info.trace_noise;
-spike_idx = data.align.trial{trial_idx}.spike_info.spike_idx{1};
+trace_noise = data.align.trial{trial_idx}.spike_info375.trace_noise;
+spike_idx = data.align.trial{trial_idx}.spike_info375.spike_idx{1};
 sam_freq = data.align.trial{trial_idx}.camera_framerate;
 stim_idx = data.raw.trial{trial_idx}.raw_stimulation_time - data.raw.trial{trial_idx}.raw_camera_start_time;
 stim_idx = round(stim_idx*sam_freq);
@@ -228,7 +230,7 @@ saveas(gcf, [savefig_path 'V1_40Hz_Trace.png']);
 
 
 %%From same exemplary trace as above, show the individual spectrum
-%signal = data.align.trial{trial_idx}.spike_info.trace_ws;
+%signal = data.align.trial{trial_idx}.spike_info375.trace_ws;
 %[wt, f] = Multi_func.get_power_spec(signal, sam_freq);
 %
 %% Generate figure
@@ -238,7 +240,7 @@ saveas(gcf, [savefig_path 'V1_40Hz_Trace.png']);
 %title('Exemplary V1 40Hz Power Spectra');
 
 %% Get exemplary M1 trace at 40
-example_matfile = [data_path '617100_M1_rec20211110_FOV3_40_60_.mat'];
+example_matfile = [pv_data_path '617100_M1_rec20211110_FOV3_40_60_.mat'];
 data = load(example_matfile);
 trial_idx = 9;
 
@@ -249,8 +251,8 @@ else
     [baseline, coeff] = Multi_func.exp_fit(data.raw.trial{trial_idx}.raw_traces);
 end
 detrend_traces = data.raw.trial{trial_idx}.raw_traces - baseline';
-trace_noise = data.align.trial{trial_idx}.spike_info.trace_noise;
-spike_idx = data.align.trial{trial_idx}.spike_info.spike_idx{1};
+trace_noise = data.align.trial{trial_idx}.spike_info375.trace_noise;
+spike_idx = data.align.trial{trial_idx}.spike_info375.spike_idx{1};
 sam_freq = data.align.trial{trial_idx}.camera_framerate;
 stim_idx = data.raw.trial{trial_idx}.raw_stimulation_time - data.raw.trial{trial_idx}.raw_camera_start_time;
 stim_idx = round(stim_idx*sam_freq);
@@ -300,7 +302,7 @@ saveas(gcf, [savefig_path 'M1_40Hz_Trace.eps'], 'epsc');
 saveas(gcf, [savefig_path 'M1_40Hz_Trace.png']);
 
 %%From same exemplary trace as above, show the individual spectrum
-%signal = data.align.trial{trial_idx}.spike_info.trace_ws;
+%signal = data.align.trial{trial_idx}.spike_info375.trace_ws;
 %[wt, f] = Multi_func.get_power_spec(signal, sam_freq);
 %
 %% Generate figure

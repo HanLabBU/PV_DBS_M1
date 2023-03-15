@@ -11,18 +11,19 @@ f = filesep;
 
 % Maingear office computer
 root_path = '/home/pierfier/Projects/';
+server_root_path = '~/handata_server/';
 
 % Server folder location of the saved and aligned data
 %data_path = [root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'PV_Data' f];
 % Local linux machine
-data_path = [root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'PV_Data' f];
+%data_path = [root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'PV_Data' f];
 % Data share on server
-%data_path = ['~/handata_server' f 'eng_research_handata3' f 'Pierre Fabris' f 'PV Project' f 'PV_Data' f];
+data_path = [server_root_path 'eng_research_handata3' f 'Pierre Fabris' f 'PV Project' f 'PV_Data' f];
 
 % Determine whether to save the ignored traces (1) or not ignored traces (0)
 show_ignored = 0;
 % USER make sure this path changes based on the above line
-save_path = [root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Spikes_check' f];
+save_path = [server_root_path 'eng_research_handata3' f 'Pierre Fabris' f 'PV Project' f 'Spikes_check' f];
 
 % Filepath name for ignoring individual trial csv
 ignore_trial_csv = [root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Recordings' f 'Data_Config' f 'byvis_ignore.csv'];
@@ -161,8 +162,6 @@ for i=1:length(matfile_names)
         % Save figure as a jpeg
         saveas(gcf, [save_path matfile_names{i}(1:end-4) num2str(tr) '.png']);
     end
-    
-
 end
 
 % Perform exponential fit
