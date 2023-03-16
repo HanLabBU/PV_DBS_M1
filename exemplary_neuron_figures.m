@@ -80,8 +80,8 @@ hold on;
 text(posx, posy-1, [num2str(time_scale) 'ms']);
 ylim([posy-5 30]);
 title('Exemplary V1 140 Hz trace');
-saveas(gcf, [savefig_path 'V1_140Hz_Trace.eps'], 'epsc');
-saveas(gcf, [savefig_path 'V1_140Hz_Trace.png']);
+saveas(gcf, [savefig_path 'Exemplary' f 'V1_140Hz_Trace.eps'], 'epsc');
+saveas(gcf, [savefig_path 'Exemplary' f 'V1_140Hz_Trace.png']);
 
 %%From same exemplary trace as above, show the individual spectrum
 %signal = data.align.trial{trial_idx}.spike_info375.trace_ws;
@@ -152,8 +152,8 @@ hold on;
 text(posx, posy-1, [num2str(time_scale) 'ms']);
 ylim([posy-5 30]);
 title('Exemplary M1 140 Hz trace');
-saveas(gcf, [savefig_path 'M1_140Hz_Trace.eps'], 'epsc');
-saveas(gcf, [savefig_path 'M1_140Hz_Trace.png']);
+saveas(gcf, [savefig_path 'Exemplary' f 'M1_140Hz_Trace.eps'], 'epsc');
+saveas(gcf, [savefig_path 'Exemplary' f 'M1_140Hz_Trace.png']);
 
 %%From same exemplary trace as above, show the individual spectrum
 %signal = data.align.trial{trial_idx}.spike_info375.trace_ws;
@@ -226,8 +226,8 @@ hold on;
 text(posx, posy-1, [num2str(time_scale) 'ms']);
 ylim([posy-5 30]);
 title('Exemplary V1 40 Hz trace');
-saveas(gcf, [savefig_path 'V1_40Hz_Trace.eps'], 'epsc');
-saveas(gcf, [savefig_path 'V1_40Hz_Trace.png']);
+saveas(gcf, [savefig_path 'Exemplary' f 'V1_40Hz_Trace.eps'], 'epsc');
+saveas(gcf, [savefig_path 'Exemplary' f 'V1_40Hz_Trace.png']);
 
 
 %%From same exemplary trace as above, show the individual spectrum
@@ -299,8 +299,8 @@ hold on;
 text(posx, posy-1, [num2str(time_scale) 'ms']);
 ylim([posy-5 30]);
 title('Exemplary M1 40 Hz trace');
-saveas(gcf, [savefig_path 'M1_40Hz_Trace.eps'], 'epsc');
-saveas(gcf, [savefig_path 'M1_40Hz_Trace.png']);
+saveas(gcf, [savefig_path 'Exemplary' f 'M1_40Hz_Trace.eps'], 'epsc');
+saveas(gcf, [savefig_path 'Exemplary' f 'M1_40Hz_Trace.png']);
 
 %%From same exemplary trace as above, show the individual spectrum
 %signal = data.align.trial{trial_idx}.spike_info375.trace_ws;

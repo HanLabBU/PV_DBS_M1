@@ -99,5 +99,12 @@ classdef Multi_func
                                FrequencyLimits=freqLimits);
             [wt, f] = cwt(signal, FilterBank=fb);
         end
+
+        % Specify the fill property for all figures
+        % fill_handle -> the fill to set all of these properties to make them uniform
+        function [result] = set_fill_properties(fill_handle)
+            fill_handle.EdgeAlpha = 1;
+            fill_handle.FaceAlpha = 0.2;
+        end
     end
 end
