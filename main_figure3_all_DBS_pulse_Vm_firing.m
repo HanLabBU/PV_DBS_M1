@@ -1,5 +1,8 @@
-clear all
+% Author: Eric Lowet
 
+% Modifications: Pierre Fabris
+
+clear all
 
 allsamp=[];M=[];MS=[];O=[];VS=[]; VS1=[];
 FS=828;
