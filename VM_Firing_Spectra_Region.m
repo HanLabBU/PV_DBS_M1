@@ -438,10 +438,10 @@ for f_region = fieldnames(region_data)'
     figure('Renderer', 'Painters', 'Position', [200 200 1000 1000]);
     tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
     for stim=stims'
-        timeline = nanmean(data_bystim.(f_stim{1}).trace_timestamps, 2)';
+        timeline = nanmean(data_bystim.(f_stim{1}).trace_timestamps, 2);
         cur_srate = mean(data_bystim.(stim{1}).neuron_srate, 2, 'omitnan');
         std_srate = std(data_bystim.(stim{1}).neuron_srate, 0, 2, 'omitnan');
-        %num_neurons = size(data_bystim.(stim{1}).neuron_srate, 2);
+        num_neurons = size(data_bystim.(stim{1}).neuron_srate, 2);
         %num_points = size(data_bystim.(stim{1}).neuron_srate, 1);
         sem_srate = cur_srate./sqrt(num_neurons);
         nexttile;
@@ -456,6 +456,9 @@ for f_region = fieldnames(region_data)'
     saveas(gcf, [figure_path 'Average/' f_region '_Summary_Continuous_FiringRate.png']);
     saveas(gcf, [figure_path 'Average/' f_region '_Summary_Continuous_FiringRate.eps']);
 end
+
+%DEBUG
+return;
 
 %% Subthreshold Vm
 for f_region = fieldnames(region_data)'
