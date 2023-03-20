@@ -1,4 +1,3 @@
-
 clear all;
 close all;
 
@@ -62,7 +61,8 @@ for f_region = fieldnames(region_matfiles)'
             % Initialize field to keep track of neurons and trials
             cond_stats.(field) = struct();
             cond_stats.(field).trial_nums = [];
-            cond_stats.(field).num_fovs = 0;
+            cond_stats.(field).num_fovs = [];
+            cond_stats.(field).fovs_rej = [];
        
             % Loop through each matfile of the current stimulation condition
             for matfile =matfiles
@@ -103,8 +103,11 @@ for f_region = fieldnames(region_matfiles)'
                 
                 % Count the neuron if it has more than 1 trial
                 if length(data.align.trial) - num_ignore > 1
-                    cond_stats.(field).num_fovs(end + 1) = str2num(erase(ri{4}, 'FOV'));
+                    cond_stats.(field).num_fovs(end + 1) = str2num(erase(ri{4}, 'FOV')); %[cond_stats.(field).num_fovs, str2num(erase(ri{4}, 'FOV')) ];
                     %erase(ri{4}, 'FOV')
+                else
+                    cond_stats.(field).fovs_rej(end + 1) = str2num(erase(ri{4}, 'FOV')); %[cond_stats.(field).num_fovs, str2num(erase(ri{4}, 'FOV')) ];
+
                 end
         
             end % End looping through FOVs of a condition
@@ -130,9 +133,11 @@ for f_region = regions'
         for stim=stims'
             stim = stim{1};
             disp(stim);
-            disp(['Average trial per neuron ' num2str(nanmean(cond_stats.(stim).trial_nums)) ]);
-            disp(['Number of neurons ' num2str(numel(cond_stats.(stim).num_fovs)) ]);
-            disp(['FOVs are ' num2str(cond_stats.(stim).num_fovs)]);
+            % disp(['Average trial per neuron: ' num2str(nanmean(cond_stats.(stim).trial_nums)) ]);
+            disp(['Num kept neurons: ' num2str(numel(cond_stats.(stim).num_fovs)) ]);
+            fprintf(['FOVs: ' num2str(cond_stats.(stim).num_fovs) '\n\n']);
+            disp(['Rejected neurons: ' num2str(numel(cond_stats.(stim).fovs_rej)) ]);
+            fprintf(['FOVs: ' num2str(cond_stats.(stim).fovs_rej) '\n\n']);
         end
 
         fprintf('\n\n');
