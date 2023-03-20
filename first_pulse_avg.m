@@ -231,9 +231,8 @@ for f_region = fieldnames(region_data)'
         hold on;
         
         % Plot the DBS stimulation time pulses
-        stim_time = nanmean(data_bystim.(f_stim{1}).stim_timestamps, 2 );
-        xline(stim_time, 'LineWidth', 0.400);
-
+        xline(nanmean(data_bystim.(f_stim{1}).stim_timestamps, 2), 'Color', [179, 186, 102]./255);
+        
         % Increase timescale resolution
         xlim([0 - .100, 0 + .100]);
 
