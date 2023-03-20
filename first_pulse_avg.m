@@ -194,13 +194,20 @@ for f_region = fieldnames(region_data)'
         hold on;
 
         % Plot the DBS stimulation time pulses
-        stim_time = nanmean(data_bystim.(f_stim{1}).stim_timestamps, 2 );
-        xline(stim_time, 'LineWidth', 0.400);
+        xline(nanmean(data_bystim.(f_stim{1}).stim_timestamps, 2), 'Color', [192, 199, 111]./255);
+        hold on;
+
+        % Plot the timescale bar
+        posx = -.100;
+        posy = 0;
+        plot([posx, posx + 0.050], [posy posy], 'k', 'LineWidth', 2);
+        text(posx, posy - 0.2, '50ms');
 
         % Increase timescale resolution
         xlim([0 - .100, 0 + .100]);
-        
-        set(gca, 'color', 'none')
+        axis off;
+        set(gca, 'color', 'none');
+        ylabel('Firing Rate(Hz)');
         title(f_stim{1}(3:end), 'Interpreter', 'none');
     end
     sgtitle([f_region ' Population Spike rate with first pulse'], 'Interpreter', 'none');
@@ -224,18 +231,30 @@ for f_region = fieldnames(region_data)'
         sem_Vm = std_Vm./sqrt(num_neurons);
         %num_points = size(data_bystim.(f_stim{1}).neuron_Vm, 1);
         nexttile;
+
+        % Standard Error
         f = fill([timeline; flip(timeline)], [cur_Vm + sem_Vm; flipud(cur_Vm - sem_Vm)], [0.5 0.5 0.5]);
         Multi_func.set_fill_properties(f);
         hold on;
+        
+        % Plot Vm
         plot(timeline, cur_Vm, 'k', 'LineWidth', 1);
         hold on;
         
         % Plot the DBS stimulation time pulses
-        xline(nanmean(data_bystim.(f_stim{1}).stim_timestamps, 2), 'Color', [179, 186, 102]./255);
-        
+        xline(nanmean(data_bystim.(f_stim{1}).stim_timestamps, 2), 'Color', [192, 199, 111]./255);
+        hold on;
+
+        % Plot the timescale bar
+        posx = -.100;
+        posy = -3;
+        plot([posx, posx + 0.050], [posy posy], 'k', 'LineWidth', 2);
+        text(posx, posy - 0.5, '50ms');
+
         % Increase timescale resolution
         xlim([0 - .100, 0 + .100]);
-
+        axis off;
+        ylabel('Vm');
         set(gca, 'color', 'none')
         title(f_stim{1}(3:end), 'Interpreter', 'none');
     end
