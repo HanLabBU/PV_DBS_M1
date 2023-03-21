@@ -262,7 +262,7 @@ for f_region = fieldnames(region_data)'
 end
 
 
-%% Subthreshold Vm
+%% Subthreshold Vm first few pulses
 for f_region = fieldnames(region_data)'
     f_region = f_region{1};
     data_bystim = region_data.(f_region).data_bystim;
@@ -308,6 +308,55 @@ for f_region = fieldnames(region_data)'
     sgtitle([f_region ' Average subthreshold Vm'], 'Interpreter', 'none');
     saveas(gcf, [figure_path 'Average/' f_region '_First_Pulse_Trig_Vm.png']);
     saveas(gcf, [figure_path 'Average/' f_region '_First_Pulse_Trig_Vm.eps']);
+end
+
+%% Subthreshold Vm first all pulses
+for f_region = fieldnames(region_data)'
+    f_region = f_region{1};
+    data_bystim = region_data.(f_region).data_bystim;
+    stims = fieldnames(data_bystim);
+    
+    figure('Renderer', 'Painters', 'Position', [200 200 1000 1000]);
+    tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
+    for f_stim=stims'
+        timeline = nanmean(data_bystim.(f_stim{1}).trace_timestamps, 2);
+        cur_Vm = mean(data_bystim.(f_stim{1}).neuron_Vm, 2, 'omitnan');
+        std_Vm = std(data_bystim.(f_stim{1}).neuron_Vm, 0, 2, 'omitnan');
+        num_neurons = size(data_bystim.(f_stim{1}).neuron_Vm, 2);
+        sem_Vm = std_Vm./sqrt(num_neurons);
+        %num_points = size(data_bystim.(f_stim{1}).neuron_Vm, 1);
+        nexttile;
+
+        % Standard Error
+        f = fill([timeline; flip(timeline)], [cur_Vm + sem_Vm; flipud(cur_Vm - sem_Vm)], [0.5 0.5 0.5]);
+        Multi_func.set_fill_properties(f);
+        hold on;
+        
+        % Plot Vm
+        plot(timeline, cur_Vm, 'k', 'LineWidth', 1);
+        hold on;
+        
+        % Plot the DBS stimulation time pulses
+        stim_time = nanmean(data_bystim.(f_stim{1}).stim_timestamps, 2);
+        xline(stim_time, 'Color', [170, 176, 97]./255, 'LineWidth', 2);
+        hold on;
+
+        % Plot the timescale bar
+        posx = -.100;
+        posy = -3;
+        plot([posx, posx + 0.050], [posy posy], 'k', 'LineWidth', 2);
+        text(posx, posy - 0.5, '50ms');
+
+        % Increase timescale resolution
+        xlim([0 - .100, max(stim_time) + 0.100]);
+        axis off;
+        ylabel('Vm');
+        set(gca, 'color', 'none')
+        title(f_stim{1}(3:end), 'Interpreter', 'none');
+    end
+    sgtitle([f_region ' Average subthreshold Vm'], 'Interpreter', 'none');
+    saveas(gcf, [figure_path 'Average/' f_region '_All_Pulse_Trig_Vm.png']);
+    saveas(gcf, [figure_path 'Average/' f_region '_All_Pulse_Trig_Vm.eps']);
 end
 
 %% Specific functions for determining which FOVs to look at
