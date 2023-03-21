@@ -211,9 +211,56 @@ for f_region = fieldnames(region_data)'
         title(f_stim{1}(3:end), 'Interpreter', 'none');
     end
     sgtitle([f_region ' Population Spike rate with first pulse'], 'Interpreter', 'none');
-    saveas(gcf, [figure_path 'Average/' f_region '_Summary_Continuous_FiringRate.png']);
-    saveas(gcf, [figure_path 'Average/' f_region '_Summary_Continuous_FiringRate.eps']);
+    saveas(gcf, [figure_path 'Average/' f_region '_First_Pulse_Trig_FR.png']);
+    saveas(gcf, [figure_path 'Average/' f_region '_First_Pulse_Trig_FR.eps']);
 end
+
+%% Spike rate showing all pulses
+for f_region = fieldnames(region_data)'
+    f_region = f_region{1};
+    data_bystim = region_data.(f_region).data_bystim;
+    stims = fieldnames(data_bystim);
+    
+    figure('Renderer', 'Painters', 'Position', [200 200 1000 1000]);
+    tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
+    for f_stim=stims'
+        timeline = nanmean(data_bystim.(f_stim{1}).trace_timestamps, 2);
+        cur_srate = mean(data_bystim.(f_stim{1}).neuron_srate, 2, 'omitnan');
+        std_srate = std(data_bystim.(f_stim{1}).neuron_srate, 0, 2, 'omitnan');
+        num_neurons = size(data_bystim.(f_stim{1}).neuron_srate, 2);
+        %num_points = size(data_bystim.(f_stim{1}).neuron_srate, 1);
+        sem_srate = cur_srate./sqrt(num_neurons);
+        nexttile;
+        f = fill([timeline; flip(timeline)], [cur_srate + sem_srate; flipud(cur_srate - sem_srate)], [0.5 0.5 0.5]);
+        Multi_func.set_fill_properties(f);
+        hold on;
+        plot(timeline, cur_srate, 'k', 'LineWidth', 1);
+        hold on;
+
+        % Plot the DBS stimulation time pulses
+        stim_time = nanmean(data_bystim.(f_stim{1}).stim_timestamps, 2);
+        xline(stim_time, 'Color', [170, 176, 97]./255, 'LineWidth', 2);
+        hold on;
+
+        % Plot the timescale bar
+        posx = -.100;
+        posy = 0;
+        plot([posx, posx + 0.050], [posy posy], 'k', 'LineWidth', 2);
+        text(posx, posy - 0.2, '50ms');
+
+        % Increase timescale resolution
+        xlim([0 - .10, max(stim_time) + .10]);
+        a = gca;
+        a.XAxis.Visible = 'off';
+        set(gca, 'color', 'none');
+        ylabel('Firing Rate(Hz)');
+        title(f_stim{1}(3:end), 'Interpreter', 'none');
+    end
+    sgtitle([f_region ' Population Spike rate with all pulse'], 'Interpreter', 'none');
+    saveas(gcf, [figure_path 'Average/' f_region '_All_Pulse_Trig_FR.png']);
+    saveas(gcf, [figure_path 'Average/' f_region '_All_Pulse_Trig_FR.eps']);
+end
+
 
 %% Subthreshold Vm
 for f_region = fieldnames(region_data)'
@@ -259,8 +306,8 @@ for f_region = fieldnames(region_data)'
         title(f_stim{1}(3:end), 'Interpreter', 'none');
     end
     sgtitle([f_region ' Average subthreshold Vm'], 'Interpreter', 'none');
-    saveas(gcf, [figure_path 'Average/' f_region '_Average_sub_thres.png']);
-    saveas(gcf, [figure_path 'Average/' f_region '_Average_sub_thres.eps']);
+    saveas(gcf, [figure_path 'Average/' f_region '_First_Pulse_Trig_Vm.png']);
+    saveas(gcf, [figure_path 'Average/' f_region '_First_Pulse_Trig_Vm.eps']);
 end
 
 %% Specific functions for determining which FOVs to look at
