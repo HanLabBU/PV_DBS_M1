@@ -194,7 +194,7 @@ for f_region = fieldnames(region_data)'
         hold on;
 
         % Plot the DBS stimulation time pulses
-        xline(nanmean(data_bystim.(f_stim{1}).stim_timestamps, 2), 'Color', [192, 199, 111]./255);
+        xline(nanmean(data_bystim.(f_stim{1}).stim_timestamps, 2), 'Color', [170, 176, 97]./255, 'LineWidth', 2);
         hold on;
 
         % Plot the timescale bar
@@ -242,7 +242,7 @@ for f_region = fieldnames(region_data)'
         hold on;
         
         % Plot the DBS stimulation time pulses
-        xline(nanmean(data_bystim.(f_stim{1}).stim_timestamps, 2), 'Color', [192, 199, 111]./255);
+        xline(nanmean(data_bystim.(f_stim{1}).stim_timestamps, 2), 'Color', [170, 176, 97]./255, 'LineWidth', 2);
         hold on;
 
         % Plot the timescale bar
