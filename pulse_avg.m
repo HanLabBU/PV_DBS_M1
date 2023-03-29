@@ -21,7 +21,7 @@ back_frame_drop = 2496;
 % Data on handata3 folder
 pv_data_path = [server_root_path 'Pierre Fabris' f 'PV Project' f 'PV_Data' f];
 
-figure_path = [server_root_path 'Pierre Fabris' f 'PV Project' f 'Figures' f];
+figure_path = [server_root_path 'Pierre Fabris' f 'PV Project' f 'Plots' f];
 
 % CSV file to determine which trials to ignore
 ignore_trial_dict = Multi_func.csv_to_struct([local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f ...
@@ -214,7 +214,7 @@ for f_region = fieldnames(region_data)'
     end
     sgtitle([f_region ' Population Spike rate with first pulse'], 'Interpreter', 'none');
     saveas(gcf, [figure_path 'Average/' f_region '_First_Pulse_Trig_FR.png']);
-    saveas(gcf, [figure_path 'Average/' f_region '_First_Pulse_Trig_FR.eps']);
+    saveas(gcf, [figure_path 'Average/' f_region '_First_Pulse_Trig_FR.eps'], 'epsc');
 end
 
 %TODO need to finish implementing this
@@ -224,7 +224,7 @@ for f_region = fieldnames(region_data)'
     data_bystim = region_data.(f_region).data_bystim;
     stims = fieldnames(data_bystim);
     
-    figure('Renderer', 'Painters', 'Position', [200 200 1000 1000]);
+    figure('visible', 'off', 'Renderer', 'Painters', 'Position', [200 200 1000 1000]);
     tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
     for f_stim=stims'
         timeline = nanmean(data_bystim.(f_stim{1}).trace_timestamps, 2);
@@ -232,6 +232,9 @@ for f_region = fieldnames(region_data)'
         FR_avg = [];
         % Looping through each neuron
         for nr = 1:size(data_bystim.(f_stim{1}).neuron_srate, 2)
+            
+            % TODO may be a good idea to just have a fixed width for all stimulations, independent of frequency
+
             % Calculate average DBS pulse time widths
             nr_avg_pulse_width = mean(diff(data_bystim.(f_stim{1}).stim_timestamps(:, nr) ), 'omitnan');
 
@@ -278,7 +281,7 @@ for f_region = fieldnames(region_data)'
     end
     sgtitle([f_region ' Firing Rate all pulse average'], 'Interpreter', 'none');
     saveas(gcf, [figure_path 'Average/' f_region '_All_Pulse_Avg_FR.png']);
-    saveas(gcf, [figure_path 'Average/' f_region '_All_Pulse_Avg_FR.eps']);
+    saveas(gcf, [figure_path 'Average/' f_region '_All_Pulse_Avg_FR.eps'], 'epsc');
 end
 
 
@@ -288,7 +291,7 @@ for f_region = fieldnames(region_data)'
     data_bystim = region_data.(f_region).data_bystim;
     stims = fieldnames(data_bystim);
     
-    figure('visible', 'off', 'Renderer', 'Painters', 'Position', [200 200 1000 1000]);
+    figure('Renderer', 'Painters', 'Position', [200 200 1000 1000]);
     tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
     for f_stim=stims'
         timeline = nanmean(data_bystim.(f_stim{1}).trace_timestamps, 2);
@@ -325,7 +328,7 @@ for f_region = fieldnames(region_data)'
     end
     sgtitle([f_region ' Population Spike rate with all pulse'], 'Interpreter', 'none');
     saveas(gcf, [figure_path 'Average/' f_region '_Display_All_Pulse_Trig_FR.png']);
-    saveas(gcf, [figure_path 'Average/' f_region '_Display_All_Pulse_Trig_FR.eps']);
+    saveas(gcf, [figure_path 'Average/' f_region '_Display_All_Pulse_Trig_FR.eps'], 'epsc');
 end
 
 
@@ -374,7 +377,7 @@ for f_region = fieldnames(region_data)'
     end
     sgtitle([f_region ' Average subthreshold Vm'], 'Interpreter', 'none');
     saveas(gcf, [figure_path 'Average/' f_region '_First_Pulse_Trig_Vm.png']);
-    saveas(gcf, [figure_path 'Average/' f_region '_First_Pulse_Trig_Vm.eps']);
+    saveas(gcf, [figure_path 'Average/' f_region '_First_Pulse_Trig_Vm.eps'], 'epsc');
 end
 
 %% Subthreshold Vm first all pulses
@@ -383,7 +386,7 @@ for f_region = fieldnames(region_data)'
     data_bystim = region_data.(f_region).data_bystim;
     stims = fieldnames(data_bystim);
     
-    figure('visible', 'off', 'Renderer', 'Painters', 'Position', [200 200 1000 1000]);
+    figure('Renderer', 'Painters', 'Position', [200 200 1000 1000]);
     tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
     for f_stim=stims'
         timeline = nanmean(data_bystim.(f_stim{1}).trace_timestamps, 2);
@@ -416,14 +419,15 @@ for f_region = fieldnames(region_data)'
 
         % Increase timescale resolution
         xlim([0 - .100, max(stim_time) + 0.100]);
-        axis off;
+        a = gca;
+        a.XAxis.Visible = 'off';
         ylabel('Vm');
         set(gca, 'color', 'none')
         title(f_stim{1}(3:end), 'Interpreter', 'none');
     end
     sgtitle([f_region ' Average subthreshold Vm'], 'Interpreter', 'none');
     saveas(gcf, [figure_path 'Average/' f_region '_Display_All_Pulse_Trig_Vm.png']);
-    saveas(gcf, [figure_path 'Average/' f_region '_Display_All_Pulse_Trig_Vm.eps']);
+    saveas(gcf, [figure_path 'Average/' f_region '_Display_All_Pulse_Trig_Vm.eps'], 'epsc');
 end
 
 %% Specific functions for determining which FOVs to look at
