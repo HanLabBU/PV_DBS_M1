@@ -217,6 +217,74 @@ for f_region = fieldnames(region_data)'
     saveas(gcf, [figure_path 'Average/' f_region '_First_Pulse_Trig_FR.eps'], 'epsc');
 end
 
+%% Sub Vm averaged across all pulses
+for f_region = fieldnames(region_data)'
+    f_region = f_region{1};
+    data_bystim = region_data.(f_region).data_bystim;
+    stims = fieldnames(data_bystim);
+    
+    figure('Renderer', 'Painters', 'Position', [200 200 1000 1000]);
+    tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
+    for f_stim=stims'
+        timeline = nanmean(data_bystim.(f_stim{1}).trace_timestamps, 2);
+        
+        Vm_avg = [];
+        % Looping through each neuron
+        for nr = 1:size(data_bystim.(f_stim{1}).neuron_Vm, 2)
+            
+            % TODO may be a good idea to just have a fixed width for all stimulations, independent of frequency
+
+            % Calculate average DBS pulse time widths
+            nr_avg_pulse_width = mean(diff(data_bystim.(f_stim{1}).stim_timestamps(:, nr) ), 'omitnan');
+
+            % Loop through each stimulation time pulses
+            for pulse_time = data_bystim.(f_stim{1}).stim_timestamps(:, nr)'
+                start_trace_idx = find(pulse_time <= data_bystim.(f_stim{1}).trace_timestamps(:, nr));
+                start_trace_idx = start_trace_idx(1);
+                end_trace_idx = find(pulse_time + nr_avg_pulse_width >= data_bystim.(f_stim{1}).trace_timestamps(:, nr));
+                end_trace_idx = end_trace_idx(end);
+                
+                fr_pulse_width = data_bystim.(f_stim{1}).neuron_Vm(start_trace_idx:end_trace_idx, nr);
+                Vm_avg = horzcat_pad(Vm_avg, fr_pulse_width);
+            end
+        end
+
+        cur_subVm = mean(Vm_avg, 2, 'omitnan');
+        std_subVm = std(Vm_avg, 0, 2, 'omitnan');
+        num_pulses = size(Vm_avg, 2);
+        %num_points = size(data_bystim.(f_stim{1}).neuron_subVm, 1);
+        sem_subVm = cur_subVm./sqrt(num_pulses);
+        nexttile;
+
+        %TODO the timeline and the stimulation pulses are not calculated by the timestamps
+        f = fill([1:size(Vm_avg, 1), size(Vm_avg, 1):-1:1], [cur_subVm + sem_subVm; flipud(cur_subVm - sem_subVm)], [0.5 0.5 0.5]);
+        Multi_func.set_fill_properties(f);
+        hold on;
+        plot(1:size(Vm_avg, 1), cur_subVm, 'k', 'LineWidth', 1);
+        hold on;
+
+        % Plot the DBS stimulation time pulses
+        xline([1, end_trace_idx - start_trace_idx], 'Color', [170, 176, 97]./255, 'LineWidth', 2);
+        hold on;
+
+        % Plot the timescale bar
+        posx = 1;
+        posy = 0;
+        plot([posx, posx + 0.050], [posy posy], 'k', 'LineWidth', 2);
+        text(posx, posy - 0.2, '50ms');
+
+        % Increase timescale resolution
+        %xlim([0 - .100, 0 + .100]);
+        axis off;
+        set(gca, 'color', 'none');
+        ylabel('Vm');
+        title(f_stim{1}(3:end), 'Interpreter', 'none');
+    end
+    sgtitle([f_region ' Sub Vm all pulse average'], 'Interpreter', 'none');
+    saveas(gcf, [figure_path 'Average/' f_region '_All_Pulse_Avg_Vm.png']);
+    saveas(gcf, [figure_path 'Average/' f_region '_All_Pulse_Avg_Vm.eps'], 'epsc');
+end
+
 %TODO need to finish implementing this
 %% Spike rate averaged across all pulses
 for f_region = fieldnames(region_data)'
