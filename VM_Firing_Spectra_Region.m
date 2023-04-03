@@ -25,7 +25,7 @@ figure_path = [server_root_path 'Pierre Fabris' f 'PV Project' f 'Figures' f];
 
 % CSV file to determine which trials to ignore
 ignore_trial_dict = Multi_func.csv_to_struct([local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f ...
-                                       'Recordings' f 'Data_Config' f 'byvis_ignore.csv']);
+                                       'Stim Recordings' f 'Data_Config' f 'byvis_ignore.csv']);
 
 % Smoothing parameter for spike rate
 srate_win = 50;
@@ -107,7 +107,7 @@ for f_region = fieldnames(region_matfiles)'
                     end
                     
                     % If the trial data is empty, that means it was skipped
-                    if isempty(trial_data)
+                    if isempty(trial_data) || sum(isnan(cur_fov_subVm(:))) > 0
                         continue;
                     end
 
