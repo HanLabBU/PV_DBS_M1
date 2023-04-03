@@ -67,6 +67,8 @@ for f_region = fieldnames(region_matfiles)'
         % Initialize field subthreshold array
         data_bystim.(f_stim) = struct();
         data_bystim.(f_stim).neuron_Vm = [];
+        data_bystim.(f_stim).neuron_spec_power = [];
+        data_bystim.(f_stim).neuron_spec_freq = [];
         data_bystim.(f_stim).stim_timestamps = [];
         data_bystim.(f_stim).trace_timestamps = [];
 
@@ -110,15 +112,15 @@ for f_region = fieldnames(region_matfiles)'
                     all_Fs(end+1) = trial_data.camera_framerate;
                     cur_fov_Fs(end + 1) = trial_data.camera_framerate;
                     
-                    trace = trial_data.detrend_traces;
+                    trace = trial_data.detrend_traces(front_frame_drop:back_frame_drop);
                     subVm = medfilt1(trace', 50, 'truncate');
 
                     %DEBUG plot subthreshold with median filter overlaid
-                    figure('visible', 'off');
-                    plot(trace);
-                    hold on;
-                    plot(subVm);
-                    saveas(gcf, [figure_path 'Debug/' f_region '_' matfile{1} '_' num2str(tr_idx) '.png'])
+                    %figure('visible', 'off', 'Position', [0 0 1700 800]);
+                    %plot(trace);
+                    %hold on;
+                    %plot(subVm);
+                    %saveas(gcf, [figure_path 'Debug/' f_region '_' matfile{1} '_' num2str(tr_idx) '.png'])
                     
                     cur_fov_subVm = horzcat_pad(cur_fov_subVm, subVm');
                     
@@ -149,6 +151,14 @@ for f_region = fieldnames(region_matfiles)'
             data_bystim.(f_stim).stim_timestamps = horzcat_pad(temp, nanmean(cur_fov_stim_time, 2));
             temp = data_bystim.(f_stim).trace_timestamps;
             data_bystim.(f_stim).trace_timestamps = horzcat_pad(temp, nanmean(cur_fov_trace_time, 2));
+
+            % Calculate and save frequency data
+            [wt, f] = get_power_spec(nanmean(cur_fov_subVm, 2)', nanmean(cur_fov_Fs));
+            temp = data_bystim.(f_stim).neuron_spec_power;
+            data_bystim.(f_stim).neuron_spec_power = cat(3, temp, wt);
+            temp = data_bystim.(f_stim).neuron_spec_freq;   
+            data_bystim.(f_stim).neuron_spec_freq = cat(3, temp, f);
+
         end % End looping through FOVs of a condition
     end
 
@@ -185,6 +195,51 @@ for f_region = fieldnames(region_data)'
     sgtitle([f_region ' Average subthreshold Vm with median filter'], 'Interpreter', 'none');
     %saveas(gcf, [figure_path 'Average/' f_region '_Average_sub_thres.png']);
     %saveas(gcf, [figure_path 'Average/' f_region '_Average_sub_thres.eps']);
+end
+
+
+% Subthreshold spectra with (x - A)/(A + B) normalization for each neuron and 
+% Averaged afterwards
+for f_region = fieldnames(region_data)'
+    f_region = f_region{1};
+    data_bystim = region_data.(f_region).data_bystim;
+    stims = fieldnames(data_bystim);
+    figure('Renderer', 'Painters', 'Position', [200 200 1000 1000]);
+    tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
+    % Loop through each stimulation parameter
+    for f_stim=stims'
+        nexttile;
+       
+        % Normalize ratio
+        % First calculate by doing the ratios for each neuron first and then averaging
+        cur_spec_pow = data_bystim.(f_stim{1}).neuron_spec_power;
+    
+
+        surface(nanmean(data_bystim.(f_stim{1}).trace_timestamps, 2)', ... 
+                nanmean(data_bystim.(f_stim{1}).neuron_spec_freq, 3), ...
+                nanmean(abs(cur_spec_pow), 3), 'CDataMapping', 'scaled', 'FaceColor', 'texturemap', 'edgecolor', 'none');
+        a = colorbar;
+        a.Label.String = 'Power (A.U.)';
+    
+        set(gca, 'color', 'none');
+        %avg_power = nanmean(data_bystim.(f_stim{1}).neuron_spec_power, 3);
+        xlabel('Time from Stim onset(sec)');
+        ylabel('Freq (Hz)');
+        title(f_stim{1}(3:end), 'Interpreter', 'none');
+    end
+    sgtitle([ f_region 'Medfil Raw SubVm spectra'], 'Interpreter', 'none');
+    saveas(gcf, [figure_path 'Spectra/' f_region '_Medfilt_Raw_Spectra.png']);
+    saveas(gcf, [figure_path 'Spectra/' f_region '_Medfilt_Raw_Spectra.eps'], 'epsc');
+end
+
+
+% Calculate cwt for input signal and 
+function [wt, f] = get_power_spec(signal, samp_freq)
+    freqLimits = [0 150];
+    fb = cwtfilterbank(SignalLength=length(signal),...
+                       SamplingFrequency=samp_freq,...
+                       FrequencyLimits=freqLimits);
+    [wt, f] = cwt(signal, FilterBank=fb);
 end
 
 %% Specific functions for determining which FOVs to look at
