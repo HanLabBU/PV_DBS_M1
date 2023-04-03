@@ -104,7 +104,7 @@ region_data = struct();
                     % Grab the subthreshold Vm
                     % Chop the respective frames
                     cur_trace = trial_data.detrend_traces(front_frame_drop:back_frame_drop, roi_idx);
-                    cur_stim_time = raw_trial_data.raw_stimulation_time;
+                    cur_stim_time = raw_trial_data.raw_stimulation_time(1:str2num(ri{5}));
                     cur_trace_time = trial_data.camera_frame_time(front_frame_drop:back_frame_drop);
                     
                     % Get the trace idx when there are stimulation pulses
@@ -112,9 +112,7 @@ region_data = struct();
                     for pulse=cur_stim_time'
                         stim_center = find(min(abs(pulse - cur_trace_time)) == abs(pulse - cur_trace_time));
                         cur_fov_stim_avg = horzcat_pad(cur_fov_stim_avg, cur_trace(stim_center - trace_sur: stim_center + trace_sur));
-                         
                     end
-
                 end % End looping through each neuron
             end
             
