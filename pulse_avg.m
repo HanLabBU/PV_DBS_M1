@@ -28,6 +28,7 @@ ignore_trial_dict = Multi_func.csv_to_struct([local_root_path 'Pierre Fabris' f 
                                        'Stim Recordings' f 'Data_Config' f 'byvis_ignore.csv']);
 
 % Smoothing parameter for spike rate
+% TODO could use a smaller window size
 srate_win = 50;
 
 %%% END Modification
@@ -179,10 +180,10 @@ for f_region = fieldnames(region_data)'
     data_bystim = region_data.(f_region).data_bystim;
     stims = fieldnames(data_bystim);
     
-    figure('visible', 'off', 'Renderer', 'Painters', 'Position', [200 200 1000 1000]);
+    figure('Renderer', 'Painters', 'Position', [200 200 1000 1000]);
     tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
     for f_stim=stims'
-        timeline = nanmean(data_bystim.(f_stim{1}).trace_timestamps, 2);
+        timeline = nanmean(data_bystim.(f_stim{1}).trace_timestamps, 2)*1000;
         cur_srate = mean(data_bystim.(f_stim{1}).neuron_srate, 2, 'omitnan');
         std_srate = std(data_bystim.(f_stim{1}).neuron_srate, 0, 2, 'omitnan');
         num_neurons = size(data_bystim.(f_stim{1}).neuron_srate, 2);
@@ -196,20 +197,14 @@ for f_region = fieldnames(region_data)'
         hold on;
 
         % Plot the DBS stimulation time pulses
-        xline(nanmean(data_bystim.(f_stim{1}).stim_timestamps, 2), 'Color', [170, 176, 97]./255, 'LineWidth', 2);
+        xline(nanmean(data_bystim.(f_stim{1}).stim_timestamps, 2)*1000, 'Color', [170, 176, 97]./255, 'LineWidth', 2);
         hold on;
 
-        % Plot the timescale bar
-        posx = -.100;
-        posy = 0;
-        plot([posx, posx + 0.050], [posy posy], 'k', 'LineWidth', 2);
-        text(posx, posy - 0.2, '50ms');
-
         % Increase timescale resolution
-        xlim([0 - .100, 0 + .100]);
-        axis off;
+        xlim([0 - 50, 0 + 50]);
         set(gca, 'color', 'none');
         ylabel('Firing Rate(Hz)');
+        xlabel('Time from onset(ms)');
         title(f_stim{1}(3:end), 'Interpreter', 'none');
     end
     sgtitle([f_region ' Population Spike rate with first pulse'], 'Interpreter', 'none');
@@ -223,7 +218,7 @@ for f_region = fieldnames(region_data)'
     data_bystim = region_data.(f_region).data_bystim;
     stims = fieldnames(data_bystim);
     
-    figure('Renderer', 'Painters', 'Position', [200 200 1000 1000]);
+    figure('visible', 'off', 'Renderer', 'Painters', 'Position', [200 200 1000 1000]);
     tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
     for f_stim=stims'
         timeline = nanmean(data_bystim.(f_stim{1}).trace_timestamps, 2);
@@ -359,7 +354,7 @@ for f_region = fieldnames(region_data)'
     data_bystim = region_data.(f_region).data_bystim;
     stims = fieldnames(data_bystim);
     
-    figure('Renderer', 'Painters', 'Position', [200 200 1000 1000]);
+    figure('visible', 'off', 'Renderer', 'Painters', 'Position', [200 200 1000 1000]);
     tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
     for f_stim=stims'
         timeline = nanmean(data_bystim.(f_stim{1}).trace_timestamps, 2);
@@ -406,10 +401,10 @@ for f_region = fieldnames(region_data)'
     data_bystim = region_data.(f_region).data_bystim;
     stims = fieldnames(data_bystim);
     
-    figure('visible', 'off','Renderer', 'Painters', 'Position', [200 200 1000 1000]);
+    figure('Renderer', 'Painters', 'Position', [200 200 1000 1000]);
     tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
     for f_stim=stims'
-        timeline = nanmean(data_bystim.(f_stim{1}).trace_timestamps, 2);
+        timeline = nanmean(data_bystim.(f_stim{1}).trace_timestamps, 2)*1000; % Convert to ms
         cur_Vm = mean(data_bystim.(f_stim{1}).neuron_Vm, 2, 'omitnan');
         std_Vm = std(data_bystim.(f_stim{1}).neuron_Vm, 0, 2, 'omitnan');
         num_neurons = size(data_bystim.(f_stim{1}).neuron_Vm, 2);
@@ -427,19 +422,13 @@ for f_region = fieldnames(region_data)'
         hold on;
         
         % Plot the DBS stimulation time pulses
-        xline(nanmean(data_bystim.(f_stim{1}).stim_timestamps, 2), 'Color', [170, 176, 97]./255, 'LineWidth', 2);
+        xline(nanmean(data_bystim.(f_stim{1}).stim_timestamps, 2)*1000, 'Color', [170, 176, 97]./255, 'LineWidth', 2);
         hold on;
 
-        % Plot the timescale bar
-        posx = -.100;
-        posy = -3;
-        plot([posx, posx + 0.050], [posy posy], 'k', 'LineWidth', 2);
-        text(posx, posy - 0.5, '50ms');
-
         % Increase timescale resolution
-        xlim([0 - .100, 0 + .100]);
-        axis off;
+        xlim([0 - 50, 0 + 50]);
         ylabel('Vm');
+        xlabel('Time from onset(ms)');
         set(gca, 'color', 'none')
         title(f_stim{1}(3:end), 'Interpreter', 'none');
     end
