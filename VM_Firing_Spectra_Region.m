@@ -21,7 +21,7 @@ back_frame_drop = 2496;
 % Data on handata3 folder
 pv_data_path = [server_root_path 'Pierre Fabris' f 'PV Project' f 'PV_Data' f];
 
-figure_path = [server_root_path 'Pierre Fabris' f 'PV Project' f 'Figures' f];
+figure_path = [server_root_path 'Pierre Fabris' f 'PV Project' f 'Plots' f];
 
 % CSV file to determine which trials to ignore
 ignore_trial_dict = Multi_func.csv_to_struct([local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f ...
@@ -29,6 +29,9 @@ ignore_trial_dict = Multi_func.csv_to_struct([local_root_path 'Pierre Fabris' f 
 
 % Smoothing parameter for spike rate
 srate_win = 50;
+
+% Parameter to determine whether to combine all regions as one data
+all_regions = 1;
 
 %%% END Modification
 
@@ -174,6 +177,11 @@ for f_region = fieldnames(region_matfiles)'
 
     % Save the VM to the specific region
     region_data.(f_region).data_bystim = data_bystim;
+end
+
+% Check if combining all of the regions or not
+if all_regions == 1
+    region_data = combine_regions(region_data);
 end
 
 %% Region separated analysis
@@ -402,6 +410,7 @@ for f_region = fieldnames(region_data)'
     saveas(gcf, [figure_path 'Spectra/' f_region '_Raw_Spectra.eps'], 'epsc');
 end
 
+%TODO figure out why this is the same as the frequency zscore?
 %% Vm Spectra zscored across time
 for f_region = fieldnames(region_data)'
     f_region = f_region{1};
@@ -559,4 +568,40 @@ function [cond_struct] = stim_cond(matfile_names)
     end
 end
 
+% Combine all regions into a single 'region' structure called 'f_combined'
+function [combine_struct] = combine_regions(region_data)
+    % Initialize combined region
+    combine_struct.r_combine = struct();
+    combine_struct.r_combine.data_bystim = struct();
 
+    % Grab all of the fields from the strutures
+    f_regions = fieldnames(region_data)';
+    f_stims = fieldnames(region_data.(f_regions{1}).data_bystim)';
+    f_data = fieldnames(region_data.(f_regions{1}).data_bystim.(f_stims{1}))';
+    
+    % Initialize data strutures in the combined field
+    data_bystim = struct();
+    for f_stim = f_stims
+        f_stim = f_stim{1};
+        data_bystim.(f_stim) = cell2struct(cell(size(f_data)), f_data, 2);
+    end
+
+
+    % Loop through each region
+    for f_region = f_regions
+        f_region = f_region{1};
+        % Loop through each stimulation condition
+        for f_stim = f_stims
+            f_stim = f_stim{1};
+            % Loop through each data field
+            for f_datum = f_data
+                f_datum = f_datum{1};
+
+                dim = length( size( region_data.(f_region).data_bystim.(f_stim).(f_datum) ) );
+                data_bystim.(f_stim).(f_datum) = cat(dim, data_bystim.(f_stim).(f_datum), region_data.(f_region).data_bystim.(f_stim).(f_datum));       
+            end
+        end
+    end
+
+    combine_struct.r_combine.data_bystim = data_bystim;
+end
