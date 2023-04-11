@@ -18,7 +18,7 @@ back_frame_drop = 2496;
 % Data on local linux machine
 %pv_data_path = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'PV_Data' f];
 % Server data path
-pv_data_path = [server_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'PV_Data' f];
+pv_data_path = [server_root_path 'Pierre Fabris' f 'PV Project' f 'PV_Data' f];
 
 %-- Figures path
 % Server root 
@@ -27,7 +27,7 @@ figure_path = [server_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Figures'
 
 % CSV file to determine which trials to ignore
 ignore_trial_dict = Multi_func.csv_to_struct([local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f ...
-                                       'Recordings' f 'Data_Config' f 'byvis_ignore.csv']);
+                                       'Stim Recordings' f 'Data_Config' f 'byvis_ignore.csv']);
 
 % Smoothing parameter for spike rate
 srate_win = 50;
@@ -123,7 +123,7 @@ region_data = struct();
 
                     % Grab the subthreshold Vm
                     % Chop the respective frames
-                    cur_trace_ws = trial_data.spike_info.trace_ws(roi_idx, front_frame_drop:back_frame_drop);
+                    cur_trace_ws = trial_data.spike_info375.trace_ws(roi_idx, front_frame_drop:back_frame_drop);
                     cur_stim_time = raw_trial_data.raw_stimulation_time;
                     cur_trace_time = trial_data.camera_frame_time(front_frame_drop:back_frame_drop);
                     
@@ -137,7 +137,7 @@ region_data = struct();
                     cur_fov_offset_Vm(end + 1) = nanmean(cur_trace_ws(offset_idx));   
 
                     % Calculate the spike rate during baseline and stimulation period
-                    cur_raster = trial_data.spike_info.roaster(roi_idx, front_frame_drop:back_frame_drop);
+                    cur_raster = trial_data.spike_info375.roaster(roi_idx, front_frame_drop:back_frame_drop);
                                        
                     cur_fov_base_srate(end + 1) = sum(cur_raster(baseline_idx))./range(cur_trace_time(baseline_idx));
                     cur_fov_stim_srate(end + 1) = sum(cur_raster(stim_idx))./range(cur_trace_time(stim_idx));
@@ -188,9 +188,9 @@ tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
 % Loop through each stimulation parameter
 for f_stim=stims'
     nexttile;
-    violin([data_bystim.(f_stim{1}).neuron_base_Vm', data_bystim.(f_stim{1}).neuron_stim_Vm', data_bystim.(f_stim{1}).neuron_offset_Vm'], 'xlabel', {'Base', 'Stim','Offset'});
-    hold on;
-    plot([1, 2, 3], [data_bystim.(f_stim{1}).neuron_base_Vm; data_bystim.(f_stim{1}).neuron_stim_Vm; data_bystim.(f_stim{1}).neuron_offset_Vm], '-o', 'Color', [0 0 0 0.2]);
+    violinplot2([data_bystim.(f_stim{1}).neuron_base_Vm', data_bystim.(f_stim{1}).neuron_stim_Vm', data_bystim.(f_stim{1}).neuron_offset_Vm'], 'xlabel', {'Base', 'Stim','Offset'});
+    %hold on;
+    %plot([1, 2, 3], [data_bystim.(f_stim{1}).neuron_base_Vm; data_bystim.(f_stim{1}).neuron_stim_Vm; data_bystim.(f_stim{1}).neuron_offset_Vm], '-o', 'Color', [0 0 0 0.2]);
   
     ylabel('Vm (A.U.)');
     legend('off');
