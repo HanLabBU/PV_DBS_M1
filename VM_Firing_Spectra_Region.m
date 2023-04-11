@@ -28,7 +28,7 @@ ignore_trial_dict = Multi_func.csv_to_struct([local_root_path 'Pierre Fabris' f 
                                        'Stim Recordings' f 'Data_Config' f 'byvis_ignore.csv']);
 
 % Smoothing parameter for spike rate
-srate_win = 50;
+srate_win = 100;
 
 % Parameter to determine whether to combine all regions as one data
 all_regions = 1;
@@ -181,7 +181,7 @@ end
 
 % Check if combining all of the regions or not
 if all_regions == 1
-    region_data = combine_regions(region_data);
+    region_data = Multi_func.combine_regions(region_data);
 end
 
 %% Region separated analysis
@@ -503,7 +503,9 @@ for f_region = fieldnames(region_data)'
         Multi_func.set_fill_properties(f);
         hold on;
         plot(timeline, cur_srate, 'k', 'LineWidth', 1);
-        set(gca, 'color', 'none')
+        set(gca, 'color', 'none');
+        xlabel('Time from stim onset (S)');
+        ylabel('Firing Rate (Hz)');
         title(f_stim{1}(3:end), 'Interpreter', 'none');
     end
     sgtitle([f_region ' Average Spike rate'], 'Interpreter', 'none');
@@ -532,6 +534,8 @@ for f_region = fieldnames(region_data)'
         hold on;
         plot(timeline, cur_Vm, 'k', 'LineWidth', 1);
         title(f_stim{1}(3:end), 'Interpreter', 'none');
+        xlabel('Time from stim onset (S)');
+        ylabel('Raw Vm (A.U.)');
         set(gca, 'color', 'none')
     end
     sgtitle([f_region ' Average subthreshold Vm'], 'Interpreter', 'none');
@@ -568,40 +572,3 @@ function [cond_struct] = stim_cond(matfile_names)
     end
 end
 
-% Combine all regions into a single 'region' structure called 'f_combined'
-function [combine_struct] = combine_regions(region_data)
-    % Initialize combined region
-    combine_struct.r_combine = struct();
-    combine_struct.r_combine.data_bystim = struct();
-
-    % Grab all of the fields from the strutures
-    f_regions = fieldnames(region_data)';
-    f_stims = fieldnames(region_data.(f_regions{1}).data_bystim)';
-    f_data = fieldnames(region_data.(f_regions{1}).data_bystim.(f_stims{1}))';
-    
-    % Initialize data strutures in the combined field
-    data_bystim = struct();
-    for f_stim = f_stims
-        f_stim = f_stim{1};
-        data_bystim.(f_stim) = cell2struct(cell(size(f_data)), f_data, 2);
-    end
-
-
-    % Loop through each region
-    for f_region = f_regions
-        f_region = f_region{1};
-        % Loop through each stimulation condition
-        for f_stim = f_stims
-            f_stim = f_stim{1};
-            % Loop through each data field
-            for f_datum = f_data
-                f_datum = f_datum{1};
-
-                dim = length( size( region_data.(f_region).data_bystim.(f_stim).(f_datum) ) );
-                data_bystim.(f_stim).(f_datum) = cat(dim, data_bystim.(f_stim).(f_datum), region_data.(f_region).data_bystim.(f_stim).(f_datum));       
-            end
-        end
-    end
-
-    combine_struct.r_combine.data_bystim = data_bystim;
-end
