@@ -18,7 +18,7 @@ pv_data_path = [server_root_path 'eng_research_handata3' f 'Pierre Fabris' f 'PV
 
 % Path to save the figures
 %savefig_path = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Figures' f 'Exemplary' f];
-savefig_path = [server_root_path 'eng_research_handata3' f 'Pierre Fabris' f 'PV Project' f 'Figures' f];
+savefig_path = [server_root_path 'eng_research_handata3' f 'Pierre Fabris' f 'PV Project' f 'Plots' f];
 
 %% Get exemplary trace at 140 for V1
 example_matfile = [pv_data_path '611284_V1_rec20210827_FOV1_140_60_.mat'];
