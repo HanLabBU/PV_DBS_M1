@@ -22,7 +22,7 @@ pv_data_path = [server_root_path 'Pierre Fabris' f 'PV Project' f 'PV_Data' f];
 
 %-- Figures path
 % Server root 
-figure_path = [server_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Figures' f];
+figure_path = [server_root_path 'Pierre Fabris' f 'PV Project' f 'Plots' f];
 
 
 % CSV file to determine which trials to ignore
@@ -30,7 +30,7 @@ ignore_trial_dict = Multi_func.csv_to_struct([local_root_path 'Pierre Fabris' f 
                                        'Stim Recordings' f 'Data_Config' f 'byvis_ignore.csv']);
 
 % Smoothing parameter for spike rate
-srate_win = 50;
+srate_win = 100;
 
 %%% END Modification
 
@@ -124,6 +124,11 @@ region_data = struct();
                     % Grab the subthreshold Vm
                     % Chop the respective frames
                     cur_trace_ws = trial_data.spike_info375.trace_ws(roi_idx, front_frame_drop:back_frame_drop);
+                    
+                    % Detrend the current trace
+                    [baseline, coeff] = Multi_func.exp_fit_Fx(cur_trace_ws', round(trial_data.camera_framerate));
+                    cur_trace_ws = cur_trace_ws - baseline;
+
                     cur_stim_time = raw_trial_data.raw_stimulation_time;
                     cur_trace_time = trial_data.camera_frame_time(front_frame_drop:back_frame_drop);
                     
@@ -188,7 +193,15 @@ tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
 % Loop through each stimulation parameter
 for f_stim=stims'
     nexttile;
-    violinplot2([data_bystim.(f_stim{1}).neuron_base_Vm', data_bystim.(f_stim{1}).neuron_stim_Vm', data_bystim.(f_stim{1}).neuron_offset_Vm'], 'xlabel', {'Base', 'Stim','Offset'});
+    num_neurons = length(data_bystim.(f_stim{1}).neuron_base_Vm');
+    labels = [repmat({'Base'}, num_neurons, 1); repmat({'Stim'}, num_neurons, 1); repmat({'Offset'}, num_neurons, 1);];
+    data = [data_bystim.(f_stim{1}).neuron_base_Vm', data_bystim.(f_stim{1}).neuron_stim_Vm', data_bystim.(f_stim{1}).neuron_offset_Vm'];
+    violins = violinplot2(data, labels, 'GroupOrder', {'Base', 'Stim', 'Offset'});
+    
+    % Plot lines between the violinplots
+    hold on;
+    plot([1, 2, 3], data, '-', 'Color', [0 0 0 0.2]);
+
     %hold on;
     %plot([1, 2, 3], [data_bystim.(f_stim{1}).neuron_base_Vm; data_bystim.(f_stim{1}).neuron_stim_Vm; data_bystim.(f_stim{1}).neuron_offset_Vm], '-o', 'Color', [0 0 0 0.2]);
   
@@ -197,13 +210,16 @@ for f_stim=stims'
     
     % Statisitics for subthreshold
     disp('Subthreshold Vm statistics');
-    f_stim{1}
+    disp(f_stim{1});
+    disp('Base to stim');
     [h,p,ci,stats] = ttest(data_bystim.(f_stim{1}).neuron_base_Vm', data_bystim.(f_stim{1}).neuron_stim_Vm')
     title([f_stim{1}(3:end) ' p-val: ' num2str(p)], 'Interpreter', 'none');
+    disp('Stim to Offset');
+    [h,p,ci,stats] = ttest(data_bystim.(f_stim{1}).neuron_stim_Vm', data_bystim.(f_stim{1}).neuron_offset_Vm')
 end
 sgtitle('Average baseline, stim, and offset Vm');
-saveas(gcf, [figure_path 'Average/Base_vs_Stim_VM.png']);
-saveas(gcf, [figure_path 'Average/Base_vs_Stim_VM.eps']);
+saveas(gcf, [figure_path 'Average/Violin_VM.png']);
+saveas(gcf, [figure_path 'Average/Violin_VM.eps'], 'epsc');
 
 
 figure('Renderer', 'Painters', 'Position', [200 200 500 1000]);
@@ -211,22 +227,29 @@ tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
 % Loop through each stimulation parameter
 for f_stim=stims'
     nexttile;
-    violin([data_bystim.(f_stim{1}).neuron_base_srate', data_bystim.(f_stim{1}).neuron_stim_srate', data_bystim.(f_stim{1}).neuron_offset_srate'], 'xlabel', {'Base', 'Stim', 'Offset'});
+    num_neurons = length(data_bystim.(f_stim{1}).neuron_base_srate');
+    labels = [repmat({'Base'}, num_neurons, 1); repmat({'Stim'}, num_neurons, 1); repmat({'Offset'}, num_neurons, 1);];
+    data = [data_bystim.(f_stim{1}).neuron_base_srate', data_bystim.(f_stim{1}).neuron_stim_srate', data_bystim.(f_stim{1}).neuron_offset_srate'];
+    violins = violinplot2(data, labels, 'GroupOrder', {'Base', 'Stim', 'Offset'});
+    %violin([data_bystim.(f_stim{1}).neuron_base_srate', data_bystim.(f_stim{1}).neuron_stim_srate', data_bystim.(f_stim{1}).neuron_offset_srate'], 'xlabel', {'Base', 'Stim', 'Offset'});
     hold on;
-    plot([1, 2, 3], [data_bystim.(f_stim{1}).neuron_base_srate; data_bystim.(f_stim{1}).neuron_stim_srate; data_bystim.(f_stim{1}).neuron_offset_srate], '-o', 'Color', [0 0 0 0.2]);
+    plot([1, 2, 3], data, '-', 'Color', [0 0 0 0.2]);
     
     ylabel('Firing Rate (Hz)');
     legend('off');
 
     % Statisitics for firing rate
     disp('Firing rate statistics');
-    f_stim{1}
+    disp(f_stim{1});
+    disp('Base to Stim');
     [h,p,ci,stats] = ttest(data_bystim.(f_stim{1}).neuron_base_srate', data_bystim.(f_stim{1}).neuron_stim_srate')
     title([f_stim{1}(3:end) ' p-val: ' num2str(p)], 'Interpreter', 'none');
+    disp('Stim to Offset');
+    [h,p,ci,stats] = ttest(data_bystim.(f_stim{1}).neuron_stim_srate', data_bystim.(f_stim{1}).neuron_offset_srate')
 end
 sgtitle('Baseline, stim, and offset firing rate');
-saveas(gcf, [figure_path 'Average/Base_vs_Stim_FR.png']);
-saveas(gcf, [figure_path 'Average/Base_vs_Stim_FR.eps']);
+saveas(gcf, [figure_path 'Average/Violin_FiringRate.png']);
+saveas(gcf, [figure_path 'Average/Violin_FiringRate.eps'], 'epsc');
 
 %% Specific functions for determining which FOVs to look at
 % Return matfiles by stimulation condition
