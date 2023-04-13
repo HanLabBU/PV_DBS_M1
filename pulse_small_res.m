@@ -180,7 +180,7 @@ for f_region = fieldnames(region_data)'
     data_bystim = region_data.(f_region).data_bystim;
     stims = fieldnames(data_bystim);
     
-    figure('Renderer', 'Painters', 'Position', [200 200 1000 1000]);
+    figure('visible', 'off', 'Renderer', 'Painters', 'Position', [200 200 1000 1000]);
     tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
     for f_stim=stims'
         timeline = nanmean(data_bystim.(f_stim{1}).trace_timestamps, 2)*1000;
@@ -218,7 +218,7 @@ for f_region = fieldnames(region_data)'
     data_bystim = region_data.(f_region).data_bystim;
     stims = fieldnames(data_bystim);
     
-    figure('visible', 'off', 'Renderer', 'Painters', 'Position', [200 200 1000 1000]);
+    figure('Renderer', 'Painters', 'Position', [200 200 1000 1000]);
     tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
     for f_stim=stims'
         timeline = nanmean(data_bystim.(f_stim{1}).trace_timestamps, 2);
@@ -265,15 +265,21 @@ for f_region = fieldnames(region_data)'
         % Plot the timescale bar
         posx = 1;
         posy = 0;
-        plot([posx, posx + 0.050], [posy posy], 'k', 'LineWidth', 2);
-        text(posx, posy - 0.2, '50ms');
+        plot([posx, posx + 4], [posy posy], 'k', 'LineWidth', 2);
+        text(posx, posy - 0.2, [num2str(4*1.2) 'ms']);
 
         % Increase timescale resolution
         %xlim([0 - .100, 0 + .100]);
-        axis off;
         set(gca, 'color', 'none');
         ylabel('Vm');
+        
+        % Remove x-axis and right y-axis
+        set(gca,'xtick',[]);
+        yyaxis right;
+        yticks([]);
+
         title(f_stim{1}(3:end), 'Interpreter', 'none');
+    
     end
     sgtitle([f_region ' Sub Vm all pulse average'], 'Interpreter', 'none');
     saveas(gcf, [figure_path 'Average/' f_region '_All_Pulse_Avg_Vm.png']);
@@ -287,7 +293,7 @@ for f_region = fieldnames(region_data)'
     data_bystim = region_data.(f_region).data_bystim;
     stims = fieldnames(data_bystim);
     
-    figure('visible', 'off', 'Renderer', 'Painters', 'Position', [200 200 1000 1000]);
+    figure('Renderer', 'Painters', 'Position', [200 200 1000 1000]);
     tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
     for f_stim=stims'
         timeline = nanmean(data_bystim.(f_stim{1}).trace_timestamps, 2);
@@ -332,14 +338,17 @@ for f_region = fieldnames(region_data)'
         % Plot the timescale bar
         posx = 1;
         posy = 0;
-        plot([posx, posx + 0.050], [posy posy], 'k', 'LineWidth', 2);
-        text(posx, posy - 0.2, '50ms');
+        plot([posx, posx + 4], [posy posy], 'k', 'LineWidth', 2);
+        text(posx, posy - 0.1, [num2str(4) 'ms']);
 
         % Increase timescale resolution
         %xlim([0 - .100, 0 + .100]);
-        axis off;
+        set(gca,'xtick',[]);
         set(gca, 'color', 'none');
         ylabel('Firing Rate(Hz)');
+        yyaxis right;
+        yticks([]);
+
         title(f_stim{1}(3:end), 'Interpreter', 'none');
     end
     sgtitle([f_region ' Firing Rate all pulse average'], 'Interpreter', 'none');
@@ -401,7 +410,7 @@ for f_region = fieldnames(region_data)'
     data_bystim = region_data.(f_region).data_bystim;
     stims = fieldnames(data_bystim);
     
-    figure('Renderer', 'Painters', 'Position', [200 200 1000 1000]);
+    figure('visible', 'off', 'Renderer', 'Painters', 'Position', [200 200 1000 1000]);
     tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
     for f_stim=stims'
         timeline = nanmean(data_bystim.(f_stim{1}).trace_timestamps, 2)*1000; % Convert to ms
@@ -443,7 +452,7 @@ for f_region = fieldnames(region_data)'
     data_bystim = region_data.(f_region).data_bystim;
     stims = fieldnames(data_bystim);
     
-    figure('Renderer', 'Painters', 'Position', [200 200 1000 1000]);
+    figure('visible', 'off', 'Renderer', 'Painters', 'Position', [200 200 1000 1000]);
     tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
     for f_stim=stims'
         timeline = nanmean(data_bystim.(f_stim{1}).trace_timestamps, 2);
