@@ -5,7 +5,7 @@ f = filesep;
 %%% USER Modification
 % Linux server
 local_root_path = '~/Projects/';
-server_root_path = '~/';
+server_root_path = '~/handata_server/eng_research_handata3/';
 % Windows server
 %local_root_path = 'Z:\';
 
@@ -16,9 +16,9 @@ back_frame_drop = 2496;
 % List path where all of the matfiles are stored
 %pv_data_path = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'PV_Data' f];
 % Data on local linux machine
-pv_data_path = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'PV_Data' f];
+pv_data_path = [server_root_path 'Pierre Fabris' f 'PV Project' f 'PV_Data' f];
 
-figure_path = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Plots' f];
+figure_path = [server_root_path 'Pierre Fabris' f 'PV Project' f 'Plots' f];
 
 % CSV file to determine which trials to ignore
 ignore_trial_dict = Multi_func.csv_to_struct([local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f ...
@@ -62,8 +62,11 @@ region_data = struct();
     
         % Initialize field subthreshold array
         data_bystim.(f_stim) = struct();
-        data_bystim.(f_stim).neuron_base_inter = [];
-        data_bystim.(f_stim).neuron_stim_inter = [];
+        data_bystim.(f_stim).all_first_pulse_spike_times = [];
+        data_bystim.(f_stim).all_all_pulse_spike_times = [];
+        data_bystim.(f_stim).neuron_avg_first_pulse_spike_times = [];
+        data_bystim.(f_stim).neuron_avg_all_pulse_spike_times = [];
+
 
         % Loop through each matfile of the current stimulation condition
         for matfile = matfiles
@@ -72,8 +75,8 @@ region_data = struct();
             trial_idxs = find(~cellfun(@isempty, data.align.trial));
             trial_data = data.align.trial{trial_idxs(1)};    
             cur_fov_Fs = [];
-            cur_fov_base_inter = [];
-            cur_fov_stim_inter = [];
+            cur_fov_first_pulse_spike_times = [];
+            cur_fov_all_pulse_spike_times = [];
 
             % Loop through each ROI
             for roi_idx=1:size(trial_data.detrend_traces, 2)
@@ -115,6 +118,7 @@ region_data = struct();
                     cur_raster = trial_data.spike_info375.roaster(roi_idx, front_frame_drop:back_frame_drop);
                     cur_spike_idx = trial_data.spike_info375.spike_idx{1};
                     cur_spike_idx(cur_spike_idx < front_frame_drop | cur_spike_idx > back_frame_drop) = [];
+                    cur_spike_idx = cur_spike_idx - front_frame_drop;
 
                     cur_stim_time = raw_trial_data.raw_stimulation_time(1:str2num(ri{5}));
                     cur_trace_time = trial_data.camera_frame_time(front_frame_drop:back_frame_drop);
@@ -123,17 +127,39 @@ region_data = struct();
                     spike_times = cur_trace_time(cur_spike_idx);
                     spike_times(spike_times < cur_stim_time(1) | spike_times > cur_stim_time(2)) = [];
                     
-                    first_to_pulse_time = cur_stim_time(1) - spike_times;
+                    first_to_pulse_time = spike_times - cur_stim_time(1);
                     first_to_pulse_time = first_to_pulse_time(:)';
                     
+                    %DEBUG
+                    if first_to_pulse_time >= diff([cur_stim_time(1), cur_stim_time(2)])
+                        disp('Spike time to large!!');
+                        pause;
+                    end
+
+                    cur_fov_first_pulse_spike_times = horzcat_pad(cur_fov_first_pulse_spike_times, first_to_pulse_time);
+
                     % Get the spike times from its closest preceding pulse
+                    spike_times = cur_trace_time(cur_spike_idx);
+                    spike_times(spike_times < cur_stim_time(1) | spike_times > cur_stim_time(end)) = [];
                     
+                    % Skip if there are no spikes during stim period
+                    if isempty(spike_times)
+                        continue;
+                    end
+
+                    %loop through each spike time and get the minimum time from pulse
+                    for spike_t = spike_times'
+                        pulse_to_spike_time = spike_t - cur_stim_time;
+                        pulse_to_spike_time(pulse_to_spike_time < 0) = [];
+                        pulse_to_spike_time = min(pulse_to_spike_time);
+                        cur_fov_all_pulse_spike_times = horzcat_pad(cur_fov_all_pulse_spike_times, pulse_to_spike_time);
+                    end                  
 
                 end % End looping through each neuron
             end
             
             % Skip rest of the calculations if the subthreshold Vm is nan
-            if sum(isnan(cur_fov_base_inter(:))) || isempty(cur_fov_base_inter)
+            if sum(isnan(cur_fov_all_pulse_spike_times(:))) || isempty(cur_fov_all_pulse_spike_times)
                 continue;
             end
 
@@ -146,11 +172,30 @@ region_data = struct();
             %title([matfile{1}], 'Interpreter', 'none');
             %saveas(gcf, [figure_path 'Inter_Spike' f matfile{1}(1:end-4) '_inter_spike.png']);
 
-            % Save each FOV inter-spike intervals
-            temp = data_bystim.(f_stim).neuron_base_inter;
-            data_bystim.(f_stim).neuron_base_inter = horzcat_pad(temp, cur_fov_base_inter');
-            temp = data_bystim.(f_stim).neuron_stim_inter;
-            data_bystim.(f_stim).neuron_stim_inter = horzcat_pad(temp, cur_fov_stim_inter');
+            % Save each FOV pulse to spike times
+            temp = data_bystim.(f_stim).all_first_pulse_spike_times;
+            data_bystim.(f_stim).all_first_pulse_spike_times = horzcat_pad(temp, cur_fov_first_pulse_spike_times(:)');
+            temp = data_bystim.(f_stim).all_all_pulse_spike_times;
+            data_bystim.(f_stim).all_all_pulse_spike_times = horzcat_pad(temp, cur_fov_all_pulse_spike_times(:)');
+            temp = data_bystim.(f_stim).neuron_avg_first_pulse_spike_times;
+            data_bystim.(f_stim).neuron_avg_first_pulse_spike_times = horzcat_pad(temp, mean(cur_fov_first_pulse_spike_times(:), 'omitnan'));
+            temp = data_bystim.(f_stim).neuron_avg_all_pulse_spike_times;
+            data_bystim.(f_stim).neuron_avg_all_pulse_spike_times = horzcat_pad(temp, mean(cur_fov_all_pulse_spike_times(:), 'omitnan'));
+            
+            %DEBUG
+            if 0 && length(cur_fov_first_pulse_spike_times) > 0
+                figure;
+                tiledlayout(2, 1, 'TileSpacing', 'compact', 'Padding', 'compact');
+                nexttile;
+                plot(cur_stim_time, 2, 'b|');
+                hold on;
+                plot(spike_times, 1, 'r.');
+                
+                nexttile;
+                plot(1, first_to_pulse_time, '.');
+                sgtitle('First pulse to spike times');
+                %pause;
+            end
 
         end % End looping through FOVs of a condition
     end
@@ -170,15 +215,22 @@ tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
 % Loop through each stimulation parameter
 for f_stim=stims'
     nexttile;
-    histogram(data_bystim.(f_stim{1}).neuron_base_inter(:));
+    histogram(data_bystim.(f_stim{1}).all_all_pulse_spike_times(:)*1000, 0:0.2:27);
     hold on;
-    histogram(data_bystim.(f_stim{1}).neuron_stim_inter(:));
-    legend('Base', 'Stim');
+    histogram(data_bystim.(f_stim{1}).all_first_pulse_spike_times(:)*1000, 0:0.2:27);
+    hold on;
+    avg_first_pts = 1000*mean(data_bystim.(f_stim{1}).all_first_pulse_spike_times(:), 'omitnan');
+    xline(avg_first_pts, 'o' );
+    hold on;
+    avg_all_pts = 1000*mean(data_bystim.(f_stim{1}).all_all_pulse_spike_times(:), 'omitnan');
+    xline(avg_all_pts, 'b' );
+    xlabel('Time (ms)');
+    legend('All Pulses', 'First Pulses', ['Avg first ' num2str(avg_first_pts)], ['Avg all ' num2str(avg_all_pts)]);
     title([f_stim{1}(3:end)], 'Interpreter', 'none');
 end
-sgtitle('Baseline vs stim spike-interval');
-saveas(gcf, [figure_path 'Inter_Spike' f matfile{1}(1:end-4) '_all_interspike.png']);
-saveas(gcf, [figure_path 'Inter_Spike' f matfile{1}(1:end-4) '_all_interspike.eps']);
+sgtitle('Spike to Pulse Times');
+%saveas(gcf, [figure_path 'Inter_Spike' f matfile{1}(1:end-4) '_all_interspike.png']);
+%saveas(gcf, [figure_path 'Inter_Spike' f matfile{1}(1:end-4) '_all_interspike.eps']);
 
 %% Specific functions for determining which FOVs to look at
 % Return matfiles by stimulation condition
