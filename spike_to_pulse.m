@@ -210,8 +210,8 @@ timeline = ( (4+(front_frame_drop:back_frame_drop) )./avg_Fs) - 1;
 
 %% Plot the histograms for all spike-intervals
 stims = fieldnames(data_bystim);
-figure('Renderer', 'Painters', 'Position', [200 200 500 1000]);
-tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
+figure('Renderer', 'Painters', 'Position', [200 200 1000 500]);
+tiledlayout(1, length(stims), 'TileSpacing', 'compact', 'Padding', 'compact');
 % Loop through each stimulation parameter
 for f_stim=stims'
     nexttile;
@@ -219,18 +219,23 @@ for f_stim=stims'
     hold on;
     histogram(data_bystim.(f_stim{1}).all_first_pulse_spike_times(:)*1000, 0:0.2:27);
     hold on;
-    avg_first_pts = 1000*mean(data_bystim.(f_stim{1}).all_first_pulse_spike_times(:), 'omitnan');
-    xline(avg_first_pts, 'o' );
+    avg_first_pts = 1000*data_bystim.(f_stim{1}).all_first_pulse_spike_times(:);
+    xline(mean(avg_first_pts, 'omitnan'), 'o' );
     hold on;
-    avg_all_pts = 1000*mean(data_bystim.(f_stim{1}).all_all_pulse_spike_times(:), 'omitnan');
-    xline(avg_all_pts, 'b' );
+    avg_all_pts = 1000*data_bystim.(f_stim{1}).all_all_pulse_spike_times(:);
+    xline(mean(avg_all_pts, 'omitnan'), 'b' );
     xlabel('Time (ms)');
-    legend('All Pulses', 'First Pulses', ['Avg first ' num2str(avg_first_pts)], ['Avg all ' num2str(avg_all_pts)]);
+    legend('All Pulses', 'First Pulses', 'Avg first', 'Avg all');
     title([f_stim{1}(3:end)], 'Interpreter', 'none');
+    
+    % Print the descriptive statistics for the spike to pulse stuff
+    disp(['Printing stats for ' f_stim{1}]);
+    disp(['Mean±std: ' num2str(mean(avg_all_pts, 'omitnan')) '±' num2str(std(avg_all_pts, 'omitnan'))]);
+    disp('');
 end
 sgtitle('Spike to Pulse Times');
-%saveas(gcf, [figure_path 'Inter_Spike' f matfile{1}(1:end-4) '_all_interspike.png']);
-%saveas(gcf, [figure_path 'Inter_Spike' f matfile{1}(1:end-4) '_all_interspike.eps']);
+saveas(gcf, [figure_path 'Inter_Spike' f 'Spike_to_pulse.png']);
+saveas(gcf, [figure_path 'Inter_Spike' f 'Spike_to_pulse.eps'], 'epsc');
 
 %% Specific functions for determining which FOVs to look at
 % Return matfiles by stimulation condition
