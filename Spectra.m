@@ -171,8 +171,6 @@ end
 
 % Calculate the sampling frequency from all of the 
 avg_Fs = nanmean(all_Fs);
-%TODO I should change this
-timeline = ( (4+(front_frame_drop:back_frame_drop) )./avg_Fs) - 1;
 
 % Subthreshold spectra with (x - A)/(A + B) normalization for each neuron and 
 % Averaged afterwards
@@ -186,8 +184,9 @@ for f_region = fieldnames(region_data)'
     for f_stim=stims'
         nexttile;
       
-        %TODO add timeline calculation variable
-
+        % Get the trace timestamps
+        timeline = nanmean(data_bystim.(f_stim{1}).trace_timestamps, 2)';
+        
         % Normalize ratio
         % First calculate by doing the ratios for each neuron first and then averaging
         cur_spec_pow = data_bystim.(f_stim{1}).neuron_spec_power;
@@ -208,7 +207,7 @@ for f_region = fieldnames(region_data)'
             cur_spec_pow(:, :, i) = (abs(cur_spec_pow(:, :, i)) - base_power)./(base_power + stim_power);
         end
 
-        surface(nanmean(data_bystim.(f_stim{1}).trace_timestamps, 2)', ... 
+        surface(timeline, ... 
                 nanmean(data_bystim.(f_stim{1}).neuron_spec_freq, 3), ...
                 nanmean(cur_spec_pow, 3), 'CDataMapping', 'scaled', 'FaceColor', 'texturemap', 'edgecolor', 'none');
         a = colorbar;
@@ -236,6 +235,7 @@ for f_region = fieldnames(region_data)'
     % Loop through each stimulation parameter
     for f_stim=stims'
         nexttile;
+        timeline = nanmean(data_bystim.(f_stim{1}).trace_timestamps, 2)';
         surface(timeline, nanmean(data_bystim.(f_stim{1}).neuron_spec_freq, 3), nanmean(abs(data_bystim.(f_stim{1}).neuron_spec_power), 3), 'CDataMapping', 'scaled', 'FaceColor', 'texturemap', 'edgecolor', 'none');
         a = colorbar;
         a.Label.String = 'Power (A.U.)';
@@ -263,6 +263,8 @@ for f_region = fieldnames(region_data)'
     for f_stim=stims'
         nexttile;
     
+        timeline = nanmean(data_bystim.(f_stim{1}).trace_timestamps, 2)';
+
         cur_spec_pow = data_bystim.(f_stim{1}).neuron_spec_power;
         % Plot the starting time point for each neuron
         sz = size(data_bystim.(f_stim{1}).trace_timestamps);
@@ -299,6 +301,9 @@ for f_region = fieldnames(region_data)'
     for f_stim=stims'
         nexttile;
     
+        % Get the trace timestamps
+        timeline = nanmean(data_bystim.(f_stim{1}).trace_timestamps, 2)';
+
         cur_spec_pow = data_bystim.(f_stim{1}).neuron_spec_power;
         % Plot the starting time point for each neuron
         sz = size(data_bystim.(f_stim{1}).trace_timestamps);
