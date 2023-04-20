@@ -107,6 +107,14 @@ classdef Multi_func
             fill_handle.FaceAlpha = 0.2;
         end
         
+        % Plot DBS bar above specified value
+        function [result] = plot_dbs_bar(x_pts, y, text_str)
+            offset = 1;
+            plot(x_pts, [y + offset, y + offset], '-', 'LineWidth', 4, 'Color', Fig_color_props.dbs_color);
+            hold on;
+            text(mean(x_pts), y + 1.5*offset, text_str);
+        end
+
         % Combine all regions into a single 'region' structure called 'f_combined'
         function [combine_struct] = combine_regions(region_data)
             % Initialize combined region
@@ -125,7 +133,6 @@ classdef Multi_func
                 data_bystim.(f_stim) = cell2struct(cell(size(f_data)), f_data, 2);
             end
         
-        
             % Loop through each region
             for f_region = f_regions
                 f_region = f_region{1};
@@ -135,9 +142,12 @@ classdef Multi_func
                     % Loop through each data field
                     for f_datum = f_data
                         f_datum = f_datum{1};
-        
                         dim = length( size( region_data.(f_region).data_bystim.(f_stim).(f_datum) ) );
-                        data_bystim.(f_stim).(f_datum) = cat(dim, data_bystim.(f_stim).(f_datum), region_data.(f_region).data_bystim.(f_stim).(f_datum));       
+                        if dim == 2
+                            data_bystim.(f_stim).(f_datum) = horzcat_pad(data_bystim.(f_stim).(f_datum), region_data.(f_region).data_bystim.(f_stim).(f_datum));
+                        else
+                            data_bystim.(f_stim).(f_datum) = cat(dim, data_bystim.(f_stim).(f_datum), region_data.(f_region).data_bystim.(f_stim).(f_datum));       
+                        end
                     end
                 end
             end

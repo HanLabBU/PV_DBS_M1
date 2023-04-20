@@ -490,22 +490,31 @@ for f_region = fieldnames(region_data)'
     stims = fieldnames(data_bystim);
     
     figure('visible', 'off', 'Renderer', 'Painters', 'Position', [200 200 1000 1000]);
-    tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
+    tiledlayout(1, length(stims), 'TileSpacing', 'compact', 'Padding', 'compact');
     for f_stim=stims'
         timeline = nanmean(data_bystim.(f_stim{1}).trace_timestamps, 2);
         cur_srate = mean(data_bystim.(f_stim{1}).neuron_srate, 2, 'omitnan');
         std_srate = std(data_bystim.(f_stim{1}).neuron_srate, 0, 2, 'omitnan');
         num_neurons = size(data_bystim.(f_stim{1}).neuron_srate, 2);
         %num_points = size(data_bystim.(f_stim{1}).neuron_srate, 1);
-        sem_srate = cur_srate./sqrt(num_neurons);
+        sem_srate = std_srate./sqrt(num_neurons);
         nexttile;
         f = fill([timeline; flip(timeline)], [cur_srate + sem_srate; flipud(cur_srate - sem_srate)], [0.5 0.5 0.5]);
         Multi_func.set_fill_properties(f);
         hold on;
         plot(timeline, cur_srate, 'k', 'LineWidth', 1);
+        hold on;
+
+        % Plot DBS pulse bar
+        Multi_func.plot_dbs_bar([0, 1], max(cur_srate + sem_srate), [f_stim{1}(3:end) 'Hz DBS']);
+
         set(gca, 'color', 'none');
+        yyaxis right;
+        yticks([]);
         xlabel('Time from stim onset (S)');
         ylabel('Firing Rate (Hz)');
+
+
         title(f_stim{1}(3:end), 'Interpreter', 'none');
     end
     sgtitle([f_region ' Average Spike rate'], 'Interpreter', 'none');
@@ -520,7 +529,7 @@ for f_region = fieldnames(region_data)'
     stims = fieldnames(data_bystim);
     
     figure('visible', 'off', 'Renderer', 'Painters', 'Position', [200 200 1000 1000]);
-    tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
+    tiledlayout(1, length(stims), 'TileSpacing', 'compact', 'Padding', 'compact');
     for f_stim=stims'
         timeline = nanmean(data_bystim.(f_stim{1}).trace_timestamps, 2);
         cur_Vm = mean(data_bystim.(f_stim{1}).neuron_Vm, 2, 'omitnan');
@@ -533,7 +542,14 @@ for f_region = fieldnames(region_data)'
         Multi_func.set_fill_properties(f);
         hold on;
         plot(timeline, cur_Vm, 'k', 'LineWidth', 1);
+        hold on;
+
+        % Plot DBS pulse bar
+        Multi_func.plot_dbs_bar([0, 1], max(cur_srate + sem_srate), [f_stim{1}(3:end) 'Hz DBS']);
+
         title(f_stim{1}(3:end), 'Interpreter', 'none');
+        yyaxis right;
+        yticks([]);
         xlabel('Time from stim onset (S)');
         ylabel('Raw Vm (A.U.)');
         set(gca, 'color', 'none')
