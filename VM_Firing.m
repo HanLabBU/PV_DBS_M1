@@ -31,7 +31,7 @@ ignore_trial_dict = Multi_func.csv_to_struct([local_root_path 'Pierre Fabris' f 
 srate_win = 100;
 
 % Parameter to determine whether to combine all regions as one data
-all_regions = 1;
+all_regions = 0;
 
 %%% END Modification
 
@@ -128,6 +128,7 @@ for f_region = fieldnames(region_matfiles)'
                     % Calculate the spike rate
                     cur_raster = trial_data.spike_info375.roaster(roi_idx, front_frame_drop:back_frame_drop);
                     cur_spikerate = cur_raster.*trial_data.camera_framerate;
+                    %TODO demean the spike rate by the baseline
                     cur_spikerate = nanfastsmooth(cur_spikerate, srate_win, 1, 1);
                     cur_fov_srate = horzcat_pad(cur_fov_srate, cur_spikerate');            
                     
@@ -340,7 +341,7 @@ for f_region = fieldnames(region_data)'
     f_region = f_region{1};
     data_bystim = region_data.(f_region).data_bystim;
     stims = fieldnames(data_bystim);
-    figure('visible', 'off', 'Renderer', 'Painters', 'Position', [200 200 1000 1000]);
+    figure('visible', 'off', 'Renderer', 'Painters', 'Position', [200 200 2000 700]);
     tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
     % Loop through each stimulation parameter
     for f_stim=stims'
@@ -489,7 +490,7 @@ for f_region = fieldnames(region_data)'
     data_bystim = region_data.(f_region).data_bystim;
     stims = fieldnames(data_bystim);
     
-    figure('visible', 'off', 'Renderer', 'Painters', 'Position', [200 200 1000 1000]);
+    figure('Renderer', 'Painters', 'Position', [200 200 2000 700]);
     tiledlayout(1, length(stims), 'TileSpacing', 'compact', 'Padding', 'compact');
     for f_stim=stims'
         timeline = nanmean(data_bystim.(f_stim{1}).trace_timestamps, 2);
@@ -509,11 +510,10 @@ for f_region = fieldnames(region_data)'
         Multi_func.plot_dbs_bar([0, 1], max(cur_srate + sem_srate), [f_stim{1}(3:end) 'Hz DBS']);
 
         set(gca, 'color', 'none');
-        yyaxis right;
-        yticks([]);
         xlabel('Time from stim onset (S)');
         ylabel('Firing Rate (Hz)');
-
+        yyaxis right;
+        yticks([]);
 
         title(f_stim{1}(3:end), 'Interpreter', 'none');
     end
@@ -528,7 +528,7 @@ for f_region = fieldnames(region_data)'
     data_bystim = region_data.(f_region).data_bystim;
     stims = fieldnames(data_bystim);
     
-    figure('visible', 'off', 'Renderer', 'Painters', 'Position', [200 200 1000 1000]);
+    figure('Renderer', 'Painters', 'Position', [200 200 2000 700]);
     tiledlayout(1, length(stims), 'TileSpacing', 'compact', 'Padding', 'compact');
     for f_stim=stims'
         timeline = nanmean(data_bystim.(f_stim{1}).trace_timestamps, 2);
@@ -545,14 +545,14 @@ for f_region = fieldnames(region_data)'
         hold on;
 
         % Plot DBS pulse bar
-        Multi_func.plot_dbs_bar([0, 1], max(cur_srate + sem_srate), [f_stim{1}(3:end) 'Hz DBS']);
+        Multi_func.plot_dbs_bar([0, 1], max(cur_Vm + sem_Vm), [f_stim{1}(3:end) 'Hz DBS']);
 
         title(f_stim{1}(3:end), 'Interpreter', 'none');
-        yyaxis right;
-        yticks([]);
         xlabel('Time from stim onset (S)');
         ylabel('Raw Vm (A.U.)');
-        set(gca, 'color', 'none')
+        set(gca, 'color', 'none');
+        yyaxis right;
+        yticks([]);
     end
     sgtitle([f_region ' Average subthreshold Vm'], 'Interpreter', 'none');
     saveas(gcf, [figure_path 'Average/' f_region '_Average_sub_thres.png']);
