@@ -111,8 +111,8 @@ classdef Multi_func
         function [result] = plot_dbs_bar(x_pts, y, text_str)
             offset = 1;
             plot(x_pts, [y + offset, y + offset], '-', 'LineWidth', 4, 'Color', Fig_color_props.dbs_color);
-            hold on;
-            text(mean(x_pts), y + 1.5*offset, text_str);
+            %hold on;
+            %text(mean(x_pts), y + 1.5*offset, text_str);
         end
 
         % Combine all regions into a single 'region' structure called 'f_combined'
