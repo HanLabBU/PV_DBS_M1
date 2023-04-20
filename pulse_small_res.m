@@ -14,6 +14,9 @@ server_root_path = '~/handata_server/eng_research_handata3/';
 front_frame_drop = 15;
 back_frame_drop = 2496;
 
+% Do all region
+all_region = 1;
+
 % List path where all of the matfiles are stored
 %pv_data_path = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'PV_Data' f];
 % Data on local linux machine
@@ -29,7 +32,7 @@ ignore_trial_dict = Multi_func.csv_to_struct([local_root_path 'Pierre Fabris' f 
 
 % Smoothing parameter for spike rate
 % TODO could use a smaller window size
-srate_win = 7;
+srate_win = 10;
 
 %%% END Modification
 
@@ -173,6 +176,10 @@ end
 avg_Fs = nanmean(all_Fs);
 timeline = ( (4+(front_frame_drop:back_frame_drop) )./avg_Fs) - 1;
 
+% Combine all regions into 1
+if all_region == 1
+    region_data = Multi_func.combine_regions(region_data);
+end
 
 %% Spike rate aligned by the first stimulation pulse
 for f_region = fieldnames(region_data)'
@@ -180,7 +187,7 @@ for f_region = fieldnames(region_data)'
     data_bystim = region_data.(f_region).data_bystim;
     stims = fieldnames(data_bystim);
     
-    figure('visible', 'off', 'Renderer', 'Painters', 'Position', [200 200 1000 1000]);
+    figure('Renderer', 'Painters', 'Position', [200 200 1000 1000]);
     tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
     for f_stim=stims'
         timeline = nanmean(data_bystim.(f_stim{1}).trace_timestamps, 2)*1000;
@@ -188,7 +195,7 @@ for f_region = fieldnames(region_data)'
         std_srate = std(data_bystim.(f_stim{1}).neuron_srate, 0, 2, 'omitnan');
         num_neurons = size(data_bystim.(f_stim{1}).neuron_srate, 2);
         %num_points = size(data_bystim.(f_stim{1}).neuron_srate, 1);
-        sem_srate = cur_srate./sqrt(num_neurons);
+        sem_srate = std_srate./sqrt(num_neurons);
         nexttile;
         f = fill([timeline; flip(timeline)], [cur_srate + sem_srate; flipud(cur_srate - sem_srate)], [0.5 0.5 0.5]);
         Multi_func.set_fill_properties(f);
@@ -226,7 +233,6 @@ for f_region = fieldnames(region_data)'
         % Looping through each neuron
         for nr = 1:size(data_bystim.(f_stim{1}).neuron_Vm, 2)
             
-
             % Calculate average DBS pulse time widths
             nr_avg_pulse_width = mean(diff(data_bystim.(f_stim{1}).stim_timestamps(:, nr) ), 'omitnan');
             %trace_width = nr_avg_pulse_width;
@@ -255,7 +261,7 @@ for f_region = fieldnames(region_data)'
         std_subVm = std(Vm_avg, 0, 2, 'omitnan');
         num_pulses = size(Vm_avg, 2);
         %num_points = size(data_bystim.(f_stim{1}).neuron_subVm, 1);
-        sem_subVm = cur_subVm./sqrt(num_pulses);
+        sem_subVm = std_subVm./sqrt(num_pulses);
         nexttile;
         
         % Use the average trace framerate to calculate the timelinefigure_path = [server_root_path 'Pierre Fabris' f 'PV Project' f 'Plots' f];
@@ -269,7 +275,7 @@ for f_region = fieldnames(region_data)'
 
         % Plot the DBS stimulation time pulses
         %TODO need to fix this
-        %xline([0, trace_width], 'Color', [170, 176, 97]./255, 'LineWidth', 2);
+        xline([0:nr_avg_pulse_width*1000:trace_width], 'Color', [170, 176, 97]./255, 'LineWidth', 2);
         hold on;
 
         % Plot the timescale bar
@@ -284,6 +290,7 @@ for f_region = fieldnames(region_data)'
         set(gca, 'color', 'none');
         ylabel('Vm');
         xlabel('Time from pulse(ms)');
+        ylim([0, 7]);
 
         % Remove x-axis and right y-axis
         %set(gca,'xtick',[]);
@@ -298,9 +305,6 @@ for f_region = fieldnames(region_data)'
     saveas(gcf, [figure_path 'Average/' f_region '_All_Pulse_Avg_Vm.eps'], 'epsc');
 end
 
-%DEBUG
-return;
-
 %TODO need to finish implementing this
 %% Spike rate averaged across all pulses
 for f_region = fieldnames(region_data)'
@@ -308,7 +312,7 @@ for f_region = fieldnames(region_data)'
     data_bystim = region_data.(f_region).data_bystim;
     stims = fieldnames(data_bystim);
     
-    figure('visible', 'off', 'Renderer', 'Painters', 'Position', [200 200 1000 1000]);
+    figure('Renderer', 'Painters', 'Position', [200 200 1000 1000]);
     tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
     for f_stim=stims'
         timeline = nanmean(data_bystim.(f_stim{1}).trace_timestamps, 2);
@@ -316,8 +320,6 @@ for f_region = fieldnames(region_data)'
         FR_avg = [];
         % Looping through each neuron
         for nr = 1:size(data_bystim.(f_stim{1}).neuron_srate, 2)
-            
-            % TODO may be a good idea to just have a fixed width for all stimulations, independent of frequency
 
             % Calculate average DBS pulse time widths
             nr_avg_pulse_width = mean(diff(data_bystim.(f_stim{1}).stim_timestamps(:, nr) ), 'omitnan');
@@ -338,7 +340,7 @@ for f_region = fieldnames(region_data)'
         std_srate = std(FR_avg, 0, 2, 'omitnan');
         num_pulses = size(FR_avg, 2);
         %num_points = size(data_bystim.(f_stim{1}).neuron_srate, 1);
-        sem_srate = cur_srate./sqrt(num_pulses);
+        sem_srate = std_srate./sqrt(num_pulses);
         nexttile;
         f = fill([1:size(FR_avg, 1), size(FR_avg, 1):-1:1], [cur_srate + sem_srate; flipud(cur_srate - sem_srate)], [0.5 0.5 0.5]);
         Multi_func.set_fill_properties(f);
@@ -386,7 +388,7 @@ for f_region = fieldnames(region_data)'
         std_srate = std(data_bystim.(f_stim{1}).neuron_srate, 0, 2, 'omitnan');
         num_neurons = size(data_bystim.(f_stim{1}).neuron_srate, 2);
         %num_points = size(data_bystim.(f_stim{1}).neuron_srate, 1);
-        sem_srate = cur_srate./sqrt(num_neurons);
+        sem_srate = std_srate./sqrt(num_neurons);
         nexttile;
         f = fill([timeline; flip(timeline)], [cur_srate + sem_srate; flipud(cur_srate - sem_srate)], [0.5 0.5 0.5]);
         Multi_func.set_fill_properties(f);
@@ -425,7 +427,7 @@ for f_region = fieldnames(region_data)'
     data_bystim = region_data.(f_region).data_bystim;
     stims = fieldnames(data_bystim);
     
-    figure('visible', 'off', 'Renderer', 'Painters', 'Position', [200 200 1000 1000]);
+    figure('Renderer', 'Painters', 'Position', [200 200 1000 1000]);
     tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
     for f_stim=stims'
         timeline = nanmean(data_bystim.(f_stim{1}).trace_timestamps, 2)*1000; % Convert to ms
@@ -461,7 +463,7 @@ for f_region = fieldnames(region_data)'
     saveas(gcf, [figure_path 'Average/' f_region '_First_Pulse_Trig_Vm.eps'], 'epsc');
 end
 
-%% Subthreshold Vm first all pulses
+%% Subthreshold Vm first aligned while displaying all pulses
 for f_region = fieldnames(region_data)'
     f_region = f_region{1};
     data_bystim = region_data.(f_region).data_bystim;
@@ -506,7 +508,7 @@ for f_region = fieldnames(region_data)'
         set(gca, 'color', 'none')
         title(f_stim{1}(3:end), 'Interpreter', 'none');
     end
-    sgtitle([f_region ' Average subthreshold Vm'], 'Interpreter', 'none');
+    sgtitle([f_region ' Average subthreshold Vm Showing all pulses'], 'Interpreter', 'none');
     saveas(gcf, [figure_path 'Average/' f_region '_Display_All_Pulse_Trig_Vm.png']);
     saveas(gcf, [figure_path 'Average/' f_region '_Display_All_Pulse_Trig_Vm.eps'], 'epsc');
 end
