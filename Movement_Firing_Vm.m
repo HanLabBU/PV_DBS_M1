@@ -139,8 +139,18 @@ for f_region = fieldnames(region_matfiles)'
                     % Store the raster plot
                     cur_fov_raster = horzcat_pad(cur_fov_raster, cur_raster');
 
-                    % Grab movement data
-                    cur_fov_speed = horzcat_pad(cur_fov_speed, trial_data.speed);
+                    % Grab movement data convert to cm/s
+                    %TODO having some major timestamp issues, maybe need to fix the code in the alignement section
+                    cur_frame_time = trial_data.camera_frame_time(front_frame_drop:back_frame_drop);
+                    dur_trace_idx = find(raw_trial_data.raw_speed_timestamp >= cur_frame_time(1) & raw_trial_data.raw_speed_timestamp <= cur_frame_time(end));
+                    %cur_fov_speed = horzcat_pad(cur_fov_speed, trial_data.raw_noart_speed(dur_trace_idx)./10);
+                    cur_fov_speed = horzcat_pad(cur_fov_speed, trial_data.speed./10);
+                    
+                    %DEBUG
+                    %ca = find((trial_data.speed - mean(trial_data.speed))/std(trial_data.speed) > 6);
+                    %if ca > 1
+                    %    return;
+                    %end
 
                     % Store all of the timestamp info
                     stim_start = raw_trial_data.raw_stimulation_time(1);
@@ -308,4 +318,12 @@ function [cond_struct] = stim_cond(matfile_names)
             cond_struct.(['f_' stim]).names{end+1} = matfile_names{i};
     end
 end
+
+% Remove movement artefacts
+%function [new_speed] = remove_art_speed(temp_speed)
+%    mean_speed = mean(temp_speed);
+%    std_speed = std(temp_speed);
+%    
+%    % Find timepoints that have 
+%end
 
