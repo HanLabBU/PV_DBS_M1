@@ -14,9 +14,6 @@ server_root_path = '~/handata_server/eng_research_handata3/';
 front_frame_drop = 15;
 back_frame_drop = 2496;
 
-% Do all region
-all_region = 1;
-
 % List path where all of the matfiles are stored
 %pv_data_path = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'PV_Data' f];
 % Data on local linux machine
@@ -33,6 +30,9 @@ ignore_trial_dict = Multi_func.csv_to_struct([local_root_path 'Pierre Fabris' f 
 % Smoothing parameter for spike rate
 % TODO could use a smaller window size
 srate_win = 15;
+
+% Do all region
+all_region = 1;
 
 %%% END Modification
 
@@ -214,7 +214,7 @@ for f_region = fieldnames(region_data)'
         xlabel('Time from onset(ms)');
         title(f_stim{1}(3:end), 'Interpreter', 'none');
     end
-    sgtitle([f_region ' Population Spike rate with first pulse'], 'Interpreter', 'none');
+    sgtitle([f_region '_' num2str(srate_win) ' Population Spike rate with first pulse'], 'Interpreter', 'none');
     saveas(gcf, [figure_path 'Average/' f_region '_First_Pulse_Trig_FR.png']);
     saveas(gcf, [figure_path 'Average/' f_region '_First_Pulse_Trig_FR.eps'], 'epsc');
 end
@@ -368,7 +368,7 @@ for f_region = fieldnames(region_data)'
 
         title(f_stim{1}(3:end), 'Interpreter', 'none');
     end
-    sgtitle([f_region ' Firing Rate all pulse average'], 'Interpreter', 'none');
+    sgtitle([f_region '_' num2str(srate_win) ' Firing Rate all pulse average'], 'Interpreter', 'none');
     saveas(gcf, [figure_path 'Average/' f_region '_All_Pulse_Avg_FR.png']);
     saveas(gcf, [figure_path 'Average/' f_region '_All_Pulse_Avg_FR.eps'], 'epsc');
 end
@@ -415,7 +415,7 @@ for f_region = fieldnames(region_data)'
         ylabel('Firing Rate(Hz)');
         title(f_stim{1}(3:end), 'Interpreter', 'none');
     end
-    sgtitle([f_region ' Population Spike rate with all pulse'], 'Interpreter', 'none');
+    sgtitle([f_region '_' num2str(srate_win)  ' Population Spike rate with all pulse'], 'Interpreter', 'none');
     saveas(gcf, [figure_path 'Average/' f_region '_Display_All_Pulse_Trig_FR.png']);
     saveas(gcf, [figure_path 'Average/' f_region '_Display_All_Pulse_Trig_FR.eps'], 'epsc');
 end
