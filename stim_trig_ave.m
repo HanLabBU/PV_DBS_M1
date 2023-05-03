@@ -4,9 +4,11 @@ f = filesep;
 
 %%% USER Modification
 % Linux server
-server_root_path = '~/Projects/';
+local_root_path = '~/Projects/';
+% Handata Server on Linux
+server_root_path = '~/handata_server/eng_research_handata3/';
 % Windows server
-%server_root_path = 'Z:\';
+%local_root_path = 'Z:\';
 
 % Parameters for frames to chop off
 front_frame_drop = 15;
@@ -15,13 +17,13 @@ back_frame_drop = 2496;
 % List path where all of the matfiles are stored
 %pv_data_path = [server_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'PV_Data' f];
 % Data on local linux machine
-pv_data_path = [server_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'PV_Data' f];
+pv_data_path = [server_root_path 'Pierre Fabris' f 'PV Project' f 'PV_Data' f];
 
-figure_path = [server_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Figures' f];
+figure_path = [server_root_path 'Pierre Fabris' f 'PV Project' f 'Plots' f];
 
 % CSV file to determine which trials to ignore
-ignore_trial_dict = Multi_func.csv_to_struct([server_root_path 'Pierre Fabris' f 'PV DBS neocortex' f ...
-                                       'Recordings' f 'Data_Config' f 'byvis_ignore.csv']);
+ignore_trial_dict = Multi_func.csv_to_struct([local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f ...
+                                       'Stim Recordings' f 'Data_Config' f 'byvis_ignore.csv']);
 
 % Parameter to determine how much before and after a stimulation pulse to take the average
 trace_sur = 10; % This is ~6ms before and after stim pulse
@@ -42,17 +44,18 @@ all_matfiles = {ses.name};
 [region_matfiles] = Multi_func.find_region(all_matfiles);
 region_data = struct();
 
-%for f_region = fieldnames(region_matfiles)'
-%    f_region = f_region{1};
-%
-%    %% Select matfiles by stim specific conditions for all regions
-    [matfile_stim] = stim_cond(all_matfiles); %stim_cond(region_matfiles.(f_region).names);
+all_Fs = [];
+
+for f_region = fieldnames(region_matfiles)'
+    f_region = f_region{1};
+
+    %% Select matfiles by stim specific conditions for all regions
+    [matfile_stim] = stim_cond(region_matfiles.(f_region).names); %stim_cond(all_matfiles);
     %% Loop through each field of the struct and concatenate everything together
     
     % Store trace aspect data by each individual stimulation condition
     data_bystim = struct();
     % Store all of the calculated sampling frequencies
-    all_Fs = [];
 
     % Loop through each stimulation condition
     for f_stim = fieldnames(matfile_stim)'
@@ -61,7 +64,9 @@ region_data = struct();
     
         % Initialize field subthreshold array
         data_bystim.(f_stim) = struct();
-        data_bystim.(f_stim).neuron_stim_avg = [];
+        data_bystim.(f_stim).neuron_stim_SubVm = [];
+        data_bystim.(f_stim).neuron_stim_RawVm = [];
+        data_bystim.(f_stim).neuron_trace_sur_time = [];
 
         % Loop through each matfile of the current stimulation condition
         for matfile = matfiles
@@ -71,86 +76,109 @@ region_data = struct();
             trial_data = data.align.trial{trial_idxs(1)};    
             cur_fov_Fs = [];
             cur_fov_base_inter = [];
+            cur_fov_stim_SubVm = [];
+            cur_fov_stim_RawVm = [];
+            cur_fov_sur_traceTime = [];
 
             % Loop through each ROI
             for roi_idx=1:size(trial_data.detrend_traces, 2)
+                %Determine whether this roi is to be ignored for this particular trial
+                ri = strsplit(matfile{1}, '_');
+                try
+                    trial_ignr_list = ignore_trial_dict.(['mouse_' ri{1}]).(['rec_' erase(ri{3}, 'rec')]).(ri{4}).(['f_' ri{5}]).(['ROI' num2str(roi_idx)]);
+                catch
+                    trial_ignr_list = [];
+                end
+                
+                % Remove trials from trial idx list
+                trial_idxs = setdiff(trial_idxs, trial_ignr_list);
+
+                % Skip if there is only 1 trial
+                if length(trial_idxs) < 2
+                    continue;
+                end
+
                 % Loop through each trial                
                 for tr_idx=trial_idxs        
                     trial_data = data.align.trial{tr_idx};
                     raw_trial_data = data.raw.trial{tr_idx};
-
-                    %Determine whether this roi is to be ignored for this particular trial
-                    ri = strsplit(matfile{1}, '_');
-                    try
-                        trial_ignr_list = ignore_trial_dict.(['mouse_' ri{1}]).(['rec_' erase(ri{3}, 'rec')]).(ri{4}).(['f_' ri{5}]).(['ROI' num2str(roi_idx)]);
-                    catch
-                        trial_ignr_list = [];
-                    end
-    
-                    % Check if current trial is in the ignore list
-                    if ismember(tr_idx, trial_ignr_list)
-                        continue;
-                    end
                     
-                    % If the trial data is empty, that means it was skipped
-                    if isempty(trial_data)
-                        continue;
-                    end
-
                     % Store the camera framerate
                     all_Fs(end+1) = trial_data.camera_framerate;
                     cur_fov_Fs(end + 1) = trial_data.camera_framerate;
 
-                    % Grab the subthreshold Vm
-                    % Chop the respective frames
-                    cur_trace = trial_data.detrend_traces(front_frame_drop:back_frame_drop, roi_idx);
+                    % Grabbing raw traces
+                    cur_raw_trace = raw_trial_data.raw_traces(front_frame_drop:back_frame_drop, roi_idx);
+                    [baseline, coeff] = Multi_func.exp_fit_Fx(cur_raw_trace, round(trial_data.camera_framerate));
+                    detrend_Vm = cur_raw_trace - baseline';
                     cur_stim_time = raw_trial_data.raw_stimulation_time(1:str2num(ri{5}));
                     cur_trace_time = trial_data.camera_frame_time(front_frame_drop:back_frame_drop);
                     
+                    % Grab subthreshold Vm
+                    cur_trace_ws = trial_data.spike_info375.trace_ws(roi_idx, front_frame_drop:back_frame_drop);
+                    [baseline, coeff] = Multi_func.exp_fit_Fx(cur_trace_ws', round(trial_data.camera_framerate));
+                    detrend_subVm = cur_trace_ws - baseline;
+
                     % Get the trace idx when there are stimulation pulses
                     % Cannot think of a clever way to vectorize this unfortunately
                     for pulse=cur_stim_time'
-                        stim_center = find(min(abs(pulse - cur_trace_time)) == abs(pulse - cur_trace_time));
-                        cur_fov_stim_avg = horzcat_pad(cur_fov_stim_avg, cur_trace(stim_center - trace_sur: stim_center + trace_sur));
+                        stim_center = find(min(abs(cur_trace_time - pulse)) == abs(cur_trace_time - pulse));
+                        cur_fov_stim_RawVm = horzcat_pad(cur_fov_stim_RawVm, detrend_Vm(stim_center - trace_sur: stim_center + trace_sur));
+                        cur_fov_stim_SubVm = horzcat_pad(cur_fov_stim_SubVm, detrend_subVm(stim_center - trace_sur: stim_center + trace_sur)');
+                        %TODO find a better way of getting the timestamp here
+                        cur_fov_sur_traceTime = horzcat_pad(cur_fov_sur_traceTime, cur_trace_time(stim_center - trace_sur: stim_center + trace_sur) - pulse);
                     end
                 end % End looping through each neuron
             end
             
             % Skip rest of the calculations if the subthreshold Vm is nan
-            if sum(isnan(cur_fov_stim_avg(:))) || isempty(cur_fov_stim_avg)
+            if sum(~isnan(cur_fov_stim_SubVm(:))) < 1 || isempty(cur_fov_stim_SubVm)
                 continue;
             end
 
-            % Plot the average and all of the trace from the stim centers
-            figure('visible', 'off', 'Renderer', 'Painters', 'Position', [200 200 500 1000]);
-            plot(cur_fov_stim_avg, 'color', [95, 78, 78]./255);
-            hold on;
-            plot(mean(cur_fov_stim_avg, 2), 'r');
-            hold on;
-            xline(size(cur_fov_stim_avg, 1)/2, '--b');
-            title([matfile{1}], 'Interpreter', 'none');
-            saveas(gcf, [figure_path 'Stim_trig_avg' f matfile{1}(1:end-4) '_stim_avg.png']);
+            % Store both Subthreshold Vm and Raw VM 
+            temp = data_bystim.(f_stim).neuron_stim_SubVm;
+            data_bystim.(f_stim).neuron_stim_SubVm = horzcat_pad(temp, mean(cur_fov_stim_SubVm, 2 ,'omitnan'));
+            temp = data_bystim.(f_stim).neuron_stim_RawVm;
+            data_bystim.(f_stim).neuron_stim_RawVm = horzcat_pad(temp, mean(cur_fov_stim_RawVm, 2 ,'omitnan'));
+            temp = data_bystim.(f_stim).neuron_trace_sur_time;
+            data_bystim.(f_stim).neuron_trace_sur_time = horzcat_pad(temp, mean(cur_fov_sur_traceTime, 2 ,'omitnan'));
+
         end % End looping through FOVs of a condition
     end
 
-%    % Save the VM to the specific region
-%    region_data.(f_region) = data_bystim;
-
-%end
+    % Save the VM to the specific region
+    region_data.(f_region).data_bystim = data_bystim;
+end
 
 avg_Fs = nanmean(all_Fs);
-timeline = ( (4+(front_frame_drop:back_frame_drop) )./avg_Fs) - 1;
 
-%% Summary baseline vs stim vs offset properties
-%stims = fieldnames(data_bystim);
-%figure('Renderer', 'Painters', 'Position', [200 200 500 1000]);
-%tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
-%% Loop through each stimulation parameter
-%for f_stim=stims'
-%    nexttile;
-%    title([f_stim{1}(3:end)], 'Interpreter', 'none');
-%end
-%sgtitle('Average baseline, stim, and offset Vm');
+% Plot the average stimulation pulse
+for f_region = fieldnames(region_data)'
+    f_region = f_region{1};
+    data_bystim = region_data.(f_region).data_bystim;
+    stims = fieldnames(data_bystim);
+    figure('Renderer', 'Painters', 'Position', [200 200 2000 700]);
+    tiledlayout(1, length(stims), 'TileSpacing', 'compact', 'Padding', 'compact');
+    % Loop through each stimulation parameter
+    for f_stim=stims'
+        f_stim = f_stim{1};
+        nexttile;
+        
+        % Plot each neuron
+        timeline = mean(data_bystim.(f_stim).neuron_trace_sur_time, 2, 'omitnan')*1000;
+        plot(timeline, data_bystim.(f_stim).neuron_stim_SubVm);
+    
+        set(gca, 'color', 'none');
+        xlabel('Time from Stim pulse(ms)');
+        ylabel('Vm');
+        title(f_stim(3:end), 'Interpreter', 'none');
+    end
+    sgtitle([ f_region ' Subthreshold Vm'], 'Interpreter', 'none');
+    
+    saveas(gcf, [figure_path 'Stim_trig_avg/' f_region '_Pop_SubVm_Stim_Trig.png']);
+    saveas(gcf, [figure_path 'Stim_trig_avg/' f_region '_Pop_SubVm_Stim_Trig.eps'], 'epsc');
+end
 
 %% Specific functions for determining which FOVs to look at
 % Return matfiles by stimulation condition
