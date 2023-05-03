@@ -153,5 +153,12 @@ classdef Multi_func
             end
             combine_struct.r_combine.data_bystim = data_bystim;
         end
+
+        % Perform the Wilcoxon test and save results into a file
+        % The test label will indicate what this test is for
+        %function [result] wilc_test(x1, x2, test_label, stats_table)
+        %    [p, h, stats] = ranksum(x1, x2);
+        %    
+        %end
     end
 end
