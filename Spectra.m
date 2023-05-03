@@ -211,7 +211,7 @@ for f_region = fieldnames(region_data)'
                 nanmean(data_bystim.(f_stim{1}).neuron_spec_freq, 3), ...
                 nanmean(cur_spec_pow, 3), 'CDataMapping', 'scaled', 'FaceColor', 'texturemap', 'edgecolor', 'none');
         a = colorbar;
-        a.Label.String = 'Power (A.U.)';
+        a.Label.String = 'Relative Power';
     
         set(gca, 'color', 'none');
         %avg_power = nanmean(data_bystim.(f_stim{1}).neuron_spec_power, 3);
