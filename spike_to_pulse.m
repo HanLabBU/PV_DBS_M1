@@ -114,8 +114,6 @@ region_data = struct();
                     cur_fov_Fs(end + 1) = trial_data.camera_framerate;
 
                     % Grab the trace, raster, spike idxs, and timestamps
-                    cur_trace = trial_data.detrend_traces(front_frame_drop:back_frame_drop, roi_idx);
-                    cur_raster = trial_data.spike_info375.roaster(roi_idx, front_frame_drop:back_frame_drop);
                     cur_spike_idx = trial_data.spike_info375.spike_idx{1};
                     cur_spike_idx(cur_spike_idx < front_frame_drop | cur_spike_idx > back_frame_drop) = [];
                     cur_spike_idx = cur_spike_idx - front_frame_drop;
@@ -125,7 +123,7 @@ region_data = struct();
 
                     % Get the spike times from the first pulse
                     spike_times = cur_trace_time(cur_spike_idx);
-                    spike_times(spike_times < cur_stim_time(1) | spike_times > cur_stim_time(2)) = [];
+                    spike_times(spike_times <= cur_stim_time(1) | spike_times >= cur_stim_time(2)) = [];
                     
                     first_to_pulse_time = spike_times - cur_stim_time(1);
                     first_to_pulse_time = first_to_pulse_time(:)';
@@ -140,7 +138,7 @@ region_data = struct();
 
                     % Get the spike times from its closest preceding pulse
                     spike_times = cur_trace_time(cur_spike_idx);
-                    spike_times(spike_times < cur_stim_time(1) | spike_times > cur_stim_time(end)) = [];
+                    spike_times(spike_times <= cur_stim_time(1) | spike_times >= cur_stim_time(end)) = [];
                     
                     % Skip if there are no spikes during stim period
                     if isempty(spike_times)
@@ -150,7 +148,7 @@ region_data = struct();
                     %loop through each spike time and get the minimum time from pulse
                     for spike_t = spike_times'
                         pulse_to_spike_time = spike_t - cur_stim_time;
-                        pulse_to_spike_time(pulse_to_spike_time < 0) = [];
+                        pulse_to_spike_time(pulse_to_spike_time <= 0) = [];
                         pulse_to_spike_time = min(pulse_to_spike_time);
                         cur_fov_all_pulse_spike_times = horzcat_pad(cur_fov_all_pulse_spike_times, pulse_to_spike_time);
                     end                  
@@ -208,7 +206,7 @@ region_data = struct();
 avg_Fs = nanmean(all_Fs);
 timeline = ( (4+(front_frame_drop:back_frame_drop) )./avg_Fs) - 1;
 
-%% Plot the histograms for all spike-intervals
+%% Plot the histograms for all pulse to spike times
 stims = fieldnames(data_bystim);
 figure('Renderer', 'Painters', 'Position', [200 200 1000 500]);
 tiledlayout(1, length(stims), 'TileSpacing', 'compact', 'Padding', 'compact');
@@ -234,8 +232,33 @@ for f_stim=stims'
     disp('');
 end
 sgtitle('Spike to Pulse Times');
-saveas(gcf, [figure_path 'Inter_Spike' f 'Spike_to_pulse.png']);
-saveas(gcf, [figure_path 'Inter_Spike' f 'Spike_to_pulse.eps'], 'epsc');
+saveas(gcf, [figure_path 'Inter_Spike' f 'Hist_Spike_to_pulse.png']);
+saveas(gcf, [figure_path 'Inter_Spike' f 'Hist_Spike_to_pulse.eps'], 'epsc');
+
+%% Plot the violing plots pulse to spike times
+stims = fieldnames(data_bystim);
+figure('Renderer', 'Painters', 'Position', [200 200 1000 500]);
+tiledlayout(1, length(stims), 'TileSpacing', 'compact', 'Padding', 'compact');
+% Loop through each stimulation parameter
+for f_stim=stims'
+    nexttile;
+    data = [data_bystim.(f_stim{1}).all_all_pulse_spike_times(:)*1000; data_bystim.(f_stim{1}).all_first_pulse_spike_times(:)*1000];
+    num_all_pulses = length(data_bystim.(f_stim{1}).all_all_pulse_spike_times(:));
+    num_first_pulses = length(data_bystim.(f_stim{1}).all_first_pulse_spike_times(:));
+    labels = [repmat({'All pulses'}, num_all_pulses, 1); repmat({'First pulses'}, num_first_pulses, 1)];
+    violinplot2(data, labels);
+    ylabel('Time (ms)');
+    title([f_stim{1}(3:end)], 'Interpreter', 'none');
+    set(gca, 'color', 'none');
+
+    % Print the descriptive statistics for the spike to pulse stuff
+    disp(['Printing stats for ' f_stim{1}]);
+    disp(['Mean±std: ' num2str(mean(avg_all_pts, 'omitnan')) '±' num2str(std(avg_all_pts, 'omitnan'))]);
+    disp('');
+end
+sgtitle('Spike to Pulse Times');
+saveas(gcf, [figure_path 'Inter_Spike' f 'Violin_Spike_to_pulse.png']);
+saveas(gcf, [figure_path 'Inter_Spike' f 'Violin_Spike_to_pulse.eps'], 'epsc');
 
 %% Specific functions for determining which FOVs to look at
 % Return matfiles by stimulation condition
