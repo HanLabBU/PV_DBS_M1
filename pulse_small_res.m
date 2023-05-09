@@ -29,7 +29,7 @@ ignore_trial_dict = Multi_func.csv_to_struct([local_root_path 'Pierre Fabris' f 
 
 % Smoothing parameter for spike rate
 % TODO could use a smaller window size
-srate_win = 15;
+srate_win = 20;
 
 % Do all region
 all_region = 1;
@@ -181,13 +181,13 @@ if all_region == 1
     region_data = Multi_func.combine_regions(region_data);
 end
 
-%% Spike rate aligned by the first stimulation pulse
+%% Spike rate showing first few pulses
 for f_region = fieldnames(region_data)'
     f_region = f_region{1};
     data_bystim = region_data.(f_region).data_bystim;
     stims = fieldnames(data_bystim);
     
-    figure('Renderer', 'Painters', 'Position', [200 200 1000 1000]);
+    figure('visible', 'off', 'Renderer', 'Painters', 'Position', [200 200 570 740]);
     tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
     for f_stim=stims'
         timeline = nanmean(data_bystim.(f_stim{1}).trace_timestamps, 2)*1000;
@@ -207,10 +207,30 @@ for f_region = fieldnames(region_data)'
         xline(nanmean(data_bystim.(f_stim{1}).stim_timestamps, 2)*1000, 'Color', [170, 176, 97]./255, 'LineWidth', 2);
         hold on;
 
+        % Plot the semi-significant points on the subthreshold Vm
+
+        base_srate = [];
+        % Grab the baseline sub srate for all neurons
+        for i = 1:size(data_bystim.(f_stim{1}).trace_timestamps, 2)
+            baseline_idx = find(data_bystim.(f_stim{1}).trace_timestamps(:, i) < data_bystim.(f_stim{1}).stim_timestamps(1, i));
+            base_srate = horzcat_pad(base_srate, data_bystim.(f_stim{1}).neuron_srate(baseline_idx, i) );
+        end
+        base_srate = mean(base_srate, 2, 'omitnan');
+        std_baseline = std(base_srate, 0, 'omitnan');
+        sig_idx = find(cur_srate > (2*std_baseline + mean(base_srate, 'omitnan')));
+            
+        % Calculate a good height for the points
+        thres = 0.2;
+        height = range(cur_srate);
+        height = (1+thres)*height;
+        plot(timeline(sig_idx), repmat(height, 1, length(sig_idx)), '.b', 'MarkerSize', 38);
+
         % Increase timescale resolution
         xlim([0 - 50, 0 + 50]);
         set(gca, 'color', 'none');
         ylabel('Firing Rate(Hz)');
+        yyaxis right;
+        yticks([]);
         xlabel('Time from onset(ms)');
         title(f_stim{1}(3:end), 'Interpreter', 'none');
     end
@@ -427,9 +447,10 @@ for f_region = fieldnames(region_data)'
     data_bystim = region_data.(f_region).data_bystim;
     stims = fieldnames(data_bystim);
     
-    figure('Renderer', 'Painters', 'Position', [200 200 1000 1000]);
+    figure('visible', 'off', 'Renderer', 'Painters', 'Position', [200 200 570 740]);
     tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
     for f_stim=stims'
+        
         timeline = nanmean(data_bystim.(f_stim{1}).trace_timestamps, 2)*1000; % Convert to ms
         cur_Vm = mean(data_bystim.(f_stim{1}).neuron_Vm, 2, 'omitnan');
         std_Vm = std(data_bystim.(f_stim{1}).neuron_Vm, 0, 2, 'omitnan');
@@ -451,66 +472,37 @@ for f_region = fieldnames(region_data)'
         xline(nanmean(data_bystim.(f_stim{1}).stim_timestamps, 2)*1000, 'Color', [170, 176, 97]./255, 'LineWidth', 2);
         hold on;
 
+        % Plot the semi-significant points on the subthreshold Vm
+
+        base_Vm = [];
+        % Grab the baseline sub Vm for all neurons
+        for i = 1:size(data_bystim.(f_stim{1}).trace_timestamps, 2)
+            baseline_idx = find(data_bystim.(f_stim{1}).trace_timestamps(:, i) < data_bystim.(f_stim{1}).stim_timestamps(1, i));
+            base_Vm = horzcat_pad(base_Vm, data_bystim.(f_stim{1}).neuron_Vm(baseline_idx, i) );
+        end
+        base_Vm = mean(base_Vm, 2, 'omitnan');
+        std_baseline = std(base_Vm, 0, 'omitnan');
+        sig_idx = find(cur_Vm > (2*std_baseline + mean(base_Vm, 'omitnan')));
+            
+        % Calculate a good height for the points
+        thres = 0.2;
+        height = range(cur_Vm);
+        height = (1+thres)*height;
+        plot(timeline(sig_idx), repmat(height, 1, length(sig_idx)), '.b', 'MarkerSize', 38);
+
         % Increase timescale resolution
         xlim([0 - 50, 0 + 50]);
         ylabel('Vm');
+        yyaxis right;
+        yticks([]);
         xlabel('Time from onset(ms)');
+
         set(gca, 'color', 'none')
         title(f_stim{1}(3:end), 'Interpreter', 'none');
     end
     sgtitle([f_region ' Average subthreshold Vm'], 'Interpreter', 'none');
     saveas(gcf, [figure_path 'Average/' f_region '_First_Pulse_Trig_Vm.png']);
     saveas(gcf, [figure_path 'Average/' f_region '_First_Pulse_Trig_Vm.eps'], 'epsc');
-end
-
-%% Subthreshold Vm first aligned while displaying all pulses
-for f_region = fieldnames(region_data)'
-    f_region = f_region{1};
-    data_bystim = region_data.(f_region).data_bystim;
-    stims = fieldnames(data_bystim);
-    
-    figure('visible', 'off', 'Renderer', 'Painters', 'Position', [200 200 1000 1000]);
-    tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
-    for f_stim=stims'
-        timeline = nanmean(data_bystim.(f_stim{1}).trace_timestamps, 2);
-        cur_Vm = mean(data_bystim.(f_stim{1}).neuron_Vm, 2, 'omitnan');
-        std_Vm = std(data_bystim.(f_stim{1}).neuron_Vm, 0, 2, 'omitnan');
-        num_neurons = size(data_bystim.(f_stim{1}).neuron_Vm, 2);
-        sem_Vm = std_Vm./sqrt(num_neurons);
-        %num_points = size(data_bystim.(f_stim{1}).neuron_Vm, 1);
-        nexttile;
-
-        % Standard Error
-        f = fill([timeline; flip(timeline)], [cur_Vm + sem_Vm; flipud(cur_Vm - sem_Vm)], [0.5 0.5 0.5]);
-        Multi_func.set_fill_properties(f);
-        hold on;
-        
-        % Plot Vm
-        plot(timeline, cur_Vm, 'k', 'LineWidth', 1);
-        hold on;
-        
-        % Plot the DBS stimulation time pulses
-        stim_time = nanmean(data_bystim.(f_stim{1}).stim_timestamps, 2);
-        xline(stim_time, 'Color', [170, 176, 97]./255, 'LineWidth', 2);
-        hold on;
-
-        % Plot the timescale bar
-        posx = -.100;
-        posy = -3;
-        plot([posx, posx + 0.050], [posy posy], 'k', 'LineWidth', 2);
-        text(posx, posy - 0.5, '50ms');
-
-        % Increase timescale resolution
-        xlim([0 - .100, max(stim_time) + 0.100]);
-        a = gca;
-        a.XAxis.Visible = 'off';
-        ylabel('Vm');
-        set(gca, 'color', 'none')
-        title(f_stim{1}(3:end), 'Interpreter', 'none');
-    end
-    sgtitle([f_region ' Average subthreshold Vm Showing all pulses'], 'Interpreter', 'none');
-    saveas(gcf, [figure_path 'Average/' f_region '_Display_All_Pulse_Trig_Vm.png']);
-    saveas(gcf, [figure_path 'Average/' f_region '_Display_All_Pulse_Trig_Vm.eps'], 'epsc');
 end
 
 %% Specific functions for determining which FOVs to look at
