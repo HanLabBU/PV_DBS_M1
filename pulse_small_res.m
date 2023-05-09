@@ -245,32 +245,35 @@ for f_region = fieldnames(region_data)'
     data_bystim = region_data.(f_region).data_bystim;
     stims = fieldnames(data_bystim);
     
-    figure('visible', 'off', 'Renderer', 'Painters', 'Position', [200 200 1000 1000]);
+    figure('Renderer', 'Painters', 'Position', [200 200 570 740]);
     tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
     for f_stim=stims'
         
         Vm_avg = [];
+        extra_trace = 3;
         % Looping through each neuron
         for nr = 1:size(data_bystim.(f_stim{1}).neuron_Vm, 2)
             
-            % Calculate average DBS pulse time widths
+            % Calculate the number of trace idxs between pulses
             nr_avg_pulse_width = mean(diff(data_bystim.(f_stim{1}).stim_timestamps(:, nr) ), 'omitnan');
-            %trace_width = nr_avg_pulse_width;
+            nr_avg_trace_time = mean(diff(data_bystim.(f_stim{1}).trace_timestamps(:, nr) ), 'omitnan');
+            trace_width = ceil(nr_avg_pulse_width./nr_avg_trace_time);
  
             % Use fixed length of points for all frequencies
-            trace_width = 21;
+            %trace_width = 21;
 
             % Loop through each stimulation time pulses
             for pulse_time = data_bystim.(f_stim{1}).stim_timestamps(:, nr)'
-                start_trace_idx = find(pulse_time <= data_bystim.(f_stim{1}).trace_timestamps(:, nr));
-                start_trace_idx = start_trace_idx(1);
+                follow_trace_idx = find(pulse_time <= data_bystim.(f_stim{1}).trace_timestamps(:, nr));
+                
+                start_trace_idx = follow_trace_idx(1) - extra_trace;
                 
                 % Calculate end trace idx using the average inter-pulse time
                 %end_trace_idx = find(pulse_time + trace_width >= data_bystim.(f_stim{1}).trace_timestamps(:, nr));
                 %end_trace_idx = end_trace_idx(end);
                 
                 % Using fixed number of pulse times
-                end_trace_idx = start_trace_idx + trace_width;
+                end_trace_idx = follow_trace_idx(1) + trace_width + extra_trace;
 
                 Vm_pulse_width = data_bystim.(f_stim{1}).neuron_Vm(start_trace_idx:end_trace_idx, nr);
                 Vm_avg = horzcat_pad(Vm_avg, Vm_pulse_width);
@@ -285,7 +288,7 @@ for f_region = fieldnames(region_data)'
         nexttile;
         
         % Use the average trace framerate to calculate the timelinefigure_path = [server_root_path 'Pierre Fabris' f 'PV Project' f 'Plots' f];
-        timeline = [0:size(Vm_avg, 1) - 1]*1000./avg_Fs;
+        timeline = [ [0:size(Vm_avg, 1) - 1] - extra_trace]*1000./avg_Fs;
         
         f = fill([timeline, flip(timeline)], [cur_subVm + sem_subVm; flipud(cur_subVm - sem_subVm)], [0.5 0.5 0.5]);
         Multi_func.set_fill_properties(f);
@@ -294,8 +297,7 @@ for f_region = fieldnames(region_data)'
         hold on;
 
         % Plot the DBS stimulation time pulses
-        %TODO need to fix this
-        xline([0:nr_avg_pulse_width*1000:trace_width], 'Color', [170, 176, 97]./255, 'LineWidth', 2);
+        xline([0:nr_avg_pulse_width*1000:nr_avg_pulse_width*1000], 'Color', [170, 176, 97]./255, 'LineWidth', 2);
         hold on;
 
         % Plot the timescale bar
@@ -332,24 +334,28 @@ for f_region = fieldnames(region_data)'
     data_bystim = region_data.(f_region).data_bystim;
     stims = fieldnames(data_bystim);
     
-    figure('visible', 'off', 'Renderer', 'Painters', 'Position', [200 200 1000 1000]);
+    figure('Renderer', 'Painters', 'Position', [200 200 570 740]);
     tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
     for f_stim=stims'
         timeline = nanmean(data_bystim.(f_stim{1}).trace_timestamps, 2);
         
         FR_avg = [];
+        extra_trace = 3;
         % Looping through each neuron
         for nr = 1:size(data_bystim.(f_stim{1}).neuron_srate, 2)
 
-            % Calculate average DBS pulse time widths
+            % Calculate the number of trace idxs between pulses
             nr_avg_pulse_width = mean(diff(data_bystim.(f_stim{1}).stim_timestamps(:, nr) ), 'omitnan');
+            nr_avg_trace_time = mean(diff(data_bystim.(f_stim{1}).trace_timestamps(:, nr) ), 'omitnan');
+            trace_width = ceil(nr_avg_pulse_width./nr_avg_trace_time);
 
             % Loop through each stimulation time pulses
             for pulse_time = data_bystim.(f_stim{1}).stim_timestamps(:, nr)'
-                start_trace_idx = find(pulse_time <= data_bystim.(f_stim{1}).trace_timestamps(:, nr));
-                start_trace_idx = start_trace_idx(1);
-                end_trace_idx = find(pulse_time + nr_avg_pulse_width >= data_bystim.(f_stim{1}).trace_timestamps(:, nr));
-                end_trace_idx = end_trace_idx(end);
+                follow_trace_idx = find(pulse_time <= data_bystim.(f_stim{1}).trace_timestamps(:, nr));
+                start_trace_idx = follow_trace_idx(1) - extra_trace;
+                end_trace_idx = follow_trace_idx(1) + trace_width + extra_trace;
+                %end_trace_idx = find(pulse_time + nr_avg_pulse_width >= data_bystim.(f_stim{1}).trace_timestamps(:, nr));
+                %end_trace_idx = end_trace_idx(end);
                 
                 fr_pulse_width = data_bystim.(f_stim{1}).neuron_srate(start_trace_idx:end_trace_idx, nr);
                 FR_avg = horzcat_pad(FR_avg, fr_pulse_width);
@@ -361,28 +367,32 @@ for f_region = fieldnames(region_data)'
         num_pulses = size(FR_avg, 2);
         %num_points = size(data_bystim.(f_stim{1}).neuron_srate, 1);
         sem_srate = std_srate./sqrt(num_pulses);
+        
+        timeline = [ [0:size(FR_avg, 1) - 1] - extra_trace]*1000./avg_Fs;
+        
         nexttile;
-        f = fill([1:size(FR_avg, 1), size(FR_avg, 1):-1:1], [cur_srate + sem_srate; flipud(cur_srate - sem_srate)], [0.5 0.5 0.5]);
+        f = fill([timeline, flip(timeline)], [cur_srate + sem_srate; flipud(cur_srate - sem_srate)], [0.5 0.5 0.5]);
         Multi_func.set_fill_properties(f);
         hold on;
-        plot(1:size(FR_avg, 1), cur_srate, 'k', 'LineWidth', 1);
+        plot(timeline, cur_srate, 'k', 'LineWidth', 1);
         hold on;
 
         % Plot the DBS stimulation time pulses
-        xline([1, end_trace_idx - start_trace_idx], 'Color', [170, 176, 97]./255, 'LineWidth', 2);
+        xline([0:nr_avg_pulse_width*1000:nr_avg_pulse_width*1000], 'Color', [170, 176, 97]./255, 'LineWidth', 2);
         hold on;
 
         % Plot the timescale bar
-        posx = 1;
-        posy = 0;
-        plot([posx, posx + 4], [posy posy], 'k', 'LineWidth', 2);
-        text(posx, posy - 0.1, [num2str(4) 'ms']);
+        %posx = 1;
+        %posy = 0;
+        %plot([posx, posx + 4], [posy posy], 'k', 'LineWidth', 2);
+        %text(posx, posy - 0.1, [num2str(4) 'ms']);
 
         % Increase timescale resolution
         %xlim([0 - .100, 0 + .100]);
-        set(gca,'xtick',[]);
         set(gca, 'color', 'none');
         ylabel('Firing Rate(Hz)');
+        xlabel('Time from pulse(ms)');
+        ylim([0 4]);
         yyaxis right;
         yticks([]);
 
