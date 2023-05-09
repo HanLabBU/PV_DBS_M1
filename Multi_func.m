@@ -100,6 +100,8 @@ classdef Multi_func
             [wt, f] = cwt(signal, FilterBank=fb);
         end
 
+
+
         % Specify the fill property for all figures
         % fill_handle -> the fill to set all of these properties to make them uniform
         function [result] = set_fill_properties(fill_handle)
@@ -107,6 +109,11 @@ classdef Multi_func
             fill_handle.FaceAlpha = 0.2;
         end
         
+        % Specify default axis on plots
+        function [result] = set_default_axis(ax)
+            set(ax, 'Color', 'none', 'Box', 'off', 'TickDir', 'out');
+        end
+
         % Plot DBS bar above specified value
         function [result] = plot_dbs_bar(x_pts, y, text_str)
             offset = 1;
