@@ -328,7 +328,7 @@ for f_region = fieldnames(region_data)'
         hold on;
         Multi_func.set_default_axis(gca);
         title([f_stim(3:end) ' Hz DBS']);
-        ylabel('V.M.');
+        ylabel('V.M. Change');
         ylim([-10 40]);
 
         %sub_vm_stat_data.(f_stim) = struct();
@@ -368,6 +368,73 @@ ranksum_Subvm_sus_sus_stats.p = p
 ranksum_Subvm_sus_sus_stats.h = h;
 ranksum_Subvm_sus_sus_stats.stats = stats;
 
+% Perform Statistical tests on Firing Rate 
+for f_region = fieldnames(region_data)'
+    f_region = f_region{1};
+    data_bystim = region_data.(f_region).data_bystim;
+    stims = fieldnames(data_bystim);
+    
+    % Struct to identify each group of data
+    fr_stat_data = struct();
+
+    figure('Renderer', 'Painters', 'Position', [200 200 900 400]);
+    tiledlayout(1, length(stims), 'TileSpacing', 'compact', 'Padding', 'compact');
+    for f_stim=stims'
+        nexttile;
+        % Plot violins
+        labels = [];
+        data = [];
+        f_stim = f_stim{1};
+        num_neurons = length(data_bystim.(f_stim).neuron_trans_FR);
+        labels = [labels; repmat({'Trans'}, num_neurons, 1); repmat({'Sus'}, num_neurons, 1)];
+        data = [data; data_bystim.(f_stim).neuron_trans_FR', data_bystim.(f_stim).neuron_sus_FR'];
+        violins = violinplot2(data, labels, 'GroupOrder', {'Trans', 'Sus'});
+        hold on;
+
+        % Plot individual lines between violins
+        plot([1, 2], data, '-', 'Color', [0 0 0 0.2]);
+        hold on;
+        Multi_func.set_default_axis(gca);
+        title([f_stim(3:end) ' Hz DBS']);
+        ylabel('Firing Rate Change (Hz)');
+        %ylim([-10 40]);
+
+        %fr_stat_data.(f_stim) = struct();
+        fr_stat_data.(f_stim).trans_fr = data_bystim.(f_stim).neuron_trans_FR;
+        fr_stat_data.(f_stim).sus_fr = data_bystim.(f_stim).neuron_sus_FR;
+    end
+    
+    sgtitle([f_region ' Firing Rate Violins'], 'Interpreter', 'none');
+    saveas(gcf, [figure_path 'Average/' f_region '_ped_comp_FR.png']);
+    saveas(gcf, [figure_path 'Average/' f_region '_ped_comp_FR.eps']);
+end
+% Trans and Sus SubVm statistical test
+[p, h, stats] = signrank(fr_stat_data.f_40.trans_fr, fr_stat_data.f_40.sus_fr);
+signrank_FR_40_trans_sus_stats = struct();
+signrank_FR_40_trans_sus_stats.p = p
+signrank_FR_40_trans_sus_stats.h = h;
+signrank_FR_40_trans_sus_stats.stats = stats;
+
+[p, h, stats] = signrank(fr_stat_data.f_140.trans_fr, fr_stat_data.f_140.sus_fr);
+signrank_FR_140_trans_sus_stats = struct();
+signrank_FR_140_trans_sus_stats.p = p
+signrank_FR_140_trans_sus_stats.h = h;
+signrank_FR_140_trans_sus_stats.stats = stats;
+
+
+% Trans to Trans Subfr statistical test
+[p, h, stats] = ranksum(fr_stat_data.f_40.trans_fr, fr_stat_data.f_140.trans_fr);
+ranksum_FR_trans_trans_stats = struct();
+ranksum_FR_trans_trans_stats.p = p
+ranksum_FR_trans_trans_stats.h = h;
+ranksum_FR_trans_trans_stats.stats = stats;
+
+% Sus to sus Subfr statistical test
+[p, h, stats] = ranksum(fr_stat_data.f_40.sus_fr, fr_stat_data.f_140.sus_fr);
+ranksum_FR_sus_sus_stats = struct();
+ranksum_FR_sus_sus_stats.p = p
+ranksum_FR_sus_sus_stats.h = h;
+ranksum_FR_sus_sus_stats.stats = stats;
 
 % Subthreshold Vm showing all DBS pulses
 for f_region = fieldnames(region_data)'
