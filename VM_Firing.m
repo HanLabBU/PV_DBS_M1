@@ -32,6 +32,10 @@ all_regions = 1;
 
 srate_win = 100;
 
+% Time periods for comparison of firing rate and sub Vm
+trans_ped = [0, 150];
+sus_ped = [150, 1000];
+
 %%% END Modification
 
 % Check that the server path exists
@@ -73,6 +77,12 @@ for f_region = fieldnames(region_matfiles)'
         data_bystim.(f_stim).stim_timestamps = [];
         data_bystim.(f_stim).trace_timestamps = [];
 
+        % Store transient information    
+        data_bystim.(f_stim).neuron_trans_Vm = [];      
+        data_bystim.(f_stim).neuron_sus_Vm = [];        
+        data_bystim.(f_stim).neuron_trans_FR = [];     
+        data_bystim.(f_stim).neuron_sus_FR = [];
+
         % Loop through each matfile of the current stimulation condition
         for matfile = matfiles
             % Read in the mat file of the current condition
@@ -85,6 +95,13 @@ for f_region = fieldnames(region_matfiles)'
             cur_fov_raster = [];
             cur_fov_stim_time = [];
             cur_fov_trace_time = [];
+         
+            cur_fov_trans_Vm = [];      
+            cur_fov_sus_Vm = [];        
+            cur_fov_trans_FR = [];     
+            cur_fov_sus_FR = [];
+            cur_fov_base_Vm = [];
+            cur_fov_base_FR = [];
 
             % Loop through each ROI
             for roi_idx=1:size(trial_data.detrend_traces, 2)
@@ -140,16 +157,27 @@ for f_region = fieldnames(region_matfiles)'
                     % Calculate the spike rate
                     cur_raster = trial_data.spike_info375.roaster(roi_idx, front_frame_drop:back_frame_drop);
                     cur_spikerate = cur_raster.*trial_data.camera_framerate;
-                    %TODO demean the spike rate by the baseline
                     cur_spikerate = nanfastsmooth(cur_spikerate, srate_win, 1, 1);
                     % Baseline subtract the mean
                     baseline_idx = find(cur_trace_time < cur_stim_time(1));
                     cur_spikerate = cur_spikerate - mean(cur_spikerate(baseline_idx), 'omitnan');
 
                     cur_fov_srate = horzcat_pad(cur_fov_srate, cur_spikerate');            
-                    
                     % Store the raster plot
                     cur_fov_raster = horzcat_pad(cur_fov_raster, cur_raster');
+
+                    % Grab transient and sustained period for spikes and Vm
+                    base_idx = find(cur_trace_time < cur_stim_time(1));
+                    trans_idx = find(cur_trace_time > 0 & cur_trace_time <= trans_ped(2)./1000);
+                    sus_idx = find(cur_trace_time > trans_ped(2)./1000 & cur_trace_time <= cur_stim_time(end));
+                    
+                    cur_fov_base_Vm = horzcat_pad(cur_fov_base_Vm, mean(detrend_subVm(base_idx)', 'omitnan'));
+                    cur_fov_trans_Vm = horzcat_pad(cur_fov_trans_Vm, mean(detrend_subVm(trans_idx)', 'omitnan'));
+                    cur_fov_sus_Vm = horzcat_pad(cur_fov_sus_Vm, mean(detrend_subVm(sus_idx)', 'omitnan'));
+
+                    cur_fov_base_FR = horzcat_pad(cur_fov_base_FR, sum(cur_raster(base_idx))');
+                    cur_fov_trans_FR = horzcat_pad(cur_fov_trans_FR, sum(cur_raster(trans_idx))./(diff(trans_ped)./1000)');
+                    cur_fov_sus_FR = horzcat_pad(cur_fov_sus_FR, sum(cur_raster(sus_idx))./(diff(sus_ped)./1000)');
 
                 end % End looping through each neuron
             end
@@ -170,6 +198,15 @@ for f_region = fieldnames(region_matfiles)'
             data_bystim.(f_stim).stim_timestamps = horzcat_pad(temp, nanmean(cur_fov_stim_time, 2));
             temp = data_bystim.(f_stim).trace_timestamps;
             data_bystim.(f_stim).trace_timestamps = horzcat_pad(temp, nanmean(cur_fov_trace_time, 2));
+            
+            temp = data_bystim.(f_stim).neuron_trans_Vm;
+            data_bystim.(f_stim).neuron_trans_Vm = horzcat_pad(temp, mean(cur_fov_trans_Vm, 'omitnan') - mean(cur_fov_base_Vm, 'omitnan'));
+            temp = data_bystim.(f_stim).neuron_sus_Vm;
+            data_bystim.(f_stim).neuron_sus_Vm = horzcat_pad(temp, mean(cur_fov_sus_Vm, 'omitnan') - mean(cur_fov_base_Vm, 'omitnan'));
+            temp = data_bystim.(f_stim).neuron_trans_FR;
+            data_bystim.(f_stim).neuron_trans_FR = horzcat_pad(temp, mean(cur_fov_trans_FR, 'omitnan') - mean(cur_fov_base_FR, 'omitnan'));
+            temp = data_bystim.(f_stim).neuron_sus_FR;
+            data_bystim.(f_stim).neuron_sus_FR = horzcat_pad(temp, mean(cur_fov_sus_FR, 'omitnan') - mean(cur_fov_base_FR, 'omitnan'));
 
         end % End looping through FOVs of a condition
     end
@@ -192,7 +229,7 @@ for f_region = fieldnames(region_data)'
     data_bystim = region_data.(f_region).data_bystim;
     stims = fieldnames(data_bystim);
     
-    figure('Renderer', 'Painters', 'Position', [200 200 2000 700]);
+    figure('visible', 'off', 'Renderer', 'Painters', 'Position', [200 200 2000 700]);
     tiledlayout(1, length(stims), 'TileSpacing', 'compact', 'Padding', 'compact');
     for f_stim=stims'
         timeline = nanmean(data_bystim.(f_stim{1}).trace_timestamps, 2);
@@ -224,13 +261,15 @@ for f_region = fieldnames(region_data)'
     saveas(gcf, [figure_path 'Average/' f_region '_Summary_Continuous_FiringRate.eps']);
 end
 
+
+
 %% Subthreshold Vm
 for f_region = fieldnames(region_data)'
     f_region = f_region{1};
     data_bystim = region_data.(f_region).data_bystim;
     stims = fieldnames(data_bystim);
     
-    figure('Renderer', 'Painters', 'Position', [200 200 2000 700]);
+    figure('visible', 'off', 'Renderer', 'Painters', 'Position', [200 200 2000 700]);
     tiledlayout(1, length(stims), 'TileSpacing', 'compact', 'Padding', 'compact');
     for f_stim=stims'
         timeline = nanmean(data_bystim.(f_stim{1}).trace_timestamps, 2);
@@ -259,6 +298,131 @@ for f_region = fieldnames(region_data)'
     sgtitle([f_region ' Average subthreshold Vm'], 'Interpreter', 'none');
     saveas(gcf, [figure_path 'Average/' f_region '_Average_sub_thres.png']);
     saveas(gcf, [figure_path 'Average/' f_region '_Average_sub_thres.eps']);
+end
+
+% Perform Statistical tests on Subthreshold Vm 
+for f_region = fieldnames(region_data)'
+    f_region = f_region{1};
+    data_bystim = region_data.(f_region).data_bystim;
+    stims = fieldnames(data_bystim);
+    
+    % Struct to identify each group of data
+    sub_vm_stat_data = struct();
+
+    figure('Renderer', 'Painters', 'Position', [200 200 900 400]);
+    tiledlayout(1, length(stims), 'TileSpacing', 'compact', 'Padding', 'compact');
+    for f_stim=stims'
+        nexttile;
+        % Plot violins
+        labels = [];
+        data = [];
+        f_stim = f_stim{1};
+        num_neurons = length(data_bystim.(f_stim).neuron_trans_Vm);
+        labels = [labels; repmat({'Trans'}, num_neurons, 1); repmat({'Sus'}, num_neurons, 1)];
+        data = [data; data_bystim.(f_stim).neuron_trans_Vm', data_bystim.(f_stim).neuron_sus_Vm'];
+        violins = violinplot2(data, labels, 'GroupOrder', {'Trans', 'Sus'});
+        hold on;
+
+        % Plot individual lines between violins
+        plot([1, 2], data, '-', 'Color', [0 0 0 0.2]);
+        hold on;
+        Multi_func.set_default_axis(gca);
+        title([f_stim(3:end) ' Hz DBS']);
+        ylabel('V.M.');
+        ylim([-10 40]);
+
+        %sub_vm_stat_data.(f_stim) = struct();
+        sub_vm_stat_data.(f_stim).trans_vm = data_bystim.(f_stim).neuron_trans_Vm;
+        sub_vm_stat_data.(f_stim).sus_vm = data_bystim.(f_stim).neuron_sus_Vm;
+    end
+    
+    sgtitle([f_region ' Sub Vm Violins'], 'Interpreter', 'none');
+    saveas(gcf, [figure_path 'Average/' f_region '_ped_comp_sub_thres.png']);
+    saveas(gcf, [figure_path 'Average/' f_region '_ped_comp_sub_thres.eps']);
+end
+% Trans and Sus SubVm statistical test
+[p, h, stats] = signrank(sub_vm_stat_data.f_40.trans_vm, sub_vm_stat_data.f_40.sus_vm);
+signrank_SubVm_40_trans_sus_stats = struct();
+signrank_SubVm_40_trans_sus_stats.p = p
+signrank_SubVm_40_trans_sus_stats.h = h;
+signrank_SubVm_40_trans_sus_stats.stats = stats;
+
+[p, h, stats] = signrank(sub_vm_stat_data.f_140.trans_vm, sub_vm_stat_data.f_140.sus_vm);
+signrank_Subvm_140_trans_sus_stats = struct();
+signrank_Subvm_140_trans_sus_stats.p = p
+signrank_Subvm_140_trans_sus_stats.h = h;
+signrank_Subvm_140_trans_sus_stats.stats = stats;
+
+
+% Trans to Trans Subvm statistical test
+[p, h, stats] = ranksum(sub_vm_stat_data.f_40.trans_vm, sub_vm_stat_data.f_140.trans_vm);
+ranksum_Subvm_trans_trans_stats = struct();
+ranksum_Subvm_trans_trans_stats.p = p
+ranksum_Subvm_trans_trans_stats.h = h;
+ranksum_Subvm_trans_trans_stats.stats = stats;
+
+% Sus to sus Subvm statistical test
+[p, h, stats] = ranksum(sub_vm_stat_data.f_40.sus_vm, sub_vm_stat_data.f_140.sus_vm);
+ranksum_Subvm_sus_sus_stats = struct();
+ranksum_Subvm_sus_sus_stats.p = p
+ranksum_Subvm_sus_sus_stats.h = h;
+ranksum_Subvm_sus_sus_stats.stats = stats;
+
+
+% Subthreshold Vm showing all DBS pulses
+for f_region = fieldnames(region_data)'
+    f_region = f_region{1};
+    data_bystim = region_data.(f_region).data_bystim;
+    stims = fieldnames(data_bystim);
+    
+    figure('visible', 'off', 'Renderer', 'Painters', 'Position', [200 200 2000 1000]);
+    tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
+    for f_stim=stims'
+        timeline = nanmean(data_bystim.(f_stim{1}).trace_timestamps, 2);
+        cur_Vm = mean(data_bystim.(f_stim{1}).neuron_Vm, 2, 'omitnan');
+        std_Vm = std(data_bystim.(f_stim{1}).neuron_Vm, 0, 2, 'omitnan');
+        num_neurons = size(data_bystim.(f_stim{1}).neuron_Vm, 2);
+        sem_Vm = std_Vm./sqrt(num_neurons);
+        %num_points = size(data_bystim.(f_stim{1}).neuron_Vm, 1);
+        nexttile;
+
+        % Plot the subthreshold Vm
+        f = fill([timeline; flip(timeline)], [cur_Vm + sem_Vm; flipud(cur_Vm - sem_Vm)], [0.5 0.5 0.5]);
+        Multi_func.set_fill_properties(f);
+        hold on;
+        plot(timeline, cur_Vm, 'k', 'LineWidth', 1);
+        hold on;
+        
+        % Plot the DBS stimulation time pulses
+        stim_time = nanmean(data_bystim.(f_stim{1}).stim_timestamps, 2);
+        xline(stim_time, 'Color', [170, 176, 97]./255, 'LineWidth', 2);
+        hold on;
+
+        % Plot the timescale bar
+        posx = -.100;
+        posy = -3;
+        plot([posx, posx + 0.050], [posy posy], 'k', 'LineWidth', 2);
+        text(posx, posy - 0.5, '50ms');
+        hold on;
+
+        % Plot the Vm scale
+        poxs = .2;
+        posy = 5;
+        Vm_scale = 2;
+        plot([posx, posx], [posy, posy + Vm_scale], 'k', 'LineWidth', 2);
+        text(posx - .01, posy, [num2str(Vm_scale) ' VM'], 'Rotation', 90);
+
+        % Increase timescale resolution
+        xlim([0 - .100, max(stim_time) + 0.100]);
+        a = gca;
+        a.XAxis.Visible = 'off';
+        a.YAxis.Visible = 'off';
+        set(gca, 'color', 'none')
+        title(f_stim{1}(3:end), 'Interpreter', 'none');
+    end
+    sgtitle([f_region ' Average subthreshold Vm Showing all pulses'], 'Interpreter', 'none');
+    saveas(gcf, [figure_path 'Average/' f_region '_Display_All_Pulse_Trig_Vm.png']);
+    saveas(gcf, [figure_path 'Average/' f_region '_Display_All_Pulse_Trig_Vm.eps'], 'epsc');
 end
 
 %% Functin to calculate the power spectra
