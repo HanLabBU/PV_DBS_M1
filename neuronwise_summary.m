@@ -28,7 +28,10 @@ ignore_trial_dict = Multi_func.csv_to_struct([local_root_path 'Pierre Fabris' f 
                                        'Stim Recordings' f 'Data_Config' f 'byvis_ignore.csv']);
 
 % Parameter to determine whether to combine all regions as one data
-all_regions = 0;
+all_regions = 1;
+
+% Flag to display each neuron's name or not
+display_names = 0;
 
 %%% END Modification
 
@@ -71,11 +74,13 @@ for f_region = fieldnames(region_matfiles)'
         data_bystim.(f_stim).neuron_rawVm = {};
         data_bystim.(f_stim).stim_timestamps = [];
         data_bystim.(f_stim).trace_timestamps = [];
+        data_bystim.(f_stim).neuron_name = {};
 
         % Loop through each matfile of the current stimulation condition
         for matfile = matfiles
+            matfile = matfile{1};
             % Read in the mat file of the current condition
-            data = load([pv_data_path matfile{1}]);
+            data = load([pv_data_path matfile]);
             trial_idxs = find(~cellfun(@isempty, data.align.trial));
             trial_data = data.align.trial{trial_idxs(1)};    
             cur_fov_Fs = [];
@@ -88,7 +93,7 @@ for f_region = fieldnames(region_matfiles)'
             % Loop through each ROI
             for roi_idx=1:size(trial_data.detrend_traces, 2)
                 %Determine whether this roi is to be ignored for this particular trial
-                ri = strsplit(matfile{1}, '_');
+                ri = strsplit(matfile, '_');
                 try
                     trial_ignr_list = ignore_trial_dict.(['mouse_' ri{1}]).(['rec_' erase(ri{3}, 'rec')]).(ri{4}).(['f_' ri{5}]).(['ROI' num2str(roi_idx)]);
                 catch
@@ -98,10 +103,13 @@ for f_region = fieldnames(region_matfiles)'
                 % Remove trials from trial idx list
                 trial_idxs = setdiff(trial_idxs, trial_ignr_list);
 
-                % Skip if there is only 1 trial
-                if length(trial_idxs) < 2
+                % Skip if there is at most 2 trials
+                if length(trial_idxs) <= 2
                     continue;
                 end
+            
+                %Add neuron name
+                data_bystim.(f_stim).neuron_name{end + 1} = matfile;
 
                 % Loop through each trial                
                 for tr_idx=trial_idxs        
@@ -198,7 +206,7 @@ for f_region = fieldnames(region_data)'
 
         % Create a figure that includes: raw, spikes, and SubVm
         figure('Renderer', 'Painters', 'Position', [200 200 2000 1000]);
-        tiledlayout(1, 3, 'TileSpacing', 'compact', 'Padding', 'compact');
+        tiledlayout(1, 3, 'TileSpacing', 'none', 'Padding', 'loose');
         
         % Plot the raw traces
         nexttile;  
@@ -211,10 +219,11 @@ for f_region = fieldnames(region_data)'
 
         a = colorbar;
         a.Label.String = 'Vm';
-    
+        color_limits = a.Limits;
+        set(a, 'Location', 'westoutside')
         set(gca, 'color', 'none');
         xlabel('Time from Stim onset(sec)');
-        xlim([-1 2.25]);
+        xlim([-1 2.05]);
         ylim([0 size(data_map, 1)]);
         ylabel('Neuron Trials');
         title('Raw Traces', 'Interpreter', 'none');
@@ -228,14 +237,13 @@ for f_region = fieldnames(region_data)'
         end
         imagesc('XData', timeline, 'YData', 1:size(data_map, 1), 'CData', data_map);
 
-        a = colorbar;
-        a.Label.String = 'Vm';
-    
+        caxis(color_limits);
         set(gca, 'color', 'none');
         xlabel('Time from Stim onset(sec)');
-        xlim([-1 2.25]);
+        xlim([-1 2.05]);
         ylim([0 size(data_map, 1)]);
-        ylabel('Neuron Trials');
+        %ylabel('Neuron Trials');
+        set(gca, 'YTick', []);
         title('Subthreshold Vm', 'Interpreter', 'none');
 
         % Plot the raster plot
@@ -247,13 +255,19 @@ for f_region = fieldnames(region_data)'
             for tr = 1:size(cur_fov, 2)
                 cur_spikeidx = cur_fov(:, tr);
                 cur_spikeidx(isnan(cur_spikeidx)) = [];
-                plot(timeline(cur_spikeidx), repmat(index, length(cur_spikeidx), 1), '|', 'color', cur_color);
+                plot(timeline(cur_spikeidx), repmat(index, length(cur_spikeidx), 1), '.', 'color', cur_color);
                 hold on;
                 index = index + 1;
             end
             plot(timeline, repmat(index, length(timeline), 1), '-k');
             hold on;
             index = index + 1;
+            
+            if display_names == 1
+                % Plot the neuron label next to its raster
+                text(2.2, index - (size(cur_fov, 2)/2), data_bystim.(f_stim).neuron_name{fov}(1:end - 4), 'Interpreter', 'none');
+                hold on;
+            end
         end
         
         % DEBUG
@@ -264,9 +278,17 @@ for f_region = fieldnames(region_data)'
     
         set(gca, 'color', 'none');
         xlabel('Time from Stim onset(sec)');
-        %xlim([-1 2.25]);
+        
+        % Adjust x axis if displaying names or not
+        if display_names == 1
+            xlim([-1 4]);
+        else
+            xlim([-1 2.05]);
+        end
+
         ylim([0 index]);
-        ylabel('Neuron Trials');
+        set(gca, 'YTick', []);
+        %ylabel('Neuron Trials');
         title('Raster Plots', 'Interpreter', 'none');
 
         sgtitle([ f_region ' ' f_stim ' Neuronwise'], 'Interpreter', 'none');
