@@ -114,10 +114,17 @@ classdef Multi_func
             set(ax, 'Color', 'none', 'Box', 'off', 'TickDir', 'out');
         end
 
+        % Re-space axis
+        function [result] = set_spacing_axis(ax, spacing, num_dec)
+            ticks = round(linspace(ax.Limits(1), ax.Limits(2), spacing), num_dec);    
+            ax.TickValues = ticks;    
+            ax.TickLabels = num2cell(ticks);
+        end
+
         % Plot DBS bar above specified value
         function [result] = plot_dbs_bar(x_pts, y, text_str)
             offset = 1;
-            plot(x_pts, [y + offset, y + offset], '-', 'LineWidth', 4, 'Color', Fig_color_props.dbs_color);
+            plot(x_pts, [y + offset, y + offset], '-', 'LineWidth', 8, 'Color', Fig_color_props.dbs_color);
             %hold on;
             %text(mean(x_pts), y + 1.5*offset, text_str);
         end
