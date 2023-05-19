@@ -33,6 +33,11 @@ srate_win = 100;
 % Parameter to determine whether to combine all regions as one data
 all_regions = 1;
 
+% Define transient and sustained periods
+trans_ped = [0, 150];
+sus_ped = [150, 1000];
+offset_trans_ped = [1000, 1150];
+
 %%% END Modification
 
 % Check that the server path exists
@@ -171,7 +176,6 @@ end
 avg_Fs = nanmean(all_Fs);
 
 % Subthreshold time series spectra with (x - A)/(A + B) normalization for each neuron and 
-% Averaged afterwards
 for f_region = fieldnames(region_data)'
     f_region = f_region{1};
     data_bystim = region_data.(f_region).data_bystim;
@@ -226,8 +230,69 @@ for f_region = fieldnames(region_data)'
     sgtitle([ f_region ' Time Series Spectra with (x - A)/(A + B) normalization individually'], 'Interpreter', 'none');
     
     saveas(gcf, [figure_path 'Spectra/' f_region '_A_B_Normalization_Time_Spectra.png']);
-    saveas(gcf, [figure_path 'Spectra/' f_region '_A_B_Normalization_Time_Spectra.pdf']);
+    %saveas(gcf, [figure_path 'Spectra/' f_region '_A_B_Normalization_Time_Spectra.pdf']);
     saveas(gcf, [figure_path 'Spectra/' f_region '_A_B_Normalization_Time_Spectra.eps'], 'epsc');
+end
+
+% Subthreshold time series spectra with (x - A)/(A + B) normalization for each neuron and 
+% zoom in on the 50 Hz
+for f_region = fieldnames(region_data)'
+    f_region = f_region{1};
+    data_bystim = region_data.(f_region).data_bystim;
+    stims = fieldnames(data_bystim);
+    figure('Renderer', 'Painters', 'Position', [200 200 650 700]);
+    tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
+    % Loop through each stimulation parameter
+    for f_stim=stims'
+        f_stim = f_stim{1};
+        nexttile;
+        
+        % Get the trace timestamps
+        timeline = nanmean(data_bystim.(f_stim).trace_timestamps, 2)';
+        
+        % Normalize ratio
+        % First calculate by doing the ratios for each neuron first and then averaging
+        cur_spec_pow = data_bystim.(f_stim).neuron_spec_power;
+    
+        % Plot the starting time point for each neuron
+        sz = size(data_bystim.(f_stim).trace_timestamps);
+    
+        % Loop throug each neuron
+        for i = 1:size(data_bystim.(f_stim).trace_timestamps, 2)
+            % Get the indices define the periods within in the trace
+            baseline_idx = find(data_bystim.(f_stim).trace_timestamps(:, i) < data_bystim.(f_stim).stim_timestamps(1, i));
+            stim_idx = find(data_bystim.(f_stim).trace_timestamps(:, i) >= data_bystim.(f_stim).stim_timestamps(1, i) & ...
+                            data_bystim.(f_stim).trace_timestamps(:, i) <= data_bystim.(f_stim).stim_timestamps(end, i));
+            %plot(baseline_idx, i*5, '.r');
+            %hold on;
+            base_power = nanmean(abs(cur_spec_pow(:, baseline_idx, i)), 2);
+            stim_power = nanmean(abs(cur_spec_pow(:, stim_idx, i)), 2);
+            cur_spec_pow(:, :, i) = (abs(cur_spec_pow(:, :, i)) - base_power)./(base_power + stim_power);
+        end
+
+        surface(timeline, ... 
+                nanmean(data_bystim.(f_stim).neuron_spec_freq, 3), ...
+                nanmean(cur_spec_pow, 3), 'CDataMapping', 'scaled', 'FaceColor', 'texturemap', 'edgecolor', 'none');
+        % Add DBS bar
+        hold on;
+        Multi_func.plot_dbs_bar([0, 1], 155, f_stim);
+
+        a = colorbar;
+        a.Ticks = linspace(a.Limits(1), a.Limits(2), 4);
+        a.TickLabels = num2cell(round(linspace(a.Limits(1), a.Limits(2), 4), 1));
+        a.Label.String = 'Relative Power';
+        Multi_func.set_default_axis(gca);
+        xlabel('Time from Stim onset(sec)');
+        xlim([-1 2.05]);
+        ylabel('Freq (Hz)');
+        ylim([0, 50]);
+        title(f_stim(3:end), 'Interpreter', 'none');
+    end
+    sgtitle([ f_region ' Time Series Spectra with (x - A)/(A + B) normalization individually'], 'Interpreter', 'none');
+    
+    saveas(gcf, [figure_path 'Spectra/' f_region '_A_B_Norm_Zoom50_Time_Spectra.png']);
+    %saveas(gcf, [figure_path 'Spectra/' f_region '_A_B_Norm_Zoom50_Time_Spectra.pdf']);
+    saveas(gcf, [figure_path 'Spectra/' f_region '_A_B_Norm_Zoom50_Time_Spectra.eps'], 'epsc');
 end
 
 %% Raw sub Vm spectra
@@ -256,7 +321,7 @@ for f_region = fieldnames(region_data)'
     sgtitle([f_region ' Raw Sub Vm Spectra'], 'Interpreter', 'none');
 
     saveas(gcf, [figure_path 'Spectra/' f_region '_Raw_Spectra.png']);
-    saveas(gcf, [figure_path 'Spectra/' f_region '_Raw_Spectra.pdf']);
+    %saveas(gcf, [figure_path 'Spectra/' f_region '_Raw_Spectra.pdf']);
     saveas(gcf, [figure_path 'Spectra/' f_region '_Raw_Spectra.eps'], 'epsc');
 end
 
@@ -364,15 +429,21 @@ for f_region = fieldnames(region_data)'
         sz = size(data_bystim.(f_stim).trace_timestamps);
         
         base_spec = [];
-        stim_spec = [];
-        offset_spec = [];
+        trans_spec = [];
+        sus_spec = [];
+	offset_trans_spec = [];
         % Loop throug each neuron
         for i = 1:size(data_bystim.(f_stim).trace_timestamps, 2)
             % Get the indices define the periods within in the trace
             baseline_idx = find(data_bystim.(f_stim).trace_timestamps(:, i) < data_bystim.(f_stim).stim_timestamps(1, i));
-            stim_idx = find(data_bystim.(f_stim).trace_timestamps(:, i) >= data_bystim.(f_stim).stim_timestamps(1, i) & ...
+	    stim_idx = find(data_bystim.(f_stim).trace_timestamps(:, i) >= data_bystim.(f_stim).stim_timestamps(1, i) & ...
                             data_bystim.(f_stim).trace_timestamps(:, i) <= data_bystim.(f_stim).stim_timestamps(end, i));
-            offset_idx = find(data_bystim.(f_stim).trace_timestamps(:, i) > data_bystim.(f_stim).stim_timestamps(end, i));
+            trans_idx = find(data_bystim.(f_stim).trace_timestamps(:, i) >= trans_ped(1) & ...
+                            data_bystim.(f_stim).trace_timestamps(:, i) <= trans_ped(2)./1000);
+            sus_idx = find(data_bystim.(f_stim).trace_timestamps(:, i) > sus_ped(1)./1000 & ...
+                            data_bystim.(f_stim).trace_timestamps(:, i) <= sus_ped(2)./1000);
+            offset_trans_idx = find(data_bystim.(f_stim).trace_timestamps(:, i) > offset_trans_ped(1)./1000 & ...
+                            data_bystim.(f_stim).trace_timestamps(:, i) <= offset_trans_ped(2)./1000);
             %plot(baseline_idx, i*5, '.r');
             %hold on;
             base_power = nanmean(abs(cur_spec_pow(:, baseline_idx, i)), 2);
@@ -381,43 +452,57 @@ for f_region = fieldnames(region_data)'
 
             % Store the baseline, stim, and offset spectrums
             base_spec = [base_spec, mean(cur_spec_pow(:, baseline_idx, i) , 2, 'omitnan')];
-            stim_spec = [stim_spec, mean(cur_spec_pow(:, stim_idx, i) , 2, 'omitnan')];
-            offset_spec = [base_spec, mean(cur_spec_pow(:, offset_idx, i) , 2, 'omitnan')];
+            trans_spec = [trans_spec, mean(cur_spec_pow(:, trans_idx, i) , 2, 'omitnan')];
+            sus_spec = [sus_spec, mean(cur_spec_pow(:, sus_idx, i) , 2, 'omitnan')];
+            offset_trans_spec = [offset_trans_spec, mean(cur_spec_pow(:, offset_trans_idx, i) , 2, 'omitnan')];
         end
 
         freqs = nanmean(data_bystim.(f_stim).neuron_spec_freq, 3);
         
         % Average base frequency spectra
-        avg_base = mean(base_spec, 2, 'omitnan');
-        std_base = std(base_spec, 0, 2, 'omitnan');
-        num_neurons = size(base_spec, 2);
-        sem_base = std_base./sqrt(num_neurons);
-        f = fill([freqs; flip(freqs)], [avg_base + sem_base; flipud(avg_base - sem_base)], [0.5 0.5 0.5]);
-        Multi_func.set_fill_properties(f);
-        hold on;
-        plot(freqs, avg_base, '-', 'DisplayName', 'Base');
-        hold on;
+        %avg_base = mean(base_spec, 2, 'omitnan');
+        %std_base = std(base_spec, 0, 2, 'omitnan');
+        %num_neurons = size(base_spec, 2);
+        %sem_base = std_base./sqrt(num_neurons);
+        %f = fill([freqs; flip(freqs)], [avg_base + sem_base; flipud(avg_base - sem_base)], [0.5 0.5 0.5]);
+        %Multi_func.set_fill_properties(f);
+        %hold on;
+        %plot(freqs, avg_base, '-', 'DisplayName', 'Base');
+        %hold on;
  
-        % Average stimulation frequency spectra
-        avg_stim = mean(stim_spec, 2, 'omitnan');
-        std_stim = std(stim_spec, 0, 2, 'omitnan');
-        num_neurons = size(stim_spec, 2);
-        sem_stim = std_stim./sqrt(num_neurons);
-        f = fill([freqs; flip(freqs)], [avg_stim + sem_stim; flipud(avg_stim - sem_stim)], [0.5 0.5 0.5]);
+        % Average transient frequency spectra
+        avg_trans = mean(trans_spec, 2, 'omitnan');
+        std_trans = std(trans_spec, 0, 2, 'omitnan');
+        num_neurons = size(trans_spec, 2);
+        sem_trans = std_trans./sqrt(num_neurons);
+        f = fill([freqs; flip(freqs)], [avg_trans + sem_trans; flipud(avg_trans - sem_trans)], [0.5 0.5 0.5], 'HandleVisibility','off');
         Multi_func.set_fill_properties(f);
         hold on;
-        plot(freqs, avg_stim, '-', 'DisplayName', 'Stim');
+        plot(freqs, avg_trans, '-', 'DisplayName', 'Transient');
+        hold on;
+
+        % Average sustained frequency spectra
+        avg_sus = mean(sus_spec, 2, 'omitnan');
+        std_sus = std(sus_spec, 0, 2, 'omitnan');
+        num_neurons = size(sus_spec, 2);
+        sem_sus = std_sus./sqrt(num_neurons);
+        f = fill([freqs; flip(freqs)], [avg_sus + sem_sus; flipud(avg_sus - sem_sus)], [0.5 0.5 0.5], 'HandleVisibility','off');
+        Multi_func.set_fill_properties(f);
+        hold on;
+        plot(freqs, avg_sus, '-', 'DisplayName', 'Sustained');
         hold on;
         
-        % Average offset frequency spectra
-        avg_offset = mean(offset_spec, 2, 'omitnan');
-        std_offset = std(offset_spec, 0, 2, 'omitnan');
-        num_neurons = size(offset_spec, 2);
-        sem_offset = std_offset./sqrt(num_neurons);
-        f = fill([freqs; flip(freqs)], [avg_offset + sem_offset; flipud(avg_offset - sem_offset)], [0.5 0.5 0.5]);
+        % Average offset transient frequency spectra
+        avg_offset_trans = mean(offset_trans_spec, 2, 'omitnan');
+        std_offset_trans = std(offset_trans_spec, 0, 2, 'omitnan');
+        num_neurons = size(offset_trans_spec, 2);
+        sem_offset_trans = std_offset_trans./sqrt(num_neurons);
+        f = fill([freqs; flip(freqs)], [avg_offset_trans + sem_offset_trans; flipud(avg_offset_trans - sem_offset_trans)], [0.5 0.5 0.5], 'HandleVisibility','off');
         Multi_func.set_fill_properties(f);
         hold on;
-        plot(freqs, avg_offset, '-', 'DisplayName', 'Offset');
+        plot(freqs, avg_offset_trans, '-', 'DisplayName', 'Offset Transient');
+        hold on;
+        plot(1:150, repmat(0, 150, 1), '-k', 'HandleVisibility','off');
         legend('Location','eastoutside');
         
         % Format and label axes
@@ -427,13 +512,14 @@ for f_region = fieldnames(region_data)'
         %avg_power = nanmean(data_bystim.(f_stim).neuron_spec_power, 3);
         xlabel('Freq (Hz)');
         ylabel('Relative Power');
+	xlim([0 20]);
         title(f_stim(3:end), 'Interpreter', 'none');
     end
     sgtitle([ f_region ' Spectrum with (x - A)/(A + B) normalization'], 'Interpreter', 'none');
     
-    saveas(gcf, [figure_path 'Spectra/' f_region '_A_B_Normalization_Spectrum.png']);
-    saveas(gcf, [figure_path 'Spectra/' f_region '_A_B_Normalization_Spectrum.pdf']);
-    saveas(gcf, [figure_path 'Spectra/' f_region '_A_B_Normalization_Spectrum.eps'], 'epsc');
+    saveas(gcf, [figure_path 'Spectra/' f_region '_A_B_Normalization_trans_sus_Spectrum.png']);
+    %saveas(gcf, [figure_path 'Spectra/' f_region '_A_B_Normalization_trans_sus_Spectrum.pdf']);
+    saveas(gcf, [figure_path 'Spectra/' f_region '_A_B_Normalization_trans_sus_Spectrum.eps'], 'epsc');
 end
 
 %% Period spectrum of Raw Sub Vm
@@ -520,7 +606,7 @@ for f_region = fieldnames(region_data)'
     sgtitle([ f_region ' Spectrum with Raw Sub Vm'], 'Interpreter', 'none');
     
     saveas(gcf, [figure_path 'Spectra/' f_region '_Raw_SubVm_Spectrum.png']);
-    saveas(gcf, [figure_path 'Spectra/' f_region '_Raw_SubVm_Spectrum.pdf']);
+    %saveas(gcf, [figure_path 'Spectra/' f_region '_Raw_SubVm_Spectrum.pdf']);
     saveas(gcf, [figure_path 'Spectra/' f_region '_Raw_SubVm_Spectrum.eps'], 'epsc');
 end
 
