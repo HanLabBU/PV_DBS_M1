@@ -209,45 +209,54 @@ for f_region = fieldnames(region_data)'
         tiledlayout(1, 3, 'TileSpacing', 'none', 'Padding', 'loose');
         
         % Plot the raw traces
-        nexttile;  
+        nexttile;
+        neuron_bound = [0];
         data_map = [];
         for i = 1:length(data_bystim.(f_stim).neuron_SubVm)
             data_map = [data_map; data_bystim.(f_stim).neuron_rawVm{i}'];
-            data_map(end + 1, :) = NaN(1, size(data_bystim.(f_stim).neuron_rawVm{i}, 1));
+            num_neurons = size(data_bystim.(f_stim).neuron_SubVm{i}, 2);
+            neuron_bound(end + 1) = neuron_bound(end) + num_neurons;
         end
         imagesc('XData', timeline, 'YData', 1:size(data_map, 1), 'CData', data_map);
-
+        caxis([-40, 60]);
         a = colorbar;
         a.Label.String = 'Vm';
         color_limits = a.Limits;
         set(a, 'Location', 'westoutside')
-        set(gca, 'color', 'none');
+        Multi_func.set_default_axis(gca);
+        yline(neuron_bound + 0.5);
         xlabel('Time from Stim onset(sec)');
         xlim([-1 2.05]);
         ylim([0 size(data_map, 1)]);
         ylabel('Neuron Trials');
         title('Raw Traces', 'Interpreter', 'none');
-        
+
         % Plot the Subthreshold Vm
         nexttile;  
+        neuron_bound = [0];
         data_map = [];
         for i = 1:length(data_bystim.(f_stim).neuron_SubVm)
             data_map = [data_map; data_bystim.(f_stim).neuron_SubVm{i}'];
-            data_map(end + 1, :) = NaN(1, size(data_bystim.(f_stim).neuron_SubVm{i}, 1));
+            num_neurons = size(data_bystim.(f_stim).neuron_SubVm{i}, 2);
+            neuron_bound(end + 1) = neuron_bound(end) + num_neurons;
         end
         imagesc('XData', timeline, 'YData', 1:size(data_map, 1), 'CData', data_map);
-
         caxis(color_limits);
-        set(gca, 'color', 'none');
+        hold on;
+        yline(neuron_bound+ 0.5);
+        Multi_func.set_default_axis(gca);
+        ax = gca;
+        ax.YAxis.Visible = 'off';
         xlabel('Time from Stim onset(sec)');
         xlim([-1 2.05]);
         ylim([0 size(data_map, 1)]);
-        %ylabel('Neuron Trials');
+        ylabel('Neuron Trials');
         set(gca, 'YTick', []);
         title('Subthreshold Vm', 'Interpreter', 'none');
 
         % Plot the raster plot
         nexttile;  
+        neuron_bound = [0];
         index = 1;
         for fov = 1:length(data_bystim.(f_stim).neuron_spikeidx)
             cur_color = [rand, rand, rand]*0.7;
@@ -259,9 +268,7 @@ for f_region = fieldnames(region_data)'
                 hold on;
                 index = index + 1;
             end
-            plot(timeline, repmat(index, length(timeline), 1), '-k');
-            hold on;
-            index = index + 1;
+            neuron_bound(end + 1) = index - 1;
             
             if display_names == 1
                 % Plot the neuron label next to its raster
@@ -269,16 +276,18 @@ for f_region = fieldnames(region_data)'
                 hold on;
             end
         end
-        
-        % DEBUG
-        disp([f_region ' ' f_stim ' ' num2str(index)]);
-        
-        %a = colorbar;
-        %a.Label.String = 'Vm';
-    
-        set(gca, 'color', 'none');
+        neuron_bound(end) = [];
+        index = index - 1;
+        yline(neuron_bound + 0.5);
+        ax = gca;
+        ax.YAxis.Visible = 'off';
+        Multi_func.set_default_axis(gca);
         xlabel('Time from Stim onset(sec)');
         
+        ylim([0 index]);
+        set(gca, 'YTick', []);
+        ylabel('Neuron Trials');
+ 
         % Adjust x axis if displaying names or not
         if display_names == 1
             xlim([-1 4]);
@@ -286,13 +295,9 @@ for f_region = fieldnames(region_data)'
             xlim([-1 2.05]);
         end
 
-        ylim([0 index]);
-        set(gca, 'YTick', []);
-        %ylabel('Neuron Trials');
         title('Raster Plots', 'Interpreter', 'none');
 
         sgtitle([ f_region ' ' f_stim ' Neuronwise'], 'Interpreter', 'none');
-
         saveas(gcf, [figure_path 'Neuronwise/' f_region '_' f_stim '_Neuronwise_Plot.png']);
         saveas(gcf, [figure_path 'Neuronwise/' f_region '_' f_stim '_Neuronwise_Plot.eps'], 'epsc');
     end
