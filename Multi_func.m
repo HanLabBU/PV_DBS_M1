@@ -129,8 +129,48 @@ classdef Multi_func
             %text(mean(x_pts), y + 1.5*offset, text_str);
         end
 
+        %TODO change the data_bystim part of the struct
         % Combine all regions into a single 'region' structure called 'f_combined'
         function [combine_struct] = combine_regions(region_data)
+            % Initialize combined region
+            combine_struct.r_combine = struct();
+        
+            % Grab all of the fields from the strutures
+            f_regions = fieldnames(region_data)';
+            f_stims = fieldnames(region_data.(f_regions{1}))';
+            f_data = fieldnames(region_data.(f_regions{1}).(f_stims{1}))';
+            
+            % Initialize data strutures in the combined field
+            data_bystim = struct();
+            for f_stim = f_stims
+                f_stim = f_stim{1};
+                data_bystim.(f_stim) = cell2struct(cell(size(f_data)), f_data, 2);
+            end
+        
+            % Loop through each region
+            for f_region = f_regions
+                f_region = f_region{1};
+                % Loop through each stimulation condition
+                for f_stim = f_stims
+                    f_stim = f_stim{1};
+                    % Loop through each data field
+                    for f_datum = f_data
+                        f_datum = f_datum{1};
+                        dim = length( size( region_data.(f_region).(f_stim).(f_datum) ) );
+                        if dim == 2
+                            data_bystim.(f_stim).(f_datum) = horzcat_pad(data_bystim.(f_stim).(f_datum), region_data.(f_region).(f_stim).(f_datum));
+                        else
+                            data_bystim.(f_stim).(f_datum) = cat(dim, data_bystim.(f_stim).(f_datum), region_data.(f_region).(f_stim).(f_datum));       
+                        end
+                    end
+                end
+            end
+            combine_struct.r_combine = data_bystim;
+        end
+        
+        %-- Depracated ---
+        % Combine all regions into a single 'region' structure called 'f_combined'
+        function [combine_struct] = combine_regions_old(region_data)
             % Initialize combined region
             combine_struct.r_combine = struct();
             combine_struct.r_combine.data_bystim = struct();
