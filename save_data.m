@@ -22,6 +22,15 @@ pv_data_path = [server_root_path 'Pierre Fabris' f 'PV Project' f 'PV_Data' f];
 front_frame_drop = 15;
 back_frame_drop = 2496;
 
+%TODO may need to change the variables to differentiate between the larger and finer resolution of spike rate
+srate_win_large = 100;
+srate_win_small = 20;
+
+% Time periods for comparison of firing rate and sub Vm
+trans_ped = [0, 150];
+sus_ped = [150, 1000];
+offset_trans_ped = [1000, 1150];
+
 % Data path for all of the intermediate anaylsis data
 save_all_data_file = [server_root_path 'Pierre Fabris' f 'PV Project' f 'Interm_Data' f 'pv_data.mat'];
 
@@ -69,7 +78,8 @@ for f_region = fieldnames(region_matfiles)'
         data_bystim.(f_stim).neuron_Vm = [];
         data_bystim.(f_stim).all_trial_rawVm = {};
         data_bystim.(f_stim).all_trial_spikeidx = {};
-        data_bystim.(f_stim).neuron_srate = [];
+        data_bystim.(f_stim).neuron_srate_large = [];
+        data_bystim.(f_stim).neuron_srate_small = [];
          
         % Power spectra stuff
         data_bystim.(f_stim).neuron_spec_power = [];
@@ -98,7 +108,7 @@ for f_region = fieldnames(region_matfiles)'
             cur_fov_rawtraces = [];
             cur_fov_spikeidx = [];
 
-            cur_fov_srate = [];
+            cur_fov_srate_large = [];
             cur_fov_raster = [];
 
             cur_fov_trans_Vm = [];      
@@ -137,10 +147,16 @@ for f_region = fieldnames(region_matfiles)'
                     trial_data = data.align.trial{tr_idx};
                     raw_trial_data = data.raw.trial{tr_idx};
 
-
                     % Store the camera framerate
                     all_Fs(end+1) = trial_data.camera_framerate;
                     cur_fov_Fs(end + 1) = trial_data.camera_framerate;
+                    
+                    % Store all of the timestamp info
+                    stim_start = raw_trial_data.raw_stimulation_time(1);
+                    cur_trace_time = trial_data.camera_frame_time(front_frame_drop:back_frame_drop) - stim_start;
+                    cur_stim_time = raw_trial_data.raw_stimulation_time - stim_start;
+                    cur_fov_stim_time = horzcat_pad(cur_fov_stim_time, cur_stim_time);
+                    cur_fov_trace_time = horzcat_pad(cur_fov_trace_time, cur_trace_time);
 
                     % Grab the subthreshold Vm
                     % Chop the respective frames
@@ -153,12 +169,10 @@ for f_region = fieldnames(region_matfiles)'
                     cur_spike_idx = trial_data.spike_info375.spike_idx{1};
                     cur_spike_idx(find(cur_spike_idx < front_frame_drop | cur_spike_idx > back_frame_drop)) = NaN;
                     cur_spike_idx = cur_spike_idx - front_frame_drop;
-                    
                     % Add if spikes were detected
                     if length(cur_spike_idx)  == 0
                         cur_spike_idx = [NaN];
                     end
-
                     cur_fov_spikeidx = horzcat_pad(cur_fov_spikeidx, cur_spike_idx);
                     
                     % Grab the raw traces
@@ -167,10 +181,31 @@ for f_region = fieldnames(region_matfiles)'
                     detrend_Vm = cur_raw_trace - baseline';
                     cur_fov_rawtraces = horzcat_pad(cur_fov_rawtraces, detrend_Vm);
 
-                    % Store all of the timestamp info
-                    stim_start = raw_trial_data.raw_stimulation_time(1);
-                    cur_fov_stim_time = horzcat_pad(cur_fov_stim_time, raw_trial_data.raw_stimulation_time - stim_start);
-                    cur_fov_trace_time = horzcat_pad(cur_fov_trace_time, trial_data.camera_frame_time(front_frame_drop:back_frame_drop) - stim_start);
+                    % Calculate spikerate
+                    cur_raster = trial_data.spike_info375.roaster(roi_idx, front_frame_drop:back_frame_drop);
+                    cur_spikerate = cur_raster.*trial_data.camera_framerate;
+                    cur_spikerate = nanfastsmooth(cur_spikerate, srate_win_large, 1, 1);
+                    % Baseline subtract the mean
+                    baseline_idx = find(cur_trace_time < cur_stim_time(1));
+                    cur_spikerate = cur_spikerate - mean(cur_spikerate(baseline_idx), 'omitnan');
+                    cur_fov_srate_large = horzcat_pad(cur_fov_srate_large, cur_spikerate');            
+                    
+                    % Store the raster plot
+                    cur_fov_raster = horzcat_pad(cur_fov_raster, cur_raster');
+
+                    % Grab transient and sustained period for spikes and Vm
+                    base_idx = find(cur_trace_time < cur_stim_time(1));
+                    trans_idx = find(cur_trace_time > 0 & cur_trace_time <= trans_ped(2)./1000);
+                    sus_idx = find(cur_trace_time > trans_ped(2)./1000 & cur_trace_time <= cur_stim_time(end));
+                    
+                    cur_fov_base_Vm = horzcat_pad(cur_fov_base_Vm, mean(detrend_subVm(base_idx)', 'omitnan'));
+                    cur_fov_trans_Vm = horzcat_pad(cur_fov_trans_Vm, mean(detrend_subVm(trans_idx)', 'omitnan'));
+                    cur_fov_sus_Vm = horzcat_pad(cur_fov_sus_Vm, mean(detrend_subVm(sus_idx)', 'omitnan'));
+
+                    cur_fov_base_FR = horzcat_pad(cur_fov_base_FR, sum(cur_raster(base_idx))');
+                    cur_fov_trans_FR = horzcat_pad(cur_fov_trans_FR, sum(cur_raster(trans_idx))./(diff(trans_ped)./1000)');
+                    cur_fov_sus_FR = horzcat_pad(cur_fov_sus_FR, sum(cur_raster(sus_idx))./(diff(sus_ped)./1000)');
+
                 end % End looping through each neuron
             end
             
@@ -179,8 +214,6 @@ for f_region = fieldnames(region_matfiles)'
                 continue;
             end
 
-            %TODO got to update here
-
             % Save all the subthreshold Vm
             data_bystim.(f_stim).all_trial_SubVm{end + 1} = cur_fov_subVm;
 
@@ -188,6 +221,10 @@ for f_region = fieldnames(region_matfiles)'
             temp = data_bystim.(f_stim).neuron_Vm;
             data_bystim.(f_stim).neuron_Vm = horzcat_pad(temp, mean(cur_fov_subVm, 2, 'omitnan'));
             
+            % Store average spike rate for each neuron
+            temp = data_bystim.(f_stim).neuron_srate_large;
+            data_bystim.(f_stim).neuron_srate_large = horzcat_pad(temp, nanmean(cur_fov_srate_large, 2));
+
             % Save all trial raw traces
             temp = data_bystim.(f_stim).all_trial_rawVm;
             data_bystim.(f_stim).all_trial_rawVm{end + 1} = cur_fov_rawtraces;
@@ -204,6 +241,23 @@ for f_region = fieldnames(region_matfiles)'
             
             % Save framerate
             data_bystim.(f_stim).framerate(end + 1) = mean(cur_fov_Fs, 'omitnan');
+                
+            % Save all of the transient and sustained information
+            temp = data_bystim.(f_stim).neuron_trans_Vm;
+            data_bystim.(f_stim).neuron_trans_Vm = horzcat_pad(temp, mean(cur_fov_trans_Vm, 'omitnan') - mean(cur_fov_base_Vm, 'omitnan'));
+            temp = data_bystim.(f_stim).neuron_sus_Vm;
+            data_bystim.(f_stim).neuron_sus_Vm = horzcat_pad(temp, mean(cur_fov_sus_Vm, 'omitnan') - mean(cur_fov_base_Vm, 'omitnan'));
+            temp = data_bystim.(f_stim).neuron_trans_FR;
+            data_bystim.(f_stim).neuron_trans_FR = horzcat_pad(temp, mean(cur_fov_trans_FR, 'omitnan') - mean(cur_fov_base_FR, 'omitnan'));
+            temp = data_bystim.(f_stim).neuron_sus_FR;
+            data_bystim.(f_stim).neuron_sus_FR = horzcat_pad(temp, mean(cur_fov_sus_FR, 'omitnan') - mean(cur_fov_base_FR, 'omitnan'));
+
+            % Calculate and save frequency data
+            [wt, f] = get_power_spec(nanmean(cur_fov_subVm, 2)', nanmean(cur_fov_Fs));
+            temp = data_bystim.(f_stim).neuron_spec_power;
+            data_bystim.(f_stim).neuron_spec_power = cat(3, temp, wt);
+            temp = data_bystim.(f_stim).neuron_spec_freq;   
+            data_bystim.(f_stim).neuron_spec_freq = cat(3, temp, f);
 
         end % End looping through FOVs of a condition
     end
@@ -214,3 +268,12 @@ end
 
 % Check first if the matfile exists
 save([save_all_data_file], 'region_data', '-v7.3');
+
+% Calculate cwt for input signal and 
+function [wt, f] = get_power_spec(signal, samp_freq)
+    freqLimits = [0 150];
+    fb = cwtfilterbank(SignalLength=length(signal),...
+                       SamplingFrequency=samp_freq,...
+                       FrequencyLimits=freqLimits);
+    [wt, f] = cwt(signal, FilterBank=fb);
+end
