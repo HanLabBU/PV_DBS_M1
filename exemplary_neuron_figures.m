@@ -129,7 +129,7 @@ hold on;
 
 % Plot the stimulation time pulses
 posx = 3;
-posy = 15;
+posy = 24;
 plot(stim_idx, repmat(posy, length(stim_idx), 1), '|k');
 hold on;
 plot([1, length(detrend_traces)], [posy posy], '-k');
@@ -415,7 +415,7 @@ hold on;
 
 % Plot the stimulation time pulses
 posx = 3;
-posy = 15;
+posy = 18;
 plot(stim_idx, repmat(posy, length(stim_idx), 1), '|k');
 hold on;
 plot([1, length(detrend_traces)], [posy posy], '-k');
