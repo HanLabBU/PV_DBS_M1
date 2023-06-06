@@ -169,7 +169,7 @@ end
 
 % Check if combining all of the regions or not
 if all_regions == 1
-    region_data = Multi_func.combine_regions(region_data);
+    region_data = Multi_func.combine_regions_old(region_data);
 end
 
 % Calculate the sampling frequency from all of the 
@@ -232,6 +232,8 @@ for f_region = fieldnames(region_data)'
     saveas(gcf, [figure_path 'Spectra/' f_region '_A_B_Normalization_Time_Spectra.png']);
     %saveas(gcf, [figure_path 'Spectra/' f_region '_A_B_Normalization_Time_Spectra.pdf']);
     saveas(gcf, [figure_path 'Spectra/' f_region '_A_B_Normalization_Time_Spectra.eps'], 'epsc');
+    saveas(gcf, [figure_path 'Spectra/' f_region '_A_B_Normalization_Time_Spectra.eps'], 'epsc');
+    savefig(gcf, [figure_path 'Spectra/' f_region '_A_B_Normalization_Time_Spectra.fig']);
 end
 
 % Subthreshold time series spectra with (x - A)/(A + B) normalization for each neuron and 
@@ -512,7 +514,7 @@ for f_region = fieldnames(region_data)'
         %avg_power = nanmean(data_bystim.(f_stim).neuron_spec_power, 3);
         xlabel('Freq (Hz)');
         ylabel('Relative Power');
-	xlim([0 20]);
+	    %xlim([0 20]);
         title(f_stim(3:end), 'Interpreter', 'none');
     end
     sgtitle([ f_region ' Spectrum with (x - A)/(A + B) normalization'], 'Interpreter', 'none');
