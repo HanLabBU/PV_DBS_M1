@@ -248,10 +248,10 @@ for f_region = fieldnames(region_data)'
     for f_stim=stims'
         f_stim = f_stim{1};
         timeline = nanmean(data_bystim.(f_stim).trace_timestamps, 2);
-        cur_srate = mean(data_bystim.(f_stim).neuron_srate, 2, 'omitnan');
-        std_srate = std(data_bystim.(f_stim).neuron_srate, 0, 2, 'omitnan');
-        num_neurons = size(data_bystim.(f_stim).neuron_srate, 2);
-        %num_points = size(data_bystim.(f_stim).neuron_srate, 1);
+        cur_srate = mean(data_bystim.(f_stim).neuron_srate_large, 2, 'omitnan');
+        std_srate = std(data_bystim.(f_stim).neuron_srate_large, 0, 2, 'omitnan');
+        num_neurons = size(data_bystim.(f_stim).neuron_srate_large, 2);
+        %num_points = size(data_bystim.(f_stim).neuron_srate_large, 1);
         sem_srate = std_srate./sqrt(num_neurons);
         nexttile;
         f = fill([timeline; flip(timeline)], [cur_srate + sem_srate; flipud(cur_srate - sem_srate)], [0.5 0.5 0.5]);
