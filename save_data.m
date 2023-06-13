@@ -27,12 +27,13 @@ srate_win_large = 100;
 srate_win_small = 20;
 
 % Time periods for comparison of firing rate and sub Vm
+base_ped = [-500 0];
 trans_ped = [0, 150];
 sus_ped = [150, 1000];
 offset_trans_ped = [1000, 1150];
 
 % Data path for all of the intermediate anaylsis data
-save_all_data_file = [server_root_path 'Pierre Fabris' f 'PV Project' f 'Interm_Data' f 'pv_data.mat'];
+save_all_data_file = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Interm_Data' f 'pv_data.mat'];
 
 % CSV file to determine which trials to ignore
 ignore_trial_dict = Multi_func.csv_to_struct([local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f ...
@@ -84,6 +85,8 @@ for f_region = fieldnames(region_matfiles)'
         % Power spectra stuff
         data_bystim.(f_stim).neuron_spec_power = [];
         data_bystim.(f_stim).neuron_spec_freq = [];
+        data_bystim.(f_stim).neuron_hilbfilt = {};
+
 
         % Store transient information    
         data_bystim.(f_stim).neuron_trans_Vm = [];      
@@ -120,6 +123,8 @@ for f_region = fieldnames(region_matfiles)'
 
             cur_fov_stim_time = [];
             cur_fov_trace_time = [];
+
+            cur_fov_hilbfilt = [];
 
             % Loop through each ROI
             for roi_idx=1:size(trial_data.detrend_traces, 2)
@@ -165,6 +170,10 @@ for f_region = fieldnames(region_matfiles)'
                     detrend_subVm = cur_trace_ws - baseline;
                     cur_fov_subVm = horzcat_pad(cur_fov_subVm, detrend_subVm');
 
+                    % Grab hilbert transform coefficients
+                    [filt_sig] = filt_data(detrend_subVm', [1:1:150], mean(cur_fov_Fs));
+                    cur_fov_hilbfilt(:, :, end + 1) = filt_sig;
+
                     % Grab the spike idxs
                     cur_spike_idx = trial_data.spike_info375.spike_idx{1};
                     cur_spike_idx(find(cur_spike_idx < front_frame_drop | cur_spike_idx > back_frame_drop)) = NaN;
@@ -185,7 +194,7 @@ for f_region = fieldnames(region_matfiles)'
                     cur_raster = trial_data.spike_info375.roaster(roi_idx, front_frame_drop:back_frame_drop);
                     cur_spikerate = cur_raster.*trial_data.camera_framerate;
                     cur_spikerate = nanfastsmooth(cur_spikerate, srate_win_large, 1, 1);
-                    % Baseline subtract the mean
+                    % Baseline subtract the mean 
                     baseline_idx = find(cur_trace_time < cur_stim_time(1));
                     cur_spikerate = cur_spikerate - mean(cur_spikerate(baseline_idx), 'omitnan');
                     cur_fov_srate_large = horzcat_pad(cur_fov_srate_large, cur_spikerate');            
@@ -194,9 +203,9 @@ for f_region = fieldnames(region_matfiles)'
                     cur_fov_raster = horzcat_pad(cur_fov_raster, cur_raster');
 
                     % Grab transient and sustained period for spikes and Vm
-                    base_idx = find(cur_trace_time < cur_stim_time(1));
-                    trans_idx = find(cur_trace_time > 0 & cur_trace_time <= trans_ped(2)./1000);
-                    sus_idx = find(cur_trace_time > trans_ped(2)./1000 & cur_trace_time <= cur_stim_time(end));
+                    base_idx = find(cur_trace_time >= base_ped(1)./1000 & cur_trace_time < base_ped(2)./1000);
+                    trans_idx = find(cur_trace_time > trans_ped(1)./1000 & cur_trace_time <= trans_ped(2)./1000);
+                    sus_idx = find(cur_trace_time > sus_ped(1)./1000 & cur_trace_time <= cur_stim_time(end));
                     
                     cur_fov_base_Vm = horzcat_pad(cur_fov_base_Vm, mean(detrend_subVm(base_idx)', 'omitnan'));
                     cur_fov_trans_Vm = horzcat_pad(cur_fov_trans_Vm, mean(detrend_subVm(trans_idx)', 'omitnan'));
@@ -259,6 +268,9 @@ for f_region = fieldnames(region_matfiles)'
             temp = data_bystim.(f_stim).neuron_spec_freq;   
             data_bystim.(f_stim).neuron_spec_freq = cat(3, temp, f);
 
+            % Save the hilbert frequency data
+            data_bystim.(f_stim).neuron_hilbfilt{end + 1} = cur_fov_hilbfilt;
+
         end % End looping through FOVs of a condition
     end
 
@@ -276,4 +288,15 @@ function [wt, f] = get_power_spec(signal, samp_freq)
                        SamplingFrequency=samp_freq,...
                        FrequencyLimits=freqLimits);
     [wt, f] = cwt(signal, FilterBank=fb);
+end
+
+% Filter data with hilbert transform
+function  [filt_sig]=filt_data(sig,frs, FS)
+    Fn = FS/2;
+
+    for steps=1:length(frs);
+        FB=[ frs(steps)*0.8 frs(steps)*1.2];
+        [B, A] = butter(2, [min(FB)/Fn max(FB)/Fn]);
+        filt_sig(steps, :)= hilbert(filtfilt(B,A,sig));
+    end
 end
