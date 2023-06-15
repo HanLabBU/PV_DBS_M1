@@ -42,159 +42,164 @@ if ~isfolder(local_root_path)
     return;
 end
 
-ses = dir([pv_data_path '*.mat']);
+%ses = dir([pv_data_path '*.mat']);
+%
+%all_matfiles = {ses.name};
+%
+%% Select matfiles by brain region
+%[region_matfiles] = Multi_func.find_region(all_matfiles);
+%region_data = struct();
+%all_Fs = [];
+%for f_region = fieldnames(region_matfiles)'
+%    f_region = f_region{1};
+%
+%    %% Select matfiles by stim specific conditions for all regions
+%    %[matfile_stim] = stim_cond(all_matfiles); 
+%    %% Select matfiles by stim condition for given region
+%    [matfile_stim] = stim_cond(region_matfiles.(f_region).names);
+%
+%    %% Loop through each field of the struct and concatenate everything together
+%    % Store trace aspect data by each individual stimulation condition
+%    data_bystim = struct();
+%    % Store all of the calculated sampling frequencies
+%
+%    % Loop through each stimulation condition
+%    for f_stim = fieldnames(matfile_stim)'
+%        f_stim = f_stim{1};
+%        matfiles = matfile_stim.(f_stim).names;    
+%    
+%        % Initialize field subthreshold array
+%        data_bystim.(f_stim) = struct();
+%        data_bystim.(f_stim).neuron_Vm = [];
+%        data_bystim.(f_stim).neuron_srate = [];
+%        data_bystim.(f_stim).stim_timestamps = [];
+%        data_bystim.(f_stim).trace_timestamps = [];
+%
+%        % Loop through each matfile of the current stimulation condition
+%        for matfile = matfiles
+%            % Read in the mat file of the current condition
+%            data = load([pv_data_path matfile{1}]);
+%            trial_idxs = find(~cellfun(@isempty, data.align.trial));
+%            trial_data = data.align.trial{trial_idxs(1)};    
+%            cur_fov_Fs = [];
+%            cur_fov_subVm = [];
+%            cur_fov_srate = [];
+%            cur_fov_raster = [];
+%            cur_fov_stim_time = [];
+%            cur_fov_trace_time = [];
+%
+%            % Loop through each ROI
+%            for roi_idx=1:size(trial_data.detrend_traces, 2)
+%                %Determine whether this roi is to be ignored for this particular trial
+%                ri = strsplit(matfile{1}, '_');
+%                try
+%                    trial_ignr_list = ignore_trial_dict.(['mouse_' ri{1}]).(['rec_' erase(ri{3}, 'rec')]).(ri{4}).(['f_' ri{5}]).(['ROI' num2str(roi_idx)]);
+%                catch
+%                    trial_ignr_list = [];
+%                end
+%
+%                % Remove trials from trial idx list
+%                trial_idxs = setdiff(trial_idxs, trial_ignr_list);
+%
+%                % Skip ROI if there are at most 2 trials
+%                if length(trial_idxs) <= 2
+%                    continue;
+%                end
+%
+%                % Loop through each trial                
+%                for tr_idx=trial_idxs        
+%                    trial_data = data.align.trial{tr_idx};
+%                    raw_trial_data = data.raw.trial{tr_idx};
+%
+%                    % Store the camera framerate
+%                    all_Fs(end+1) = trial_data.camera_framerate;
+%                    cur_fov_Fs(end + 1) = trial_data.camera_framerate;
+%
+%                    % Grab the subthreshold Vm
+%                    % Chop the respective frames
+%                    cur_trace_ws = trial_data.spike_info375.trace_ws(roi_idx, front_frame_drop:back_frame_drop);
+%                    [baseline, coeff] = Multi_func.exp_fit_Fx(cur_trace_ws', round(trial_data.camera_framerate));
+%                    detrend_subVm = cur_trace_ws - baseline;
+%                    cur_fov_subVm = horzcat_pad(cur_fov_subVm, detrend_subVm');
+%                    
+%                    % Calculate the spike rate
+%                    cur_raster = trial_data.spike_info375.roaster(roi_idx, front_frame_drop:back_frame_drop);
+%                    cur_spikerate = cur_raster.*trial_data.camera_framerate;
+%                    cur_spikerate = nanfastsmooth(cur_spikerate, srate_win, 1, 1);
+%                    cur_fov_srate = horzcat_pad(cur_fov_srate, cur_spikerate');            
+%                    
+%                    % Store the raster plot
+%                    cur_fov_raster = horzcat_pad(cur_fov_raster, cur_raster');
+%
+%                    % Store all of the timestamp info
+%                    stim_start = raw_trial_data.raw_stimulation_time(1);
+%                    cur_fov_stim_time = horzcat_pad(cur_fov_stim_time, ...
+%                                                    raw_trial_data.raw_stimulation_time(1:str2num(ri{5}) ) - stim_start);
+%                    cur_fov_trace_time = horzcat_pad(cur_fov_trace_time, ...
+%                                                    trial_data.camera_frame_time(front_frame_drop:back_frame_drop) - stim_start);
+%                    % DEBUG
+%                    if max(cur_fov_trace_time(:, end)) < 2
+%                        stim_trace_sz = size(cur_fov_stim_time)
+%                        trace_time_sz = size(cur_fov_trace_time)
+%                        pause;
+%                        matfile{1}
+%                    end
+%                end % End looping through each neuron
+%            end
+%            
+%            % Skip rest of the calculations if the subthreshold Vm is nan
+%            if sum(isnan(cur_fov_subVm(:))) > 0 || isempty(cur_fov_subVm)
+%                continue;
+%            end
+%
+%            % Average for each neuron and save the subthreshold Vm
+%            temp = data_bystim.(f_stim).neuron_Vm;
+%            data_bystim.(f_stim).neuron_Vm = horzcat_pad(temp, nanmean(cur_fov_subVm, 2));
+%            % Store average spike rate for each neuron
+%            temp = data_bystim.(f_stim).neuron_srate;
+%            data_bystim.(f_stim).neuron_srate = horzcat_pad(temp, nanmean(cur_fov_srate, 2));
+%            % Store the timestamp data
+%            temp = data_bystim.(f_stim).stim_timestamps;
+%            data_bystim.(f_stim).stim_timestamps = horzcat_pad(temp, nanmean(cur_fov_stim_time, 2));
+%            temp = data_bystim.(f_stim).trace_timestamps;
+%            data_bystim.(f_stim).trace_timestamps = horzcat_pad(temp, nanmean(cur_fov_trace_time, 2));
+%
+%        end % End looping through FOVs of a condition
+%    end
+%
+%    % Save the VM to the specific region
+%    region_data.(f_region).data_bystim = data_bystim;
+%end
 
-all_matfiles = {ses.name};
-
-% Select matfiles by brain region
-[region_matfiles] = Multi_func.find_region(all_matfiles);
-region_data = struct();
-all_Fs = [];
-for f_region = fieldnames(region_matfiles)'
-    f_region = f_region{1};
-
-    %% Select matfiles by stim specific conditions for all regions
-    %[matfile_stim] = stim_cond(all_matfiles); 
-    %% Select matfiles by stim condition for given region
-    [matfile_stim] = stim_cond(region_matfiles.(f_region).names);
-
-    %% Loop through each field of the struct and concatenate everything together
-    % Store trace aspect data by each individual stimulation condition
-    data_bystim = struct();
-    % Store all of the calculated sampling frequencies
-
-    % Loop through each stimulation condition
-    for f_stim = fieldnames(matfile_stim)'
-        f_stim = f_stim{1};
-        matfiles = matfile_stim.(f_stim).names;    
-    
-        % Initialize field subthreshold array
-        data_bystim.(f_stim) = struct();
-        data_bystim.(f_stim).neuron_Vm = [];
-        data_bystim.(f_stim).neuron_srate = [];
-        data_bystim.(f_stim).stim_timestamps = [];
-        data_bystim.(f_stim).trace_timestamps = [];
-
-        % Loop through each matfile of the current stimulation condition
-        for matfile = matfiles
-            % Read in the mat file of the current condition
-            data = load([pv_data_path matfile{1}]);
-            trial_idxs = find(~cellfun(@isempty, data.align.trial));
-            trial_data = data.align.trial{trial_idxs(1)};    
-            cur_fov_Fs = [];
-            cur_fov_subVm = [];
-            cur_fov_srate = [];
-            cur_fov_raster = [];
-            cur_fov_stim_time = [];
-            cur_fov_trace_time = [];
-
-            % Loop through each ROI
-            for roi_idx=1:size(trial_data.detrend_traces, 2)
-                % Loop through each trial                
-                for tr_idx=trial_idxs        
-                    trial_data = data.align.trial{tr_idx};
-                    raw_trial_data = data.raw.trial{tr_idx};
-
-                    %Determine whether this roi is to be ignored for this particular trial
-                    ri = strsplit(matfile{1}, '_');
-                    try
-                        trial_ignr_list = ignore_trial_dict.(['mouse_' ri{1}]).(['rec_' erase(ri{3}, 'rec')]).(ri{4}).(['f_' ri{5}]).(['ROI' num2str(roi_idx)]);
-                    catch
-                        trial_ignr_list = [];
-                    end
-    
-                    % Check if current trial is in the ignore list
-                    if ismember(tr_idx, trial_ignr_list)
-                        continue;
-                    end
-                    
-                    % If the trial data is empty, that means it was skipped
-                    if isempty(trial_data)
-                        continue;
-                    end
-
-                    % Store the camera framerate
-                    all_Fs(end+1) = trial_data.camera_framerate;
-                    cur_fov_Fs(end + 1) = trial_data.camera_framerate;
-
-                    % Grab the subthreshold Vm
-                    % Chop the respective frames
-                    cur_trace_ws = trial_data.spike_info375.trace_ws(roi_idx, front_frame_drop:back_frame_drop);
-                    [baseline, coeff] = Multi_func.exp_fit_Fx(cur_trace_ws', round(trial_data.camera_framerate));
-                    detrend_subVm = cur_trace_ws - baseline;
-                    cur_fov_subVm = horzcat_pad(cur_fov_subVm, detrend_subVm');
-                    
-                    % Calculate the spike rate
-                    cur_raster = trial_data.spike_info375.roaster(roi_idx, front_frame_drop:back_frame_drop);
-                    cur_spikerate = cur_raster.*trial_data.camera_framerate;
-                    cur_spikerate = nanfastsmooth(cur_spikerate, srate_win, 1, 1);
-                    cur_fov_srate = horzcat_pad(cur_fov_srate, cur_spikerate');            
-                    
-                    % Store the raster plot
-                    cur_fov_raster = horzcat_pad(cur_fov_raster, cur_raster');
-
-                    % Store all of the timestamp info
-                    stim_start = raw_trial_data.raw_stimulation_time(1);
-                    cur_fov_stim_time = horzcat_pad(cur_fov_stim_time, ...
-                                                    raw_trial_data.raw_stimulation_time(1:str2num(ri{5}) ) - stim_start);
-                    cur_fov_trace_time = horzcat_pad(cur_fov_trace_time, ...
-                                                    trial_data.camera_frame_time(front_frame_drop:back_frame_drop) - stim_start);
-                    % DEBUG
-                    if max(cur_fov_trace_time(:, end)) < 2
-                        stim_trace_sz = size(cur_fov_stim_time)
-                        trace_time_sz = size(cur_fov_trace_time)
-                        pause;
-                        matfile{1}
-                    end
-                end % End looping through each neuron
-            end
-            
-            % Skip rest of the calculations if the subthreshold Vm is nan
-            if sum(isnan(cur_fov_subVm(:))) > 0 || isempty(cur_fov_subVm)
-                continue;
-            end
-
-            % Average for each neuron and save the subthreshold Vm
-            temp = data_bystim.(f_stim).neuron_Vm;
-            data_bystim.(f_stim).neuron_Vm = horzcat_pad(temp, nanmean(cur_fov_subVm, 2));
-            % Store average spike rate for each neuron
-            temp = data_bystim.(f_stim).neuron_srate;
-            data_bystim.(f_stim).neuron_srate = horzcat_pad(temp, nanmean(cur_fov_srate, 2));
-            % Store the timestamp data
-            temp = data_bystim.(f_stim).stim_timestamps;
-            data_bystim.(f_stim).stim_timestamps = horzcat_pad(temp, nanmean(cur_fov_stim_time, 2));
-            temp = data_bystim.(f_stim).trace_timestamps;
-            data_bystim.(f_stim).trace_timestamps = horzcat_pad(temp, nanmean(cur_fov_trace_time, 2));
-
-        end % End looping through FOVs of a condition
-    end
-
-    % Save the VM to the specific region
-    region_data.(f_region).data_bystim = data_bystim;
-end
-
-avg_Fs = nanmean(all_Fs);
-timeline = ( (4+(front_frame_drop:back_frame_drop) )./avg_Fs) - 1;
+% Load all of the data
+save_all_data_file = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Interm_Data' f 'pv_data.mat'];
+load(save_all_data_file);
 
 % Combine all regions into 1
 if all_region == 1
     region_data = Multi_func.combine_regions(region_data);
 end
 
+avg_Fs = mean(region_data.r_combine.f_40.framerate, 'omitnan');
+timeline = ( (4+(front_frame_drop:back_frame_drop) )./avg_Fs) - 1;
+
+%set figures off
+set(0,'DefaultFigureVisible','off');
+
 %% Spike rate showing first few pulses
 for f_region = fieldnames(region_data)'
     f_region = f_region{1};
-    data_bystim = region_data.(f_region).data_bystim;
+    data_bystim = region_data.(f_region);
     stims = fieldnames(data_bystim);
     
-    figure('visible', 'off', 'Renderer', 'Painters', 'Position', [200 200 570 740]);
+    figure('Renderer', 'Painters', 'Position', [200 200 570 740]);
     tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
     for f_stim=stims'
         timeline = nanmean(data_bystim.(f_stim{1}).trace_timestamps, 2)*1000;
-        cur_srate = mean(data_bystim.(f_stim{1}).neuron_srate, 2, 'omitnan');
-        std_srate = std(data_bystim.(f_stim{1}).neuron_srate, 0, 2, 'omitnan');
-        num_neurons = size(data_bystim.(f_stim{1}).neuron_srate, 2);
-        %num_points = size(data_bystim.(f_stim{1}).neuron_srate, 1);
+        cur_srate = mean(data_bystim.(f_stim{1}).neuron_srate_small, 2, 'omitnan');
+        std_srate = std(data_bystim.(f_stim{1}).neuron_srate_small, 0, 2, 'omitnan');
+        num_neurons = size(data_bystim.(f_stim{1}).neuron_srate_small, 2);
+        %num_points = size(data_bystim.(f_stim{1}).neuron_srate_small, 1);
         sem_srate = std_srate./sqrt(num_neurons);
         nexttile;
         f = fill([timeline; flip(timeline)], [cur_srate + sem_srate; flipud(cur_srate - sem_srate)], [0.5 0.5 0.5]);
@@ -213,7 +218,7 @@ for f_region = fieldnames(region_data)'
         % Grab the baseline sub srate for all neurons
         for i = 1:size(data_bystim.(f_stim{1}).trace_timestamps, 2)
             baseline_idx = find(data_bystim.(f_stim{1}).trace_timestamps(:, i) < data_bystim.(f_stim{1}).stim_timestamps(1, i));
-            base_srate = horzcat_pad(base_srate, data_bystim.(f_stim{1}).neuron_srate(baseline_idx, i) );
+            base_srate = horzcat_pad(base_srate, data_bystim.(f_stim{1}).neuron_srate_small(baseline_idx, i) );
         end
         base_srate = mean(base_srate, 2, 'omitnan');
         std_baseline = std(base_srate, 0, 'omitnan');
@@ -227,26 +232,25 @@ for f_region = fieldnames(region_data)'
 
         % Increase timescale resolution
         xlim([0 - 50, 0 + 50]);
-        set(gca, 'color', 'none');
+        Multi_func.set_default_axis(gca);
         ylabel('Firing Rate(Hz)');
-        yyaxis right;
-        yticks([]);
         xlabel('Time from onset(ms)');
         title(f_stim{1}(3:end), 'Interpreter', 'none');
     end
     sgtitle([f_region '_' num2str(srate_win) ' Population Spike rate with first pulse'], 'Interpreter', 'none');
     saveas(gcf, [figure_path 'Average/' f_region '_First_Pulse_Trig_FR.png']);
+    saveas(gcf, [figure_path 'Average/' f_region '_First_Pulse_Trig_FR.pdf']);
     saveas(gcf, [figure_path 'Average/' f_region '_First_Pulse_Trig_FR.eps'], 'epsc');
 end
 
 %% Sub Vm averaged across all pulses
 for f_region = fieldnames(region_data)'
     f_region = f_region{1};
-    data_bystim = region_data.(f_region).data_bystim;
+    data_bystim = region_data.(f_region);
     stims = fieldnames(data_bystim);
     
-    figure('Renderer', 'Painters', 'Position', [200 200 570 740]);
-    tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
+    figure('Renderer', 'Painters', 'Position', [200 200 1200 400]);
+    tiledlayout(1, length(stims), 'TileSpacing', 'compact', 'Padding', 'compact');
     for f_stim=stims'
         
         Vm_avg = [];
@@ -309,21 +313,19 @@ for f_region = fieldnames(region_data)'
 
         % Increase timescale resolution
         %xlim([0 - .100, 0 + .100]);
-        set(gca, 'color', 'none');
+        Multi_func.set_default_axis(gca);
         ylabel('Vm');
         xlabel('Time from pulse(ms)');
         ylim([0, 7]);
 
         % Remove x-axis and right y-axis
         %set(gca,'xtick',[]);
-        yyaxis right;
-        yticks([]);
-
         title(f_stim{1}(3:end), 'Interpreter', 'none');
     
     end
     sgtitle([f_region ' Sub Vm all pulse average'], 'Interpreter', 'none');
     saveas(gcf, [figure_path 'Average/' f_region '_All_Pulse_Avg_Vm.png']);
+    saveas(gcf, [figure_path 'Average/' f_region '_All_Pulse_Avg_Vm.pdf']);
     saveas(gcf, [figure_path 'Average/' f_region '_All_Pulse_Avg_Vm.eps'], 'epsc');
 end
 
@@ -331,18 +333,18 @@ end
 %% Spike rate averaged across all pulses
 for f_region = fieldnames(region_data)'
     f_region = f_region{1};
-    data_bystim = region_data.(f_region).data_bystim;
+    data_bystim = region_data.(f_region);
     stims = fieldnames(data_bystim);
     
-    figure('Renderer', 'Painters', 'Position', [200 200 570 740]);
-    tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
+    figure('Renderer', 'Painters', 'Position', [200 200 1200 400]);
+    tiledlayout(1, length(stims), 'TileSpacing', 'compact', 'Padding', 'compact');
     for f_stim=stims'
         timeline = nanmean(data_bystim.(f_stim{1}).trace_timestamps, 2);
         
         FR_avg = [];
         extra_trace = 3;
         % Looping through each neuron
-        for nr = 1:size(data_bystim.(f_stim{1}).neuron_srate, 2)
+        for nr = 1:size(data_bystim.(f_stim{1}).neuron_srate_small, 2)
 
             % Calculate the number of trace idxs between pulses
             nr_avg_pulse_width = mean(diff(data_bystim.(f_stim{1}).stim_timestamps(:, nr) ), 'omitnan');
@@ -357,7 +359,7 @@ for f_region = fieldnames(region_data)'
                 %end_trace_idx = find(pulse_time + nr_avg_pulse_width >= data_bystim.(f_stim{1}).trace_timestamps(:, nr));
                 %end_trace_idx = end_trace_idx(end);
                 
-                fr_pulse_width = data_bystim.(f_stim{1}).neuron_srate(start_trace_idx:end_trace_idx, nr);
+                fr_pulse_width = data_bystim.(f_stim{1}).neuron_srate_small(start_trace_idx:end_trace_idx, nr);
                 FR_avg = horzcat_pad(FR_avg, fr_pulse_width);
             end
         end
@@ -365,7 +367,7 @@ for f_region = fieldnames(region_data)'
         cur_srate = mean(FR_avg, 2, 'omitnan');
         std_srate = std(FR_avg, 0, 2, 'omitnan');
         num_pulses = size(FR_avg, 2);
-        %num_points = size(data_bystim.(f_stim{1}).neuron_srate, 1);
+        %num_points = size(data_bystim.(f_stim{1}).neuron_srate_small, 1);
         sem_srate = std_srate./sqrt(num_pulses);
         
         timeline = [ [0:size(FR_avg, 1) - 1] - extra_trace]*1000./avg_Fs;
@@ -389,17 +391,16 @@ for f_region = fieldnames(region_data)'
 
         % Increase timescale resolution
         %xlim([0 - .100, 0 + .100]);
-        set(gca, 'color', 'none');
+        Multi_func.set_default_axis(gca);
         ylabel('Firing Rate(Hz)');
         xlabel('Time from pulse(ms)');
         ylim([0 4]);
-        yyaxis right;
-        yticks([]);
 
         title(f_stim{1}(3:end), 'Interpreter', 'none');
     end
     sgtitle([f_region '_' num2str(srate_win) ' Firing Rate all pulse average'], 'Interpreter', 'none');
     saveas(gcf, [figure_path 'Average/' f_region '_All_Pulse_Avg_FR.png']);
+    saveas(gcf, [figure_path 'Average/' f_region '_All_Pulse_Avg_FR.pdf']);
     saveas(gcf, [figure_path 'Average/' f_region '_All_Pulse_Avg_FR.eps'], 'epsc');
 end
 
@@ -407,16 +408,16 @@ end
 %% Spike rate showing display all pulses
 for f_region = fieldnames(region_data)'
     f_region = f_region{1};
-    data_bystim = region_data.(f_region).data_bystim;
+    data_bystim = region_data.(f_region);
     stims = fieldnames(data_bystim);
     
     figure('visible', 'off', 'Renderer', 'Painters', 'Position', [200 200 1000 1000]);
     tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
     for f_stim=stims'
         timeline = nanmean(data_bystim.(f_stim{1}).trace_timestamps, 2);
-        cur_srate = mean(data_bystim.(f_stim{1}).neuron_srate, 2, 'omitnan');
-        std_srate = std(data_bystim.(f_stim{1}).neuron_srate, 0, 2, 'omitnan');
-        num_neurons = size(data_bystim.(f_stim{1}).neuron_srate, 2);
+        cur_srate = mean(data_bystim.(f_stim{1}).neuron_srate_small, 2, 'omitnan');
+        std_srate = std(data_bystim.(f_stim{1}).neuron_srate_small, 0, 2, 'omitnan');
+        num_neurons = size(data_bystim.(f_stim{1}).neuron_srate_small, 2);
         %num_points = size(data_bystim.(f_stim{1}).neuron_srate, 1);
         sem_srate = std_srate./sqrt(num_neurons);
         nexttile;
@@ -447,6 +448,7 @@ for f_region = fieldnames(region_data)'
     end
     sgtitle([f_region '_' num2str(srate_win)  ' Population Spike rate with all pulse'], 'Interpreter', 'none');
     saveas(gcf, [figure_path 'Average/' f_region '_Display_All_Pulse_Trig_FR.png']);
+    saveas(gcf, [figure_path 'Average/' f_region '_Display_All_Pulse_Trig_FR.pdf']);
     saveas(gcf, [figure_path 'Average/' f_region '_Display_All_Pulse_Trig_FR.eps'], 'epsc');
 end
 
@@ -454,7 +456,7 @@ end
 %% Subthreshold Vm first few pulses
 for f_region = fieldnames(region_data)'
     f_region = f_region{1};
-    data_bystim = region_data.(f_region).data_bystim;
+    data_bystim = region_data.(f_region);
     stims = fieldnames(data_bystim);
     
     figure('visible', 'off', 'Renderer', 'Painters', 'Position', [200 200 570 740]);
@@ -503,15 +505,14 @@ for f_region = fieldnames(region_data)'
         % Increase timescale resolution
         xlim([0 - 50, 0 + 50]);
         ylabel('Vm');
-        yyaxis right;
-        yticks([]);
         xlabel('Time from onset(ms)');
 
-        set(gca, 'color', 'none')
+        Multi_func.set_default_axis(gca);
         title(f_stim{1}(3:end), 'Interpreter', 'none');
     end
     sgtitle([f_region ' Average subthreshold Vm'], 'Interpreter', 'none');
     saveas(gcf, [figure_path 'Average/' f_region '_First_Pulse_Trig_Vm.png']);
+    saveas(gcf, [figure_path 'Average/' f_region '_First_Pulse_Trig_Vm.pdf']);
     saveas(gcf, [figure_path 'Average/' f_region '_First_Pulse_Trig_Vm.eps'], 'epsc');
 end
 

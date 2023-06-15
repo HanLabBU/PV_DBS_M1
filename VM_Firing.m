@@ -217,7 +217,7 @@ sus_ped = [150, 1000];
 %---- End of data collection ---
 
 % Read in the saved pv data and perform analysis
-save_all_data_file = [server_root_path 'Pierre Fabris' f 'PV Project' f 'Interm_Data' f 'pv_data.mat'];
+save_all_data_file = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Interm_Data' f 'pv_data.mat'];
 %Load the data
 load(save_all_data_file);
 
@@ -355,32 +355,33 @@ for f_region = fieldnames(region_data)'
     
     sgtitle([f_region ' Sub Vm Violins'], 'Interpreter', 'none');
     saveas(gcf, [figure_path 'Average/' f_region '_ped_comp_sub_thres.png']);
+    saveas(gcf, [figure_path 'Average/' f_region '_ped_comp_sub_thres.pdf']);
     saveas(gcf, [figure_path 'Average/' f_region '_ped_comp_sub_thres.eps']);
 end
 
 % transient compared to baseline statistical test 
 [p, h, stats] = signtest(sub_vm_stat_data.f_40.trans_vm)
 SubVm_40_trans_stats = struct();
-SubVm_40_trans_stats.p = p;
+SubVm_40_trans_stats.p = p
 SubVm_40_trans_stats.h = h;
 SubVm_40_trans_stats.stats = stats;
 
 [p, h, stats] = signtest(sub_vm_stat_data.f_140.trans_vm)
 SubVm_140_trans_stats = struct();
-SubVm_140_trans_stats.p = p;
+SubVm_140_trans_stats.p = p
 SubVm_140_trans_stats.h = h;
 SubVm_140_trans_stats.stats = stats;
 
 % transient compared to baseline statistical test 
 [p, h, stats] = signtest(sub_vm_stat_data.f_40.sus_vm)
 SubVm_40_sus_stats = struct();
-SubVm_40_sus_stats.p = p;
+SubVm_40_sus_stats.p = p
 SubVm_40_sus_stats.h = h;
 SubVm_40_sus_stats.stats = stats;
 
 [p, h, stats] = signtest(sub_vm_stat_data.f_140.sus_vm)
 SubVm_140_sus_stats = struct();
-SubVm_140_sus_stats.p = p;
+SubVm_140_sus_stats.p = p
 SubVm_140_sus_stats.h = h;
 SubVm_140_sus_stats.stats = stats;
 
@@ -440,7 +441,7 @@ for f_region = fieldnames(region_data)'
         Multi_func.set_default_axis(gca);
         title([f_stim(3:end) ' Hz DBS']);
         ylabel('Firing Rate Change (Hz)');
-        %ylim([-10 40]);
+        ylim([-10 70]);
 
         %fr_stat_data.(f_stim) = struct();
         fr_stat_data.(f_stim).trans_fr = data_bystim.(f_stim).neuron_trans_FR;
@@ -449,6 +450,7 @@ for f_region = fieldnames(region_data)'
     
     sgtitle([f_region ' Firing Rate Violins'], 'Interpreter', 'none');
     saveas(gcf, [figure_path 'Average/' f_region '_ped_comp_FR.png']);
+    saveas(gcf, [figure_path 'Average/' f_region '_ped_comp_FR.pdf']);
     saveas(gcf, [figure_path 'Average/' f_region '_ped_comp_FR.eps']);
 end
 
@@ -559,6 +561,7 @@ for f_region = fieldnames(region_data)'
     end
     sgtitle([f_region ' Average subthreshold Vm Showing all pulses'], 'Interpreter', 'none');
     saveas(gcf, [figure_path 'Average/' f_region '_Display_All_Pulse_Trig_Vm.png']);
+    saveas(gcf, [figure_path 'Average/' f_region '_Display_All_Pulse_Trig_Vm.pdf']);
     saveas(gcf, [figure_path 'Average/' f_region '_Display_All_Pulse_Trig_Vm.eps'], 'epsc');
 end
 
