@@ -97,7 +97,7 @@ for f_region = fieldnames(region_data)'
         plot([0 timeline(locs(prom_peak_loc)) ], [0 0 ]);
 
         disp(['Population Average Time from ' f_stim]);
-        disp(num2str(timeline(locs(prom_peak_loc)) ));
+        disp(num2str(timeline(locs(prom_peak_loc))*1000 ));
 
     end
 
@@ -106,79 +106,71 @@ end
 
 % Calculate the peak by averaging the peak to each neuron's Vm, 
 % This was not really working well because the peak for some neurons was way later
-%for f_region = fieldnames(region_data)'
-%    f_region = f_region{1};
-%    data_bystim = region_data.(f_region);
-%    stims = fieldnames(data_bystim);
-%    
-%
-%    figure('Renderer', 'Painters', 'Position', [200 200 2000 700]);
-%    tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
-%
-%    for f_stim=stims'
-%        f_stim = f_stim{1};
-%        
-%        % Store neuron's Vm for heatmap
-%        Vm_map = [];
-%
-%        time_to_peak = [];
-%        % Find the peaks in the Vm
-%        avg_Vm = mean(data_bystim.(f_stim).neuron_Vm, 2, 'omitnan');
-%        nexttile;
-%        timeline = nanmean(data_bystim.(f_stim).trace_timestamps, 2)';
-%        plot(timeline, avg_Vm);
-%        
-%
-%
-%        for nr = 1:size(data_bystim.(f_stim).neuron_Vm, 2)
-%            
-%            Vm_map(end + 1, :) = data_bystim.(f_stim).neuron_Vm(:, nr)';
-%
-%            stim_time = data_bystim.(f_stim).stim_timestamps(:, nr);
-%            trace_time = data_bystim.(f_stim).trace_timestamps(:, nr);
-%
-%            % Considering peak in the first 100ms
-%            stim_idx = find(stim_time(1) <= trace_time & 0.100 >= trace_time);
-%            max_vm = max(data_bystim.(f_stim).neuron_Vm(stim_idx, nr));
-%            peak_idx = find(max_vm == data_bystim.(f_stim).neuron_Vm(:, nr));
-%            
-%            if length(peak_idx) > 1
-%                disp('Found multiple peaks');
-%            end
-%            time_to_peak(end + 1) = trace_time(peak_idx);
-%            
-%            % DEBUG find the max point for each trace
-%            %nexttile;
-%            %figure;
-%            %plot(trace_time, data_bystim.(f_stim).neuron_Vm(:, nr), '-k');
-%            %hold on;
-%            %plot(trace_time(peak_idx), max_vm, '.r');
-%        end
-%
-%        % Plot SubVm heatmap
-%        
-%        %f1 = gcf;
-%        %figure;
-%        %timeline = nanmean(data_bystim.(f_stim).trace_timestamps, 2)';
-%        %num_neurons = size(data_bystim.(f_stim).trace_timestamps, 2);
-%        %surface(timeline, 1:num_neurons, Vm_map, 'CDataMapping', 'scaled', 'FaceColor', 'texturemap', 'edgecolor', 'none');
-%
-%        %set(0, 'currentfigure', f1);
-%        %nexttile;
-%        %histogram(time_to_peak*1000, 0:0.2:500);
-%        %hold on;
-%        %xline(mean(time_to_peak*1000, 'omitnan'), 'r');
-%        %title(f_stim, 'Interpreter', 'none');
-%        %xlabel('Time from onset (ms)');
-%        %ylabel('Counts');
-%
-%        % Print out the time results
-%        %disp([f_stim ' time to peak Vm']);
-%        %mean_peak = mean(time_to_peak*1000, 'omitnan');
-%        %std_peak = std(time_to_peak*1000, 'omitnan');
-%        %disp([num2str(mean_peak) '±' num2str(std_peak)]);
-%    end
-%end
+for f_region = fieldnames(region_data)'
+    f_region = f_region{1};
+    data_bystim = region_data.(f_region);
+    stims = fieldnames(data_bystim);
+
+    for f_stim=stims'
+        f_stim = f_stim{1};
+        
+        
+        %figure('Renderer', 'Painters', 'Position', [200 200 2000 700]);
+        %tiledlayout(length(data_bystim.(f_stim).neuron_Vm, 2), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
+
+        % Store neuron's Vm for heatmap
+        Vm_map = [];
+        time_to_peak = [];
+
+        for nr = 1:size(data_bystim.(f_stim).neuron_Vm, 2)
+            
+            Vm_map(end + 1, :) = data_bystim.(f_stim).neuron_Vm(:, nr)';
+
+            stim_time = data_bystim.(f_stim).stim_timestamps(:, nr);
+            timeline = data_bystim.(f_stim).trace_timestamps(:, nr);
+            
+            cur_vm = data_bystim.(f_stim).neuron_Vm(:, nr);
+
+            % Find the max prominescences 
+            [pks, locs, w, p] = findpeaks(cur_vm);
+            
+            % Look at first 100ms of the stimulation period
+            stim_idxs = find(timeline >= 0 & timeline <= 0.1);
+            [c, ia] = ismember(locs, stim_idxs);
+            locs = locs(c);
+            pks = pks(c);
+            p = p(c);
+            prom_peak_loc = find(max(p) == p);
+
+            time_to_peak(end + 1) = timeline(locs(prom_peak_loc));
+ 
+            
+            % DEBUG find the max point for each trace
+            % Show the max Vm after stimulation 
+            %nexttile;
+            %figure('Renderer', 'Painters', 'Position', [500 500 2000 700]);
+            %plot(timeline, cur_vm, '-k');
+            %hold on;
+            %plot(timeline(locs), cur_vm(locs), 'or');
+            %hold on;
+            %plot([timeline(locs)'; timeline(locs)'], [cur_vm(locs)'; cur_vm(locs)' - p'], '-g');
+            %hold on;
+            %plot([0 timeline(locs(prom_peak_loc)) ], [0 0 ], '-m');
+
+        end
+        
+        % Print the histogram of the timepoints
+        figure('Renderer', 'Painters', 'Position', [500 500 2000 700]);
+        histogram(time_to_peak*1000, 0:0.2:100);
+        title(f_stim, 'Interpreter', 'none');
+
+        % Print out the time results
+        disp([f_stim ' time to peak Vm']);
+        mean_peak = mean(time_to_peak*1000, 'omitnan');
+        std_peak = std(time_to_peak*1000, 'omitnan');
+        disp([num2str(mean_peak) '±' num2str(std_peak)]);
+    end
+end
 
 return;
 
