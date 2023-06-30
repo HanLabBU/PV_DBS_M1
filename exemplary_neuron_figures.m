@@ -41,6 +41,13 @@ stim_idx = round(stim_idx*sam_freq);
 
 % Generate figure
 figure('renderer', 'painters', 'Position', [0 0 1200 500]);
+
+% Show file name
+posx = 900;
+posy = 20;
+text(posx, posy, ['611284_V1_rec20210827_FOV1_140_60_.mat tr 5' ], 'Interpreter', 'none');
+hold on;
+
 %Plot the trace
 plot(detrend_traces./trace_noise, 'k');
 %set(gcf, 'color', 'none');
@@ -116,6 +123,13 @@ stim_idx = round(stim_idx*sam_freq);
 
 % Generate figure
 figure('renderer', 'painters', 'Position', [0 0 1200 500]);
+
+% Show file name
+posx = 900;
+posy = 20;
+text(posx, posy, ['611284_V1_rec20221108_FOV2_140_50_.mat tr 2' ], 'Interpreter', 'none');
+hold on;
+
 %Plot the trace
 plot(detrend_traces./trace_noise, 'k');
 %set(gcf, 'color', 'none');
@@ -189,6 +203,12 @@ stim_idx = round(stim_idx*sam_freq);
 
 % Generate figure
 figure('renderer', 'painters', 'Position', [0 0 1200 500]);
+% Show file name
+posx = 900;
+posy = 20;
+text(posx, posy, ['617100_M1_rec20211111_FOV1_140_60_.mat tr 8'], 'Interpreter', 'none');
+hold on;
+
 %Plot the trace
 plot(detrend_traces./trace_noise, 'k');
 %set(gcf, 'color', 'none');
@@ -264,6 +284,13 @@ stim_idx = round(stim_idx*sam_freq);
 
 % Generate figure
 figure('renderer', 'painters', 'Position', [0 0 1200 500]);
+
+% Show file name
+posx = 900;
+posy = 20;
+text(posx, posy, ['617100_M1_rec20211110_FOV5_140_60_.mat tr 6'], 'Interpreter', 'none');
+hold on;
+
 %Plot the trace
 plot(detrend_traces./trace_noise, 'k');
 %set(gcf, 'color', 'none');
@@ -327,6 +354,13 @@ stim_idx = round(stim_idx*sam_freq);
 
 % Generate figure
 figure('renderer', 'painters', 'Position', [0 0 1200 500]);
+
+% Show file name
+posx = 900;
+posy = 20;
+text(posx, posy, ['23072_V1_rec20220217_FOV3_40_220_.mat tr 3'], 'Interpreter', 'none');
+hold on;
+
 %Plot the trace
 plot(detrend_traces./trace_noise, 'k');
 %set(gcf, 'color', 'none');
@@ -402,6 +436,13 @@ stim_idx = round(stim_idx*sam_freq);
 
 % Generate figure
 figure('renderer', 'painters', 'Position', [0 0 1200 500]);
+
+% Show file name
+posx = 900;
+posy = 20;
+text(posx, posy, ['23072_V1_rec20220223_FOV2_40_250_.mat tr 8'], 'Interpreter', 'none');
+hold on;
+
 %Plot the trace
 plot(detrend_traces./trace_noise, 'k');
 %set(gcf, 'color', 'none');
@@ -476,6 +517,13 @@ stim_idx = round(stim_idx*sam_freq);
 
 % Generate figure
 figure('renderer', 'painters', 'Position', [0 0 1200 500]);
+
+% Show file name
+posx = 900;
+posy = 20;
+text(posx, posy, ['617100_M1_rec20211110_FOV3_40_60_.mat tr 9' ], 'Interpreter', 'none');
+hold on;
+
 %Plot the trace
 plot(detrend_traces./trace_noise, 'k');
 %set(gcf, 'color', 'none');
@@ -550,6 +598,13 @@ stim_idx = round(stim_idx*sam_freq);
 
 % Generate figure
 figure('renderer', 'painters', 'Position', [0 0 1200 500]);
+
+% Show file name
+posx = 900;
+posy = 20;
+text(posx, posy, ['31556eartag_M1_rec20221214_FOV1_40_80_.mat tr 4'], 'Interpreter', 'none');
+hold on;
+
 %Plot the trace
 plot(detrend_traces./trace_noise, 'k');
 %set(gcf, 'color', 'none');
