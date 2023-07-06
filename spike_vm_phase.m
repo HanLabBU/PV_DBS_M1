@@ -71,8 +71,7 @@ for f_stim=stims'
     stim_phases = [];
 
     %Loop through each neuron 
-    %DEBUG uncomment range
-    for nr = 1 %:length(data_bystim.(f_stim).neuron_hilbfilt)
+    for nr = 1:length(data_bystim.(f_stim).neuron_hilbfilt)
         base_idx = find(data_bystim.(f_stim).trace_timestamps(:, nr) < data_bystim.(f_stim).stim_timestamps(1, nr));
         stim_idx = find(data_bystim.(f_stim).trace_timestamps(:, nr) >= data_bystim.(f_stim).stim_timestamps(1, nr) & ...
                         data_bystim.(f_stim).trace_timestamps(:, nr) <= data_bystim.(f_stim).stim_timestamps(end, nr));
@@ -80,8 +79,7 @@ for f_stim=stims'
         hilb_nr = data_bystim.(f_stim).neuron_hilbfilt{nr};
 
         % Loop through each trial
-        %DEBUG uncomment range
-        for tr = 1 %:size(hilb_nr, 3)
+        for tr = 1:size(hilb_nr, 3)
             % Grab the spike idx from current trial
             cur_tr_spikeidx = data_bystim.(f_stim).all_trial_spikeidx{nr};
             cur_tr_spikeidx = cur_tr_spikeidx(:, tr);
@@ -96,38 +94,38 @@ for f_stim=stims'
             stim_phases = [stim_phases, angle(hilb_nr(stim_num, stim_spikeidx, tr))];
             
             %DEBUG
-            nexttile;
-            Fn = avg_Fs/2;
-            FB = [140*0.8 140*1.2];
-            [B, A] = butter(2, [min(FB)/Fn max(FB)/Fn]);
-            
-            spike_idxs = [base_spikeidx; stim_spikeidx];
+            %nexttile;
+            %Fn = avg_Fs/2;
+            %FB = [140*0.8 140*1.2];
+            %[B, A] = butter(2, [min(FB)/Fn max(FB)/Fn]);
+            %
+            %spike_idxs = [base_spikeidx; stim_spikeidx];
 
-            filt_sig = filtfilt(B, A, data_bystim.(f_stim).all_trial_SubVm{nr}(:, tr));
-            plot(timeline, filt_sig);
-            hold on;
-            plot(timeline(spike_idxs), filt_sig(spike_idxs), '|r');
-            hold on;
-            
-            for i = 1:length(spike_idxs)
-                %TODO plot the phase right above the spike indicator
-                text(timeline(spike_idxs(i)), filt_sig(spike_idxs(i)) + 0.5, num2str(rad2deg(angle(hilb_nr(stim_num, spike_idxs(i), tr))) + 360 ));
-                hold on;
-            end    
+            %filt_sig = filtfilt(B, A, data_bystim.(f_stim).all_trial_SubVm{nr}(:, tr));
+            %plot(timeline, filt_sig);
+            %hold on;
+            %plot(timeline(spike_idxs), filt_sig(spike_idxs), '|r');
+            %hold on;
+            %
+            %for i = 1:length(spike_idxs)
+            %    %TODO plot the phase right above the spike indicator
+            %    text(timeline(spike_idxs(i)), filt_sig(spike_idxs(i)) + 0.5, num2str(rad2deg(angle(hilb_nr(stim_num, spike_idxs(i), tr))) + 360 ));
+            %    hold on;
+            %end    
         end
     end
 
     % Plot the polar histgrams
-    %DEBUG  Uncomment back
-    %nexttile;
-    %polarhistogram(base_phases);
-    %title('Base');
+    nexttile;
+    edges = linspace(0, 2*pi, 24);
+    polarhistogram(base_phases, edges);
+    title('Base');
 
-    %nexttile;
-    %polarhistogram(stim_phases);
-    %title('Stim');
+    nexttile;
+    polarhistogram(stim_phases, edges);
+    title('Stim');
 
-    sgtitle(f_stim(3:end), 'Interpreter', 'none');
+    sgtitle(['Filtered at ' f_stim(3:end) ', which was also the stim freq'], 'Interpreter', 'none');
  
     saveas(gcf, [figure_path 'Phase/' f_stim '_Spike_Phase_StimFreq.png']);
     saveas(gcf, [figure_path 'Phase/' f_stim '_Spike_Phase_StimFreq.pdf']);
