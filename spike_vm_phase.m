@@ -118,11 +118,11 @@ for f_stim=stims'
     % Plot the polar histgrams
     nexttile;
     edges = linspace(0, 2*pi, 24);
-    polarhistogram(base_phases, edges);
+    polarhistogram(base_phases, edges, 'FaceColor', 'blue', 'FaceAlpha', 0.3);
     title('Base');
 
     nexttile;
-    polarhistogram(stim_phases, edges);
+    polarhistogram(stim_phases, edges, 'FaceColor', 'red', 'FaceAlpha', 0.3);
     title('Stim');
 
     sgtitle(['Filtered at ' f_stim(3:end) ', which was also the stim freq'], 'Interpreter', 'none');
