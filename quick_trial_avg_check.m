@@ -26,8 +26,8 @@ for trial=trial_nums
 
     % Store the subthreshold Vm
     [baseline, coeff] = Multi_func.exp_fit_Fx(spike_info.trace_ws', round(Fs));
-    %cur_subVm = spike_info.trace_ws - baseline;
-    cur_subVm = cur_trace';
+    cur_subVm = spike_info.trace_ws - baseline;
+    %cur_subVm = cur_trace';
     all_subVm = horzcat_pad(all_subVm, cur_subVm');
 
     % Store the spike raster
@@ -45,11 +45,40 @@ title('Plotting average subthreshold Vm');
 figure;
 timeline = (1:size(all_subVm, 1))./Fs - 1;
 for i=1:size(all_rasters, 2)
-    cur_color = [rand, rand, rand];
-    plot(timeline(all_rasters(:, i) == 1), i*5, '.', 'Color', cur_color);
+    %cur_color = [rand, rand, rand];
+    cur_color = [0 0 0];
+    spike_idx = find(all_rasters(:, i) == 1);
+
+    if length(spike_idx) == 0
+        continue;
+    end
+
+    %plot(timeline(spike_idx), repmat(i*5, length(spike_idx), 1), '.', 'Color', cur_color);
+    plot(timeline(spike_idx), i*5, '.', 'Color', cur_color);
     hold on;
 end
 title('Plotting spike raster');
 
-%TODO Show the subthreshold spectra
+% Plot all of the traces
+figure;
+surface(timeline, 1:size(all_subVm, 2), all_subVm', 'CDataMapping', 'scaled', 'FaceColor', 'texturemap', 'edgecolor', 'none');
+title('All Traces Heatmap');
 
+%TODO Show the subthreshold spectra
+Fs = 828;
+[wt, f] = get_power_spec(mean(all_subVm, 2, 'omitnan'), Fs);
+figure;
+surface(timeline, ... 
+        f, ...
+        abs(wt), 'CDataMapping', 'scaled', 'FaceColor', 'texturemap', 'edgecolor', 'none');
+title('Power spectra of average signal');
+
+
+% Calculate cwt for input signal and 
+function [wt, f] = get_power_spec(signal, samp_freq)
+    freqLimits = [0 150];
+    fb = cwtfilterbank(SignalLength=length(signal),...
+                       SamplingFrequency=samp_freq,...
+                       FrequencyLimits=freqLimits);
+    [wt, f] = cwt(signal, FilterBank=fb);
+end
