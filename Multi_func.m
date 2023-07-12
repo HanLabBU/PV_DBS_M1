@@ -107,11 +107,13 @@ classdef Multi_func
         function [result] = set_fill_properties(fill_handle)
             fill_handle.EdgeAlpha = 1;
             fill_handle.FaceAlpha = 0.2;
+            fill_handle.LineWidth = 0.2;
         end
         
         % Specify default axis on plots
         function [result] = set_default_axis(ax)
-            set(ax, 'Color', 'none', 'Box', 'off', 'TickDir', 'out');
+            set(ax, 'Color', 'none', 'Box', 'off', 'TickDir', 'out', 'linewidth', 0.2);
+            ax.FontSize = 7;
         end
 
         % Re-space axis
@@ -124,9 +126,13 @@ classdef Multi_func
         % Plot DBS bar above specified value
         function [result] = plot_dbs_bar(x_pts, y, text_str)
             offset = 1;
-            plot(x_pts, [y + offset, y + offset], '-', 'LineWidth', 8, 'Color', Fig_color_props.dbs_color);
-            %hold on;
-            %text(mean(x_pts), y + 1.5*offset, text_str);
+            plot(x_pts, [y + offset, y + offset], '-', 'LineWidth', 2.5, 'Color', Fig_color_props.dbs_color);
+            hold on;
+            t1 = text(x_pts(1), y + 2*offset, text_str, 'FontSize', 7);
+            txt_width = t1.Extent(3);
+            x_offset = (diff(x_pts) - txt_width)/2;
+            delete(t1);
+            text(x_pts(1) + x_offset, y + 2*offset, text_str, 'FontSize', 7);
         end
 
         %TODO change the data_bystim part of the struct
