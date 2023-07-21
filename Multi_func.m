@@ -2,6 +2,15 @@
 % The functions here are hopefully specific to the PV DBS project, and therefore may look similar to other previously made functions but with slight differences
 
 classdef Multi_func
+    properties (Constant)
+        trans_color = [153, 51, 51]/255;
+        sus_color = [51, 51, 153]/255;
+        
+        base_color = [57, 77, 161]/255;
+        stim_color = [131, 195, 65]/255;
+        post_color = [128, 56, 149]/255;
+    end
+
     methods(Static)
 
         % Read in .csv file to a dictionary structure that stores which traces to ignore    
@@ -100,7 +109,17 @@ classdef Multi_func
             [wt, f] = cwt(signal, FilterBank=fb);
         end
 
-
+        % Sets default values of the violin plots  
+        function [opts] = get_default_violin()
+            opts.ShowMedian = true;
+            opts.ShowMean = false;
+            opts.MedianColor = [1 1 1];
+            opts.MarkerSize = 5;
+            opts.MedianMarkerSize = 5;
+            opts.BoxWidth = 0.1;
+            opts.BoxColor = [0 0 0];
+            opts.ViolinAlpha = {[0.3], [0.3]};
+        end
 
         % Specify the fill property for all figures
         % fill_handle -> the fill to set all of these properties to make them uniform
