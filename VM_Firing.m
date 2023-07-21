@@ -235,16 +235,16 @@ avg_Fs = mean(region_data.r_combine.f_40.framerate, 'omitnan');
 timeline = ( (4+(front_frame_drop:back_frame_drop) )./avg_Fs) - 1;
 
 % Set figure off currently
-set(0,'DefaultFigureVisible','off');
+set(0,'DefaultFigureVisible','on');
 
-%% Full collective spike rate over time
+%%Compact full collective spike rate over time
 for f_region = fieldnames(region_data)'
     f_region = f_region{1};
     data_bystim = region_data.(f_region);
     stims = fieldnames(data_bystim);
     
-    figure('Renderer', 'Painters', 'Position', [200 200 2000 700]);
-    tiledlayout(1, length(stims), 'TileSpacing', 'compact', 'Padding', 'compact');
+    figure('Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
+    tiledlayout(1, length(stims), 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 20, 10.68, 3.0886]);
     for f_stim=stims'
         f_stim = f_stim{1};
         timeline = nanmean(data_bystim.(f_stim).trace_timestamps, 2);
@@ -257,18 +257,19 @@ for f_region = fieldnames(region_data)'
         f = fill([timeline; flip(timeline)], [cur_srate + sem_srate; flipud(cur_srate - sem_srate)], [0.5 0.5 0.5]);
         Multi_func.set_fill_properties(f);
         hold on;
-        plot(timeline, cur_srate, 'k', 'LineWidth', 1);
+        plot(timeline, cur_srate, 'k', 'LineWidth', 0.3);
         hold on;
 
         % Plot DBS pulse bar
-        Multi_func.plot_dbs_bar([0, 1], max(cur_srate + sem_srate), [f_stim(3:end) 'Hz DBS']);
-        xlabel('Time from stim onset (S)');
+        Multi_func.plot_dbs_bar([0, 1], 7, [f_stim(3:end) 'Hz DBS']);
+        xlabel('Time from stim onset (s)');
         xlim([-1 2.05]);
         ylabel('Firing Rate (Hz)');
-        x = gca; x = x.YAxis;
-        Multi_func.set_spacing_axis(x, 4, 1);
+        a = gca; y = a.YAxis;
+        y.Limits = [-2 8];
+        Multi_func.set_spacing_axis(y, 6, 1);
         Multi_func.set_default_axis(gca);
-        title(f_stim(3:end), 'Interpreter', 'none');
+        %title(f_stim(3:end), 'Interpreter', 'none');
     end
     sgtitle([f_region ' Average Spike rate'], 'Interpreter', 'none');
     saveas(gcf, [figure_path 'Average/' f_region '_Summary_Continuous_FiringRate.png']);
@@ -276,14 +277,15 @@ for f_region = fieldnames(region_data)'
     saveas(gcf, [figure_path 'Average/' f_region '_Summary_Continuous_FiringRate.eps']);
 end
 
-%% Subthreshold Vm
+%%Compact population Subthreshold Vm
 for f_region = fieldnames(region_data)'
     f_region = f_region{1};
     data_bystim = region_data.(f_region);
     stims = fieldnames(data_bystim);
     
-    figure('Renderer', 'Painters', 'Position', [200 200 2000 700]);
-    tiledlayout(1, length(stims), 'TileSpacing', 'compact', 'Padding', 'compact');
+    figure('Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
+    fontsize(gcf, 7, "points")
+    tiledlayout(1, length(stims), 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 20, 10.68, 3.0886]);
     for f_stim=stims'
         f_stim = f_stim{1};
         timeline = nanmean(data_bystim.(f_stim).trace_timestamps, 2);
@@ -293,23 +295,20 @@ for f_region = fieldnames(region_data)'
         sem_Vm = std_Vm./sqrt(num_neurons);
         %num_points = size(data_bystim.(f_stim{1}).neuron_Vm, 1);
         nexttile;
-        f = fill([timeline; flip(timeline)], [cur_Vm + sem_Vm; flipud(cur_Vm - sem_Vm)], [0.5 0.5 0.5]);
+        f = fill([timeline; flip(timeline)], [cur_Vm + sem_Vm; flipud(cur_Vm - sem_Vm)], [0.5 0.5 0.5], 'linewidth', 0.2);
         Multi_func.set_fill_properties(f);
         hold on;
-        plot(timeline, cur_Vm, 'k', 'LineWidth', 1);
+        plot(timeline, cur_Vm, 'k', 'LineWidth', 0.3);
         hold on;
-
         % Plot DBS pulse bar
-        Multi_func.plot_dbs_bar([0, 1], max(cur_Vm + sem_Vm), [f_stim(3:end) 'Hz DBS']);
-
-        title(f_stim(3:end), 'Interpreter', 'none');
-        xlabel('Time from stim onset (S)');
+        Multi_func.plot_dbs_bar([0, 1], 11, [f_stim(3:end) 'Hz DBS']);
+        xlabel('Time from stim onset (s)');
         xlim([-1 2.05]);
-        ylabel('Raw Vm (A.U.)');
-        set(gca, 'color', 'none');
+        ylabel('Vm (A.U.)');
         Multi_func.set_default_axis(gca);
-        x = gca; x = x.YAxis;
-        Multi_func.set_spacing_axis(x, 4, 1);
+        x.Limits = [-4 12];
+        Multi_func.set_spacing_axis(x, 5, 1);
+        %title(f_stim(3:end), 'Interpreter', 'none');
     end
     sgtitle([f_region ' Average subthreshold Vm'], 'Interpreter', 'none');
     saveas(gcf, [figure_path 'Average/' f_region '_Average_sub_thres.png']);
@@ -326,8 +325,8 @@ for f_region = fieldnames(region_data)'
     % Struct to identify each group of data
     sub_vm_stat_data = struct();
 
-    figure('Renderer', 'Painters', 'Position', [200 200 900 400]);
-    tiledlayout(1, length(stims), 'TileSpacing', 'compact', 'Padding', 'compact');
+    figure('Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
+    tiledlayout(1, length(stims), 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 20, 5, 3]);
     for f_stim=stims'
         nexttile;
         % Plot violins
@@ -337,7 +336,13 @@ for f_region = fieldnames(region_data)'
         num_neurons = length(data_bystim.(f_stim).neuron_trans_Vm);
         labels = [labels; repmat({'Trans'}, num_neurons, 1); repmat({'Sus'}, num_neurons, 1)];
         data = [data; data_bystim.(f_stim).neuron_trans_Vm', data_bystim.(f_stim).neuron_sus_Vm'];
-        violins = violinplot2(data, labels, 'GroupOrder', {'Trans', 'Sus'});
+ 
+        ViolinOpts = Multi_func.get_default_violin();
+        violins = violinplot(data, labels, 'GroupOrder', {'Trans', 'Sus'}, ViolinOpts);
+
+        violins(1).ViolinColor = {Multi_func.trans_color};
+        violins(2).ViolinColor = {Multi_func.sus_color};
+
         hold on;
 
         % Plot individual lines between violins
@@ -354,9 +359,9 @@ for f_region = fieldnames(region_data)'
     end
     
     sgtitle([f_region ' Sub Vm Violins'], 'Interpreter', 'none');
-    saveas(gcf, [figure_path 'Average/' f_region '_ped_comp_sub_thres.png']);
-    saveas(gcf, [figure_path 'Average/' f_region '_ped_comp_sub_thres.pdf']);
-    saveas(gcf, [figure_path 'Average/' f_region '_ped_comp_sub_thres.eps']);
+    saveas(gcf, [figure_path 'Average/' f_region '_population_comp_Vm_violin.png']);
+    saveas(gcf, [figure_path 'Average/' f_region '_population_comp_Vm_violin.pdf']);
+    saveas(gcf, [figure_path 'Average/' f_region '_population_comp_Vm_violin.eps'], 'epsc');
 end
 
 % transient compared to baseline statistical test 
@@ -421,8 +426,8 @@ for f_region = fieldnames(region_data)'
     % Struct to identify each group of data
     fr_stat_data = struct();
 
-    figure('Renderer', 'Painters', 'Position', [200 200 900 400]);
-    tiledlayout(1, length(stims), 'TileSpacing', 'compact', 'Padding', 'compact');
+    figure('Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
+    tiledlayout(1, length(stims), 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 20, 5, 3]);
     for f_stim=stims'
         nexttile;
         % Plot violins
@@ -432,7 +437,12 @@ for f_region = fieldnames(region_data)'
         num_neurons = length(data_bystim.(f_stim).neuron_trans_FR);
         labels = [labels; repmat({'Trans'}, num_neurons, 1); repmat({'Sus'}, num_neurons, 1)];
         data = [data; data_bystim.(f_stim).neuron_trans_FR', data_bystim.(f_stim).neuron_sus_FR'];
-        violins = violinplot2(data, labels, 'GroupOrder', {'Trans', 'Sus'});
+        ViolinOpts = Multi_func.get_default_violin();
+        violins = violinplot(data, labels, 'MedianColor', [1 0 0], 'GroupOrder', {'Trans', 'Sus'}, ViolinOpts);
+        
+        violins(1).ViolinColor = {Multi_func.trans_color};
+        violins(2).ViolinColor = {Multi_func.sus_color};
+
         hold on;
 
         % Plot individual lines between violins
@@ -449,10 +459,12 @@ for f_region = fieldnames(region_data)'
     end
     
     sgtitle([f_region ' Firing Rate Violins'], 'Interpreter', 'none');
-    saveas(gcf, [figure_path 'Average/' f_region '_ped_comp_FR.png']);
-    saveas(gcf, [figure_path 'Average/' f_region '_ped_comp_FR.pdf']);
-    saveas(gcf, [figure_path 'Average/' f_region '_ped_comp_FR.eps']);
+    saveas(gcf, [figure_path 'Average/' f_region '_population_comp_FR_violin.png']);
+    saveas(gcf, [figure_path 'Average/' f_region '_population_comp_FR_violin.pdf']);
+    saveas(gcf, [figure_path 'Average/' f_region '_population_comp_FR_violin.eps']);
 end
+
+return;
 
 % transient compared to baseline statistical test 
 [p, h, stats] = signtest(fr_stat_data.f_40.trans_fr)
@@ -563,6 +575,63 @@ for f_region = fieldnames(region_data)'
     saveas(gcf, [figure_path 'Average/' f_region '_Display_All_Pulse_Trig_Vm.png']);
     saveas(gcf, [figure_path 'Average/' f_region '_Display_All_Pulse_Trig_Vm.pdf']);
     saveas(gcf, [figure_path 'Average/' f_region '_Display_All_Pulse_Trig_Vm.eps'], 'epsc');
+end
+
+% Continuous firing rate showing all DBS pulses
+for f_region = fieldnames(region_data)'
+    f_region = f_region{1};
+    data_bystim = region_data.(f_region);
+    stims = fieldnames(data_bystim);
+    
+    figure('Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
+    tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 20, 9.5, 5.0]);
+    for f_stim=stims'
+        timeline = nanmean(data_bystim.(f_stim{1}).trace_timestamps, 2);
+        cur_srate = mean(data_bystim.(f_stim{1}).neuron_srate_small, 2, 'omitnan');
+        std_srate = std(data_bystim.(f_stim{1}).neuron_srate_small, 0, 2, 'omitnan');
+        num_neurons = size(data_bystim.(f_stim{1}).neuron_srate_small, 2);
+        sem_srate = std_srate./sqrt(num_neurons);
+        %num_points = size(data_bystim.(f_stim{1}).neuron_srate, 1);
+        nexttile;
+
+        % Plot the subthreshold srate
+        f = fill([timeline; flip(timeline)], [cur_srate + sem_srate; flipud(cur_srate - sem_srate)], [0.5 0.5 0.5]);
+        Multi_func.set_fill_properties(f);
+        hold on;
+        plot(timeline, cur_srate, 'k', 'LineWidth', 0.3);
+        hold on;
+        
+        % Plot the DBS stimulation time pulses
+        stim_time = nanmean(data_bystim.(f_stim{1}).stim_timestamps, 2);
+        xline(stim_time, 'Color', [170, 176, 97]./255, 'LineWidth', 0.5);
+        hold on;
+
+        % Plot the timescale bar
+        posx = -.100;
+        posy = -3;
+        plot([posx, posx + 0.050], [posy posy], 'k', 'LineWidth', 0.5);
+        text(posx, posy - 0.5, '50ms', 'FontSize', 7);
+        hold on;
+
+        % Plot the srate scale
+        poxs = .2;
+        posy = 5;
+        srate_scale = 2;
+        plot([posx, posx], [posy, posy + srate_scale], 'k', 'LineWidth', 0.5);
+        text(posx - .01, posy, [num2str(srate_scale) ' FR (Hz)'], 'Rotation', 90, 'FontSize', 7);
+
+        % Increase timescale resolution
+        xlim([0 - .100, max(stim_time) + 0.100]);
+        a = gca;
+        a.XAxis.Visible = 'off';
+        a.YAxis.Visible = 'off';
+        set(gca, 'color', 'none')
+        title(f_stim{1}(3:end), 'Interpreter', 'none');
+    end
+    sgtitle([f_region ' Population Firing Rate Showing All Pulses'], 'Interpreter', 'none');
+    saveas(gcf, [figure_path 'Average/' f_region '_Display_All_Pulse_Trig_FR.png']);
+    saveas(gcf, [figure_path 'Average/' f_region '_Display_All_Pulse_Trig_FR.pdf']);
+    saveas(gcf, [figure_path 'Average/' f_region '_Display_All_Pulse_Trig_FR.eps'], 'epsc');
 end
 
 %% Functin to calculate the power spectra
