@@ -3,12 +3,24 @@
 
 classdef Multi_func
     properties (Constant)
+        
+        % Colors for violin plots
         trans_color = [153, 51, 51]/255;
         sus_color = [51, 51, 153]/255;
         
         base_color = [57, 77, 161]/255;
         stim_color = [131, 195, 65]/255;
         post_color = [128, 56, 149]/255;
+
+        % Colors for heatmaps
+        warm_cold_color = [[linspace(58, 256, 256/2)', linspace(12, 256, 256/2)', linspace(163, 256, 256/2)'];
+                         [linspace(256, 217, 256/2)', linspace(256, 4, 256/2)', linspace(256, 41, 256/2)']]./256;
+        
+        warm_cold_gray_color = [[linspace(58, 200, 256/2)', linspace(12, 200, 256/2)', linspace(163, 200, 256/2)'];
+                         [linspace(200, 217, 256/2)', linspace(200, 4, 256/2)', linspace(200, 41, 256/2)']]./256;
+               
+        green_warm_cold_color = [[linspace(202, 160, 256/2)', linspace(255, 196, 256/2)', linspace(191, 255, 256/2)'];
+                         [linspace(160, 217, 256/2)', linspace(196, 4, 256/2)', linspace(255, 41, 256/2)']]./256;
     end
 
     methods(Static)
