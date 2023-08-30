@@ -10,8 +10,15 @@ server_root_path = '~/handata_server/eng_research_handata3/';
 % Windows server
 %local_root_path = 'Z:\';
 
+exclude_200ms = 1;
+
 % Parameters for frames to chop off
-front_frame_drop = 15;
+if ~exclude_200ms
+    front_frame_drop = 15;
+else 
+    front_frame_drop = 15 + round((828*.200));
+end
+
 back_frame_drop = 2496;
 
 % List path where all of the matfiles are stored
@@ -28,13 +35,14 @@ ignore_trial_dict = Multi_func.csv_to_struct([local_root_path 'Pierre Fabris' f 
                                        'Stim Recordings' f 'Data_Config' f 'byvis_ignore.csv']);
 
 % Parameter to determine whether to combine all regions as one data
-all_regions = 1;
+all_regions = 0;
 
 srate_win = 100;
 
 % Time periods for comparison of firing rate and sub Vm
 trans_ped = [0, 150];
 sus_ped = [150, 1000];
+stim_ped = [0, 1000];
 
 %%% END Modification
 
@@ -217,7 +225,11 @@ sus_ped = [150, 1000];
 %---- End of data collection ---
 
 % Read in the saved pv data and perform analysis
-save_all_data_file = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Interm_Data' f 'pv_data.mat'];
+if ~exclude_200ms
+    save_all_data_file = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Interm_Data' f 'pv_data.mat'];
+else
+    save_all_data_file = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Interm_Data' f 'pv_data_ex200.mat'];
+end
 %Load the data
 load(save_all_data_file);
 
@@ -231,7 +243,9 @@ if all_regions == 1
     region_data = Multi_func.combine_regions(region_data);
 end
 
-avg_Fs = mean(region_data.r_combine.f_40.framerate, 'omitnan');
+field1 = fieldnames(region_data);
+field1 = field1(1);
+avg_Fs = mean(region_data.(field1{1}).f_40.framerate, 'omitnan');
 timeline = ( (4+(front_frame_drop:back_frame_drop) )./avg_Fs) - 1;
 
 % Set figure off currently
@@ -260,21 +274,35 @@ for f_region = fieldnames(region_data)'
         plot(timeline, cur_srate, 'k', 'LineWidth', 0.3);
         hold on;
 
-        % Plot DBS pulse bar
-        Multi_func.plot_dbs_bar([0, 1], 7, [f_stim(3:end) 'Hz DBS']);
+        % Determine parameters based on what is being plotted
+        if strcmp(f_region, 'r_combine') == 1
+            Multi_func.plot_dbs_bar([0, 1], 7, [f_stim(3:end) 'Hz DBS']);
+            y.Limits = [-2 8];
+            Multi_func.set_spacing_axis(y, 6, 1);
+        elseif strcmp(f_region, 'r_M1') == 1
+            Multi_func.plot_dbs_bar([0, 1], 2, [f_stim(3:end) 'Hz DBS']);
+            y.Limits = [-2 4];
+            Multi_func.set_spacing_axis(y, 4, 1);
+        end
+
         xlabel('Time from stim onset (s)');
-        xlim([-1 2.05]);
+        
+        % Plot timeline depending on which chopping was done
+        if exclude_200ms
+            xlim([-0.85 2.05]);
+        else
+            xlim([-1 2.05]);
+        end
         ylabel('Firing Rate (Hz)');
         a = gca; y = a.YAxis;
-        y.Limits = [-2 8];
-        Multi_func.set_spacing_axis(y, 6, 1);
+        
         Multi_func.set_default_axis(gca);
         %title(f_stim(3:end), 'Interpreter', 'none');
     end
     sgtitle([f_region ' Average Spike rate'], 'Interpreter', 'none');
     saveas(gcf, [figure_path 'Average/' f_region '_Summary_Continuous_FiringRate.png']);
     saveas(gcf, [figure_path 'Average/' f_region '_Summary_Continuous_FiringRate.pdf']);
-    saveas(gcf, [figure_path 'Average/' f_region '_Summary_Continuous_FiringRate.eps']);
+    %saveas(gcf, [figure_path 'Average/' f_region '_Summary_Continuous_FiringRate.eps']);
 end
 
 %%Compact population Subthreshold Vm
@@ -303,20 +331,32 @@ for f_region = fieldnames(region_data)'
         % Plot DBS pulse bar
         Multi_func.plot_dbs_bar([0, 1], 11, [f_stim(3:end) 'Hz DBS']);
         xlabel('Time from stim onset (s)');
-        xlim([-1 2.05]);
+        if exclude_200ms
+            xlim([-0.85 2.05]);
+        else
+            xlim([-1 2.05]);
+        end
         ylabel('Vm (A.U.)');
         Multi_func.set_default_axis(gca);
         x.Limits = [-4 12];
+
+        % Determine limits based on what is plotted
+        if strcmp(f_region, 'r_M1') == 1
+            y.Limits = [-2 4];
+        elseif strcmp(f_region, 'r_combine') == 1
+            y.Limits = [-2 8];
+        end
+
         Multi_func.set_spacing_axis(x, 5, 1);
         %title(f_stim(3:end), 'Interpreter', 'none');
     end
     sgtitle([f_region ' Average subthreshold Vm'], 'Interpreter', 'none');
     saveas(gcf, [figure_path 'Average/' f_region '_Average_sub_thres.png']);
     saveas(gcf, [figure_path 'Average/' f_region '_Average_sub_thres.pdf']);
-    saveas(gcf, [figure_path 'Average/' f_region '_Average_sub_thres.eps']);
+    %saveas(gcf, [figure_path 'Average/' f_region '_Average_sub_thres.eps']);
 end
 
-% Perform Statistical tests on Subthreshold Vm 
+% Make Violin plots on Subthreshold Vm for transient and sustained
 for f_region = fieldnames(region_data)'
     f_region = f_region{1};
     data_bystim = region_data.(f_region);
@@ -325,7 +365,7 @@ for f_region = fieldnames(region_data)'
     % Struct to identify each group of data
     sub_vm_stat_data = struct();
 
-    figure('Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
+    figure('visible', 'off', 'Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
     tiledlayout(1, length(stims), 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 20, 5, 3]);
     for f_stim=stims'
         nexttile;
@@ -350,7 +390,7 @@ for f_region = fieldnames(region_data)'
         %hold on;
         Multi_func.set_default_axis(gca);
         title([f_stim(3:end) ' Hz DBS']);
-        ylabel('V.M. Change');
+        ylabel('Vm Change');
         ylim([-10 40]);
 
         %sub_vm_stat_data.(f_stim) = struct();
@@ -361,7 +401,7 @@ for f_region = fieldnames(region_data)'
     sgtitle([f_region ' Sub Vm Violins'], 'Interpreter', 'none');
     saveas(gcf, [figure_path 'Average/' f_region '_population_comp_Vm_violin.png']);
     saveas(gcf, [figure_path 'Average/' f_region '_population_comp_Vm_violin.pdf']);
-    saveas(gcf, [figure_path 'Average/' f_region '_population_comp_Vm_violin.eps'], 'epsc');
+    %saveas(gcf, [figure_path 'Average/' f_region '_population_comp_Vm_violin.eps'], 'epsc');
 end
 
 % transient compared to baseline statistical test 
@@ -417,6 +457,63 @@ ranksum_Subvm_sus_sus_stats.p = p
 ranksum_Subvm_sus_sus_stats.h = h;
 ranksum_Subvm_sus_sus_stats.stats = stats;
 
+% Make Violin plots on Subthreshold Vm for stimulation period
+for f_region = fieldnames(region_data)'
+    f_region = f_region{1};
+    data_bystim = region_data.(f_region);
+    stims = fieldnames(data_bystim);
+    
+    % Struct to identify each group of data
+    sub_vm_stat_data = struct();
+
+    figure('Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
+    tiledlayout(1, length(stims), 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 20, 5, 3]);
+    for f_stim=stims'
+        nexttile;
+        % Plot violins
+        labels = [];
+        data = [];
+        f_stim = f_stim{1};
+        num_neurons = length(data_bystim.(f_stim).neuron_stim_Vm);
+        labels = [labels; repmat({'Stim'}, num_neurons, 1)];
+        data = [data; data_bystim.(f_stim).neuron_stim_Vm'];
+ 
+        ViolinOpts = Multi_func.get_default_violin();
+        violins = violinplot(data, labels, 'GroupOrder', {'Stim'}, ViolinOpts);
+
+        violins(1).ViolinColor = {Multi_func.stim_color};
+
+        hold on;
+
+        % Plot individual lines between violins
+        %plot([1, 2], data, '-', 'Color', [0 0 0 0.2]);
+        %hold on;
+        Multi_func.set_default_axis(gca);
+        title([f_stim(3:end) ' Hz DBS']);
+        ylabel('Vm Change');
+        
+        if strcmp(f_region, 'r_M1') == 1
+            ylim([-8 20]);
+        elseif strcmp(f_region, 'r_combine') == 1
+            ylim([-10 40]);
+        end
+        %sub_vm_stat_data.(f_stim) = struct();
+        sub_vm_stat_data.(f_stim).stim_vm = data_bystim.(f_stim).neuron_stim_Vm;
+        sub_vm_stat_data.(f_stim).stim_vm = data_bystim.(f_stim).neuron_stim_Vm;
+    end
+    
+    sgtitle([f_region ' Sub Vm Violins'], 'Interpreter', 'none');
+    saveas(gcf, [figure_path 'Average/' f_region '_population_comp_stim_Vm_violin.png']);
+    saveas(gcf, [figure_path 'Average/' f_region '_population_comp_stim_Vm_violin.pdf']);
+    %saveas(gcf, [figure_path 'Average/' f_region '_population_comp_Vm_violin.eps'], 'epsc');
+end
+
+[p, h, stats] = signtest(sub_vm_stat_data.f_140.stim_vm)
+SubVm_140_stim_stats = struct();
+SubVm_140_stim_stats.p = p
+SubVm_140_stim_stats.h = h;
+SubVm_140_stim_stats.stats = stats;
+
 % Perform Statistical tests on Firing Rate 
 for f_region = fieldnames(region_data)'
     f_region = f_region{1};
@@ -451,7 +548,12 @@ for f_region = fieldnames(region_data)'
         Multi_func.set_default_axis(gca);
         title([f_stim(3:end) ' Hz DBS']);
         ylabel('Firing Rate Change (Hz)');
-        ylim([-10 70]);
+        
+        if strcmp(f_region, 'r_M1') == 1
+            ylim([-5 20]);
+        elseif strcmp(f_region, 'r_combine') == 1
+            y.Limits = [-10 40];
+        end
 
         %fr_stat_data.(f_stim) = struct();
         fr_stat_data.(f_stim).trans_fr = data_bystim.(f_stim).neuron_trans_FR;
@@ -461,10 +563,8 @@ for f_region = fieldnames(region_data)'
     sgtitle([f_region ' Firing Rate Violins'], 'Interpreter', 'none');
     saveas(gcf, [figure_path 'Average/' f_region '_population_comp_FR_violin.png']);
     saveas(gcf, [figure_path 'Average/' f_region '_population_comp_FR_violin.pdf']);
-    saveas(gcf, [figure_path 'Average/' f_region '_population_comp_FR_violin.eps']);
+    %saveas(gcf, [figure_path 'Average/' f_region '_population_comp_FR_violin.eps']);
 end
-
-return;
 
 % transient compared to baseline statistical test 
 [p, h, stats] = signtest(fr_stat_data.f_40.trans_fr)
@@ -520,6 +620,72 @@ ranksum_FR_sus_sus_stats.p = p
 ranksum_FR_sus_sus_stats.h = h;
 ranksum_FR_sus_sus_stats.stats = stats;
 
+% Show violin plot on stimulation period for Firing Rate 
+for f_region = fieldnames(region_data)'
+    f_region = f_region{1};
+    data_bystim = region_data.(f_region);
+    stims = fieldnames(data_bystim);
+    
+    % Struct to identify each group of data
+    fr_stat_data = struct();
+
+    figure('Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
+    tiledlayout(1, length(stims), 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 20, 5, 3]);
+    for f_stim=stims'
+        nexttile;
+        % Plot violins
+        labels = [];
+        data = [];
+        f_stim = f_stim{1};
+        num_neurons = length(data_bystim.(f_stim).neuron_stim_FR);
+        labels = [labels; repmat({'Stim'}, num_neurons, 1)];
+        data = [data; data_bystim.(f_stim).neuron_stim_FR'];
+        %TODO need to fix this, it is actually wrong because the +/- will change the exponential to either the fraction or what not, so really need to multiply the sign afterwards
+        data = sign(data).*log10(abs(data));
+        ViolinOpts = Multi_func.get_default_violin();
+        violins = violinplot(data, labels, 'MedianColor', [1 0 0], 'GroupOrder', {'Stim'}, ViolinOpts);
+        
+        violins(1).ViolinColor = {Multi_func.stim_color};
+
+        hold on;
+
+        % Plot individual lines between violins
+        %plot([1, 2], data, '-', 'Color', [0 0 0 0.2]);
+        %hold on;
+        Multi_func.set_default_axis(gca);
+        title([f_stim(3:end) ' Hz DBS']);
+        ylabel('Firing Rate Change (Hz)');
+        %TODO resize the xaxis here before adding the 10 exnential value
+        y = gca; y = y.YAxis;
+        Multi_func.set_spacing_axis(y, 4, 1);
+        y_sign = arrayfun(@num2str, 10*sign(yticks), 'UniformOutput', 0);
+        y_vals = arrayfun(@num2str, abs(yticks), 'UniformOutput', 0);
+
+        ylab = strcat(y_sign, '^{', y_vals, '}');
+        zero_idx = find(sign(yticks) == 0);
+        if ~isempty(zero_idx)
+            ylab{zero_idx} = '0';
+        end
+        yticklabels(ylab);
+
+        if strcmp(f_region, 'r_M1') == 1
+            ylim([-2 2]);
+        elseif strcmp(f_region, 'r_combine') == 1
+            ylim([-10 70]);
+        end
+
+        %fr_stat_data.(f_stim) = struct();
+        fr_stat_data.(f_stim).stim_fr = data_bystim.(f_stim).neuron_stim_FR;
+    end
+    
+    sgtitle([f_region ' Firing Rate Violins'], 'Interpreter', 'none');
+    saveas(gcf, [figure_path 'Average/' f_region '_population_comp_stim_FR_violin.png']);
+    saveas(gcf, [figure_path 'Average/' f_region '_population_comp_stim_FR_violin.pdf']);
+    %saveas(gcf, [figure_path 'Average/' f_region '_population_comp_FR_violin.eps']);
+end
+return;
+
+
 % Subthreshold Vm showing all DBS pulses
 for f_region = fieldnames(region_data)'
     f_region = f_region{1};
@@ -574,7 +740,7 @@ for f_region = fieldnames(region_data)'
     sgtitle([f_region ' Average subthreshold Vm Showing all pulses'], 'Interpreter', 'none');
     saveas(gcf, [figure_path 'Average/' f_region '_Display_All_Pulse_Trig_Vm.png']);
     saveas(gcf, [figure_path 'Average/' f_region '_Display_All_Pulse_Trig_Vm.pdf']);
-    saveas(gcf, [figure_path 'Average/' f_region '_Display_All_Pulse_Trig_Vm.eps'], 'epsc');
+    %saveas(gcf, [figure_path 'Average/' f_region '_Display_All_Pulse_Trig_Vm.eps'], 'epsc');
 end
 
 % Continuous firing rate showing all DBS pulses
@@ -631,7 +797,7 @@ for f_region = fieldnames(region_data)'
     sgtitle([f_region ' Population Firing Rate Showing All Pulses'], 'Interpreter', 'none');
     saveas(gcf, [figure_path 'Average/' f_region '_Display_All_Pulse_Trig_FR.png']);
     saveas(gcf, [figure_path 'Average/' f_region '_Display_All_Pulse_Trig_FR.pdf']);
-    saveas(gcf, [figure_path 'Average/' f_region '_Display_All_Pulse_Trig_FR.eps'], 'epsc');
+    %saveas(gcf, [figure_path 'Average/' f_region '_Display_All_Pulse_Trig_FR.eps'], 'epsc');
 end
 
 %% Functin to calculate the power spectra
