@@ -9,29 +9,33 @@ f = filesep;
 % Server root path
 %server_rootpath = 'Z:\';
 
-% Maingear office computer
-server_rootpath = '/home/pierfier/Projects/';
+% Linux server
+local_root_path = '~/Projects/';
+% Handata Server on Linux
+server_root_path = '~/handata_server/eng_research_handata3/';
 
 % Server folder location of the saved and aligned data
 %data_path = [server_rootpath 'Pierre Fabris' f 'PV DBS neocortex' f 'PV_Data' f];
 % Local linux machine
 %data_path = [server_rootpath 'Pierre Fabris' f 'PV DBS neocortex' f 'PV_Data' f];
+
 % Data share on server
-data_path = ['~/handata_server' f 'eng_research_handata3' f 'Pierre Fabris' f 'PV Project' f 'PV_Data' f];
+data_path = [server_root_path 'Pierre Fabris' f 'PV Project' f 'PV_Data' f];
+% Data on local computer
+%data_path = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'PV_Data' f];
 
 % Determine whether to save the ignored traces (1) or not ignored traces (0)
-show_ignored = 1;
+show_ignored = 0;
 % USER make sure this path changes based on the above line
-save_path = [server_rootpath 'Pierre Fabris' f 'PV DBS neocortex' f 'Ignored_Traces' f];
+save_path = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Kept_Traces' f];
 
 % Filepath name for ignoring individual trial csv
-ignore_trial_csv = [server_rootpath 'Pierre Fabris' f 'PV DBS neocortex' f 'Recordings' f 'Data_Config' f 'byvis_ignore.csv'];
+ignore_trial_dict = Multi_func.csv_to_struct([local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f ...
+                                       'Stim Recordings' f 'Data_Config' f 'byvis_ignore.csv']);
 
 
 %------------- END modification
 
-% Get all of the trials that are being ignored
-ignore_trial_dict = Multi_func.csv_to_struct(ignore_trial_csv);
 
 % Get all FOV matfiles
 matfile_names = dir([data_path '*.mat']);
@@ -96,7 +100,7 @@ for i=1:length(matfile_names)
 
             % Plotting detrended trace by exponential fit with stimulation pattern and spike detected points
             nexttile;
-            [x y] = exp_fit(raw_trace(:), trial_data.camera_framerate);
+            [x y] = exp_fit(raw_trace(:), round(trial_data.camera_framerate));
             detrend_trace = raw_trace - y';
             plot(trial_data.camera_frame_time, detrend_trace, '-b');
             hold on
@@ -105,11 +109,11 @@ for i=1:length(matfile_names)
                 length(data.raw.trial{tr}.raw_stimulation_time)), '|m');
             hold on;
             % Plot spikes detected
-            spikes_idx = data.align.trial{tr}.spike_info.spike_idx{1};
+            spikes_idx = data.align.trial{tr}.spike_info375.spike_idx{1};
             plot(trial_data.camera_frame_time(spikes_idx), detrend_trace(spikes_idx), 'or', 'MarkerSize', 4);
             
             % Grab neuron's SNRs
-            snrs = trial_data.spike_info.spike_snr{1};
+            snrs = trial_data.spike_info375.spike_snr{1};
 
             legend(['SNR ' num2str(nanmean(snrs)) ' Num spikes: ' num2str(length(snrs))]);    
             title('Detrended Trace');
@@ -118,6 +122,7 @@ for i=1:length(matfile_names)
         % Plotting motion correction vectors
         nexttile;
         plot(trial_data.camera_frame_time, trial_data.img_correct_vec);
+        title('Motion Correction Vector Error');
 
         % Plot the movement, if the variable exists
         if isfield(trial_data, 'speed')
