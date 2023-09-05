@@ -18,11 +18,18 @@ server_root_path = '~/handata_server/eng_research_handata3/';
 % Data on handata3 folder
 pv_data_path = [server_root_path 'Pierre Fabris' f 'PV Project' f 'PV_Data' f];
 
+exclude_200ms = 1;
+
 % Parameters for frames to chop off
-front_frame_drop = 15;
+if ~exclude_200ms
+    front_frame_drop = 15;
+else
+    front_frame_drop = 15 + round((828*.200));
+end
 back_frame_drop = 2496;
 
-%TODO may need to change the variables to differentiate between the larger and finer resolution of spike rate
+
+%Variables to differentiate between the larger and finer resolution of spike rate
 srate_win_large = 100;
 srate_win_small = 20;
 
@@ -30,17 +37,22 @@ srate_win_small = 20;
 base_ped = [-500 0];
 trans_ped = [0, 150];
 sus_ped = [150, 1000];
+stim_ped = [0 1000];
 offset_trans_ped = [1000, 1150];
 
 % Data path for all of the intermediate anaylsis data
-save_all_data_file = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Interm_Data' f 'pv_data.mat'];
+if ~exclude_200ms
+    save_all_data_file = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Interm_Data' f 'pv_data.mat'];
+else
+    save_all_data_file = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Interm_Data' f 'pv_data_ex200.mat'];
+end
 
 % CSV file to determine which trials to ignore
 ignore_trial_dict = Multi_func.csv_to_struct([local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f ...
                                        'Stim Recordings' f 'Data_Config' f 'byvis_ignore.csv']);
 
 % Check that the server path exists
-if ~isfolder(local_root_path)
+if ~isfolder(local_root_path) || ~isfolder(pv_data_path)
     disp('Server rootpath does not exist!!!');
     return;
 end
@@ -91,8 +103,10 @@ for f_region = fieldnames(region_matfiles)'
         % Store transient information    
         data_bystim.(f_stim).neuron_trans_Vm = [];      
         data_bystim.(f_stim).neuron_sus_Vm = [];        
+        data_bystim.(f_stim).neuron_stim_Vm = [];        
         data_bystim.(f_stim).neuron_trans_FR = [];     
         data_bystim.(f_stim).neuron_sus_FR = [];
+        data_bystim.(f_stim).neuron_stim_FR = [];
 
         data_bystim.(f_stim).stim_timestamps = [];
         data_bystim.(f_stim).trace_timestamps = [];
@@ -112,12 +126,16 @@ for f_region = fieldnames(region_matfiles)'
             cur_fov_spikeidx = [];
 
             cur_fov_srate_large = [];
+            cur_fov_srate_small = [];
             cur_fov_raster = [];
 
             cur_fov_trans_Vm = [];      
-            cur_fov_sus_Vm = [];        
+            cur_fov_sus_Vm = []; 
+            cur_fov_stim_Vm = [];
             cur_fov_trans_FR = [];     
             cur_fov_sus_FR = [];
+            cur_fov_stim_FR = [];
+
             cur_fov_base_Vm = [];
             cur_fov_base_FR = [];
 
@@ -159,7 +177,7 @@ for f_region = fieldnames(region_matfiles)'
                     % Store all of the timestamp info
                     stim_start = raw_trial_data.raw_stimulation_time(1);
                     cur_trace_time = trial_data.camera_frame_time(front_frame_drop:back_frame_drop) - stim_start;
-                    cur_stim_time = raw_trial_data.raw_stimulation_time - stim_start;
+                    cur_stim_time = raw_trial_data.raw_stimulation_time(1:str2num(ri{5})) - stim_start;
                     cur_fov_stim_time = horzcat_pad(cur_fov_stim_time, cur_stim_time);
                     cur_fov_trace_time = horzcat_pad(cur_fov_trace_time, cur_trace_time);
 
@@ -190,30 +208,58 @@ for f_region = fieldnames(region_matfiles)'
                     detrend_Vm = cur_raw_trace - baseline';
                     cur_fov_rawtraces = horzcat_pad(cur_fov_rawtraces, detrend_Vm);
 
-                    % Calculate spikerate
+                    % Calculate spikerate with a large window size
                     cur_raster = trial_data.spike_info375.roaster(roi_idx, front_frame_drop:back_frame_drop);
                     cur_spikerate = cur_raster.*trial_data.camera_framerate;
-                    cur_spikerate = nanfastsmooth(cur_spikerate, srate_win_large, 1, 1);
+
+                    % Uses center window moving average   
+                    %cur_spikerate = nanfastsmooth(cur_spikerate, srate_win_large, 1, 1);
+                    % Performs a zero-delay filtering 
+                    %cur_spikerate = filter(srate_win_large, 1, cur_spikerate);
+                        
+                    %Use Multi_func for spike rate
+                    cur_spikerate = Multi_func.estimate_spikerate(cur_raster, trial_data.camera_framerate, srate_win_large);
+                    
                     % Baseline subtract the mean 
                     baseline_idx = find(cur_trace_time < cur_stim_time(1));
                     cur_spikerate = cur_spikerate - mean(cur_spikerate(baseline_idx), 'omitnan');
                     cur_fov_srate_large = horzcat_pad(cur_fov_srate_large, cur_spikerate');            
                     
+                    % Calculate spikerate with a small window size
+                    cur_raster = trial_data.spike_info375.roaster(roi_idx, front_frame_drop:back_frame_drop);
+                    cur_spikerate = cur_raster.*trial_data.camera_framerate;
+
+                    %Use Multi_func for spike rate
+                    cur_spikerate = Multi_func.estimate_spikerate(cur_raster, trial_data.camera_framerate, srate_win_small);
+
+                    % Uses center window moving average   
+                    %cur_spikerate = nanfastsmooth(cur_spikerate, srate_win_small, 1, 1);
+                    % Performs a zero-delay filtering 
+                    %cur_spikerate = filter(srate_win_small, 1, cur_spikerate);
+
+                    % Baseline subtract the mean 
+                    baseline_idx = find(cur_trace_time < cur_stim_time(1));
+                    cur_spikerate = cur_spikerate - mean(cur_spikerate(baseline_idx), 'omitnan');
+                    cur_fov_srate_small = horzcat_pad(cur_fov_srate_small, cur_spikerate');            
+
                     % Store the raster plot
                     cur_fov_raster = horzcat_pad(cur_fov_raster, cur_raster');
 
-                    % Grab transient and sustained period for spikes and Vm
+                    % Grab transient, sustained and stimulation period for spikes and Vm
                     base_idx = find(cur_trace_time >= base_ped(1)./1000 & cur_trace_time < base_ped(2)./1000);
                     trans_idx = find(cur_trace_time > trans_ped(1)./1000 & cur_trace_time <= trans_ped(2)./1000);
                     sus_idx = find(cur_trace_time > sus_ped(1)./1000 & cur_trace_time <= cur_stim_time(end));
-                    
+                    stim_idx = find(cur_trace_time > stim_ped(1)./1000 & cur_trace_time <= stim_ped(2)./1000);
+
                     cur_fov_base_Vm = horzcat_pad(cur_fov_base_Vm, mean(detrend_subVm(base_idx)', 'omitnan'));
                     cur_fov_trans_Vm = horzcat_pad(cur_fov_trans_Vm, mean(detrend_subVm(trans_idx)', 'omitnan'));
                     cur_fov_sus_Vm = horzcat_pad(cur_fov_sus_Vm, mean(detrend_subVm(sus_idx)', 'omitnan'));
+                    cur_fov_stim_Vm = horzcat_pad(cur_fov_stim_Vm, mean(detrend_subVm(stim_idx)', 'omitnan'));
 
                     cur_fov_base_FR = horzcat_pad(cur_fov_base_FR, sum(cur_raster(base_idx))');
                     cur_fov_trans_FR = horzcat_pad(cur_fov_trans_FR, sum(cur_raster(trans_idx))./(diff(trans_ped)./1000)');
                     cur_fov_sus_FR = horzcat_pad(cur_fov_sus_FR, sum(cur_raster(sus_idx))./(diff(sus_ped)./1000)');
+                    cur_fov_stim_FR = horzcat_pad(cur_fov_stim_FR, sum(cur_raster(stim_idx))./(diff(stim_ped)./1000)');
 
                 end % End looping through each neuron
             end
@@ -233,6 +279,9 @@ for f_region = fieldnames(region_matfiles)'
             % Store average spike rate for each neuron
             temp = data_bystim.(f_stim).neuron_srate_large;
             data_bystim.(f_stim).neuron_srate_large = horzcat_pad(temp, nanmean(cur_fov_srate_large, 2));
+
+            temp = data_bystim.(f_stim).neuron_srate_small;
+            data_bystim.(f_stim).neuron_srate_small = horzcat_pad(temp, nanmean(cur_fov_srate_small, 2));
 
             % Save all trial raw traces
             temp = data_bystim.(f_stim).all_trial_rawVm;
@@ -256,10 +305,15 @@ for f_region = fieldnames(region_matfiles)'
             data_bystim.(f_stim).neuron_trans_Vm = horzcat_pad(temp, mean(cur_fov_trans_Vm, 'omitnan') - mean(cur_fov_base_Vm, 'omitnan'));
             temp = data_bystim.(f_stim).neuron_sus_Vm;
             data_bystim.(f_stim).neuron_sus_Vm = horzcat_pad(temp, mean(cur_fov_sus_Vm, 'omitnan') - mean(cur_fov_base_Vm, 'omitnan'));
+            temp = data_bystim.(f_stim).neuron_stim_Vm;
+            data_bystim.(f_stim).neuron_stim_Vm = horzcat_pad(temp, mean(cur_fov_stim_Vm, 'omitnan') - mean(cur_fov_base_Vm, 'omitnan'));
+            
             temp = data_bystim.(f_stim).neuron_trans_FR;
             data_bystim.(f_stim).neuron_trans_FR = horzcat_pad(temp, mean(cur_fov_trans_FR, 'omitnan') - mean(cur_fov_base_FR, 'omitnan'));
             temp = data_bystim.(f_stim).neuron_sus_FR;
             data_bystim.(f_stim).neuron_sus_FR = horzcat_pad(temp, mean(cur_fov_sus_FR, 'omitnan') - mean(cur_fov_base_FR, 'omitnan'));
+            temp = data_bystim.(f_stim).neuron_stim_FR;
+            data_bystim.(f_stim).neuron_stim_FR = horzcat_pad(temp, mean(cur_fov_stim_FR, 'omitnan') - mean(cur_fov_base_FR, 'omitnan'));
 
             % Calculate and save frequency data
             [wt, f] = get_power_spec(nanmean(cur_fov_subVm, 2)', nanmean(cur_fov_Fs));
@@ -269,6 +323,7 @@ for f_region = fieldnames(region_matfiles)'
             data_bystim.(f_stim).neuron_spec_freq = cat(3, temp, f);
 
             % Save the hilbert frequency data
+            cur_fov_hilbfilt(:, :, 1) = []; % Remove empty first element
             data_bystim.(f_stim).neuron_hilbfilt{end + 1} = cur_fov_hilbfilt;
 
         end % End looping through FOVs of a condition
@@ -293,7 +348,6 @@ end
 % Filter data with hilbert transform
 function  [filt_sig]=filt_data(sig,frs, FS)
     Fn = FS/2;
-
     for steps=1:length(frs);
         FB=[ frs(steps)*0.8 frs(steps)*1.2];
         [B, A] = butter(2, [min(FB)/Fn max(FB)/Fn]);
