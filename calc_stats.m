@@ -19,7 +19,7 @@ pv_data_path = [server_root_path 'Pierre Fabris' f 'PV Project' f 'PV_Data' f];
 
 % Specify which ignore trials to use
 ignore_trial_dict = Multi_func.csv_to_struct([local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f ...
-                                       'Recordings' f 'Data_Config' f 'byvis_ignore.csv']);
+                                       'Stim Recordings' f 'Data_Config' f 'byvis_ignore.csv']);
 %%%----- END Modification---------
 
 % Check that the server path exists
@@ -101,8 +101,8 @@ for f_region = fieldnames(region_matfiles)'
                 % Add the number of trials for this specific neuron and check if at least one trial is included in calculation
                 cond_stats.(field).trial_nums(end + 1) = length(data.align.trial) - num_ignore;
                 
-                % Count the neuron if it has more than 1 trial
-                if length(data.align.trial) - num_ignore > 1
+                % Count the neuron if it has greater than or equal to 3 trials
+                if length(data.align.trial) - num_ignore >= 3
                     cond_stats.(field).num_fovs(end + 1) = str2num(erase(ri{4}, 'FOV')); %[cond_stats.(field).num_fovs, str2num(erase(ri{4}, 'FOV')) ];
                     %erase(ri{4}, 'FOV')
                 else
@@ -118,9 +118,15 @@ end
 
 % Loop through and show each regions conditions
 regions = fieldnames(region_stats);
+totals = struct();
 for f_region = regions'
     f_region = f_region{1};
     disp(f_region);
+
+    total_40_acp = 0;
+    total_40_rej = 0;
+    total_140_acp = 0;
+    total_140_rej = 0;
 
     % Loop through each mouse
     mice = fieldnames(region_stats.(f_region));
@@ -138,11 +144,29 @@ for f_region = regions'
             fprintf(['FOVs: ' num2str(cond_stats.(stim).num_fovs) '\n\n']);
             disp(['Rejected neurons: ' num2str(numel(cond_stats.(stim).fovs_rej)) ]);
             fprintf(['FOVs: ' num2str(cond_stats.(stim).fovs_rej) '\n\n']);
+        
+            % Aggregate the number of neurons between 40Hz and 140Hz
+            if strcmp(stim, 'f_40') == 1
+                total_40_acp = total_40_acp + numel(cond_stats.(stim).num_fovs);
+                total_40_rej = total_40_rej + numel(cond_stats.(stim).fovs_rej);
+            elseif strcmp(stim, 'f_140') == 1
+                total_140_acp = total_140_acp + numel(cond_stats.(stim).num_fovs);
+                total_140_rej = total_140_rej + numel(cond_stats.(stim).fovs_rej);
+            end
         end
-
         fprintf('\n\n');
     end
+
+    totals.(f_region).acp_40 =  total_40_acp;
+    totals.(f_region).rej_40 =  total_40_rej;
+    totals.(f_region).acp_140 = total_140_acp;
+    totals.(f_region).rej_140 = total_140_rej;
 end
+
+% Print all of the total neurons across mice
+v1_total = totals.r_V1
+
+m1_total = totals.r_M1
 
 % Return matfiles by stimulation condition
 function [cond_struct] = find_stim_cond(matfile_names)
