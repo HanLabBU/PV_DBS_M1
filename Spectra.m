@@ -191,8 +191,8 @@ for f_region = fieldnames(region_data)'
     f_region = f_region{1};
     data_bystim = region_data.(f_region);
     stims = fieldnames(data_bystim);
-    figure('visible', 'off', 'Renderer', 'Painters', 'Position', [200 200 900 700]);
-    tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
+    figure('Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
+    tiledlayout(1, length(stims), 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [1, 10, 16.62, 2.26]);
     % Loop through each stimulation parameter
     for f_stim=stims'
         f_stim = f_stim{1};
@@ -224,16 +224,17 @@ for f_region = fieldnames(region_data)'
         surface(timeline, ... 
                 nanmean(data_bystim.(f_stim).neuron_spec_freq, 3), ...
                 nanmean(cur_spec_pow, 3), 'CDataMapping', 'scaled', 'FaceColor', 'texturemap', 'edgecolor', 'none');
+        colormap(jet*.8);
         % Add DBS bar
         hold on;
-        Multi_func.plot_dbs_bar([0, 1], 155, f_stim);
+        Multi_func.plot_dbs_bar([0, 1], 155, '');
 
         a = colorbar;
         a.Ticks = linspace(a.Limits(1), a.Limits(2), 4);
         a.TickLabels = num2cell(round(linspace(a.Limits(1), a.Limits(2), 4), 1));
         a.Label.String = 'Relative Power';
         Multi_func.set_default_axis(gca);
-        xlabel('Time from Stim onset(sec)');
+        xlabel('Time from Stim onset(s)');
         xlim([-1 2.05]);
         ylabel('Freq (Hz)');
         title(f_stim(3:end), 'Interpreter', 'none');
@@ -242,8 +243,8 @@ for f_region = fieldnames(region_data)'
     
     saveas(gcf, [figure_path 'Spectra/' f_region '_A_B_Normalization_Time_Spectra.png']);
     saveas(gcf, [figure_path 'Spectra/' f_region '_A_B_Normalization_Time_Spectra.pdf']);
-    saveas(gcf, [figure_path 'Spectra/' f_region '_A_B_Normalization_Time_Spectra.eps'], 'epsc');
-    savefig(gcf, [figure_path 'Spectra/' f_region '_A_B_Normalization_Time_Spectra.fig']);
+    %saveas(gcf, [figure_path 'Spectra/' f_region '_A_B_Normalization_Time_Spectra.eps'], 'epsc');
+    %savefig(gcf, [figure_path 'Spectra/' f_region '_A_B_Normalization_Time_Spectra.fig']);
 end
 
 % Subthreshold time series spectra with (x - A)/(A + B) normalization for each neuron and 
@@ -252,7 +253,7 @@ for f_region = fieldnames(region_data)'
     f_region = f_region{1};
     data_bystim = region_data.(f_region);
     stims = fieldnames(data_bystim);
-    figure('Renderer', 'Painters', 'Position', [200 200 650 700]);
+    figure('visible', 'off', 'Renderer', 'Painters', 'Position', [200 200 650 700]);
     tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
     % Loop through each stimulation parameter
     for f_stim=stims'
@@ -304,7 +305,7 @@ for f_region = fieldnames(region_data)'
     
     saveas(gcf, [figure_path 'Spectra/' f_region '_A_B_Norm_Zoom50_Time_Spectra.png']);
     saveas(gcf, [figure_path 'Spectra/' f_region '_A_B_Norm_Zoom50_Time_Spectra.pdf']);
-    saveas(gcf, [figure_path 'Spectra/' f_region '_A_B_Norm_Zoom50_Time_Spectra.eps'], 'epsc');
+    %saveas(gcf, [figure_path 'Spectra/' f_region '_A_B_Norm_Zoom50_Time_Spectra.eps'], 'epsc');
 end
 
 %% Raw sub Vm spectra
@@ -337,7 +338,7 @@ for f_region = fieldnames(region_data)'
     saveas(gcf, [figure_path 'Spectra/' f_region '_Raw_Spectra.eps'], 'epsc');
 end
 
-%% Vm Spectra zscored across time
+%% Vm Spectra Z-scored across time
 for f_region = fieldnames(region_data)'
     f_region = f_region{1};
     data_bystim = region_data.(f_region);
