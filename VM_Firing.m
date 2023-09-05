@@ -499,7 +499,6 @@ for f_region = fieldnames(region_data)'
         end
         %sub_vm_stat_data.(f_stim) = struct();
         sub_vm_stat_data.(f_stim).stim_vm = data_bystim.(f_stim).neuron_stim_Vm;
-        sub_vm_stat_data.(f_stim).stim_vm = data_bystim.(f_stim).neuron_stim_Vm;
     end
     
     sgtitle([f_region ' Sub Vm Violins'], 'Interpreter', 'none');
@@ -508,13 +507,20 @@ for f_region = fieldnames(region_data)'
     %saveas(gcf, [figure_path 'Average/' f_region '_population_comp_Vm_violin.eps'], 'epsc');
 end
 
+% Calculate stats for the Subthreshold Vm period
 [p, h, stats] = signtest(sub_vm_stat_data.f_140.stim_vm)
 SubVm_140_stim_stats = struct();
 SubVm_140_stim_stats.p = p
 SubVm_140_stim_stats.h = h;
 SubVm_140_stim_stats.stats = stats;
 
-% Perform Statistical tests on Firing Rate 
+[p, h, stats] = signtest(sub_vm_stat_data.f_40.stim_vm)
+SubVm_40_stim_stats = struct();
+SubVm_40_stim_stats.p = p
+SubVm_40_stim_stats.h = h;
+SubVm_40_stim_stats.stats = stats;
+
+% Firing Rate transient and sustained
 for f_region = fieldnames(region_data)'
     f_region = f_region{1};
     data_bystim = region_data.(f_region);
@@ -683,8 +689,19 @@ for f_region = fieldnames(region_data)'
     saveas(gcf, [figure_path 'Average/' f_region '_population_comp_stim_FR_violin.pdf']);
     %saveas(gcf, [figure_path 'Average/' f_region '_population_comp_FR_violin.eps']);
 end
-return;
 
+% Perform stats on stimulation firing rate comparison
+[p, h, stats] = signtest(fr_stat_data.f_40.stim_fr);
+FR_40_stim_stats = struct();
+FR_40_stim_stats.p = p
+FR_40_stim_stats.h = h;
+FR_40_stim_stats.stats = stats;
+
+[p, h, stats] = signtest(fr_stat_data.f_140.stim_fr);
+FR_140_stim_stats = struct();
+FR_140_stim_stats.p = p
+FR_140_stim_stats.h = h;
+FR_140_stim_stats.stats = stats;
 
 % Subthreshold Vm showing all DBS pulses
 for f_region = fieldnames(region_data)'
