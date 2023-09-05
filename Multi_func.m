@@ -1,4 +1,4 @@
-% This class is used to have the implementation of commonly called routines consolidated into a single file.
+%% This class is used to have the implementation of commonly called routines consolidated into a single file.
 % The functions here are hopefully specific to the PV DBS project, and therefore may look similar to other previously made functions but with slight differences
 
 classdef Multi_func
@@ -7,12 +7,17 @@ classdef Multi_func
         % Colors for violin plots
         trans_color = [153, 51, 51]/255;
         sus_color = [51, 51, 153]/255;
-        
+        %stim_color = [76, 149, 108]/255; nevermind lol
+
         base_color = [57, 77, 161]/255;
         stim_color = [131, 195, 65]/255;
         post_color = [128, 56, 149]/255;
 
         % Colors for heatmaps
+        light_gray_color = [linspace(256, 178, 256)', linspace(256, 178, 256)', linspace(256, 178, 256)']./256;
+        tang_blue_color = [[linspace(38, 233, 256/2)', linspace(70, 196, 256/2)', linspace(83, 106, 256/2)'];
+                          [linspace(233, 231, 256/2)', linspace(196, 111, 256/2)', linspace(106, 81, 256/2)']]./256;                    
+
         warm_cold_color = [[linspace(58, 256, 256/2)', linspace(12, 256, 256/2)', linspace(163, 256, 256/2)'];
                          [linspace(256, 217, 256/2)', linspace(256, 4, 256/2)', linspace(256, 41, 256/2)']]./256;
         
@@ -102,13 +107,42 @@ classdef Multi_func
             v1=v;    
             v1([FS-10:FS*2+20])= mean([ v([FS-40:FS-20 2*FS+20:2*FS+40 ])]);    
             v1(1)=v1(2);    
+            F = @(x,xdata)x(1)+x(2)*exp(- xdata./x(3)); %+ x(3)*exp(- xdata./x(4))  ;    
+            x0 = [mean(v1) 40 1.5] ;    
+            OPTIONS = optimoptions('lsqcurvefit','Algorithm','levenberg-marquardt');    
+            t = (1:length(v))./FS;
+            % Whole trace
+            %tsel=[1:length(t)];    
+            %Base and offset period consideration
+            tsel=[1:FS 2*FS:length(t)];    
+            [xunc,RESNORM,RESIDUAL] = lsqcurvefit(F, x0, t(tsel)', v1(tsel),[],[], OPTIONS);    
+            fitbaseline=F(xunc, t);    
+            %DEBUG
+            %figure; tiledlayout(2, 1); nexttile; plot(v); hold on; plot(fitbaseline);
+            %nexttile;
+            %plot(v' - fitbaseline);
+            coeff=xunc;    
+        end
+
+        % TODO change so only the baseline points are considerred
+        % Exponential fit that only accounts for the exponential in the baseline
+        function [ fitbaseline, coeff]=exp_fit_Fx_Base(v,FS)    
+            %% fits an expoential to estimate the photobleaching    
+            v1=v;    
+            v1([FS-10:end])= mean([ v([FS-40:end ])]);    
+            v1(1)=v1(2);    
             F = @(x,xdata)x(1)+x(2)*exp(- xdata./x(3));%+ x(3)*exp(- xdata./x(4))  ;    
             x0 = [mean(v1) 40 1.5   ] ;    
             OPTIONS = optimoptions('lsqcurvefit','Algorithm','levenberg-marquardt');    
-            t = (1:length(v))./FS;    
+            t = (1:length(v))./FS;
             tsel=1:length(t);    
             [xunc,RESNORM,RESIDUAL] = lsqcurvefit(F, x0, t(tsel)', v1(tsel),[],[], OPTIONS);    
-            fitbaseline=xunc(1)+xunc(2)*exp(-t./xunc(3));    
+            fitbaseline=xunc(1)+xunc(2)*exp(-t./xunc(3));
+            %DEBUG
+            %figure; tiledlayout(2, 1); nexttile; plot(v); hold on; plot(fitbaseline);
+            %nexttile;
+            %plot(v' - fitbaseline);
+           
             coeff=xunc;    
         end
 
@@ -251,5 +285,30 @@ classdef Multi_func
         %    [p, h, stats] = ranksum(x1, x2);
         %    
         %end
+
+        % This will recursively perform regular sliding averages with decreasing point size
+        function [result] = recurse_filter(arr)
+            if isempty(arr)
+                result = [];
+            elseif length(arr) == 1
+                result = arr;
+            else
+                result = [Multi_func.recurse_filter(arr(1:end - 1)), mean(arr, 'omitnan')];
+            end
+        end
+
+        % Perform spike rate estimation
+        function [result] = estimate_spikerate(spike_raster, Fs, wind)
+            impulse_raster = spike_raster.*Fs;
+            trans_coeff = ones(wind, 1)./wind;
+            impulse_raster = [impulse_raster(wind:-1:2), impulse_raster];
+
+            result = filter(trans_coeff, 1, impulse_raster);
+            result(1:wind - 1) = [];
+            % This method unforunately created weird edges
+            %% Calculate the front edge with smaller window sizes
+            %edge_rate = Multi_func.recurse_filter(impulse_raster(1:wind - 1));
+            %result(1:wind - 1) = edge_rate;
+        end
     end
 end
