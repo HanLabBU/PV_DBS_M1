@@ -30,6 +30,7 @@ back_frame_drop = 2496;
 
 
 %Variables to differentiate between the larger and finer resolution of spike rate
+%TODO may need to change variable names and add finer resolutions
 srate_win_large = 100;
 srate_win_small = 20;
 
@@ -212,13 +213,14 @@ for f_region = fieldnames(region_matfiles)'
                     cur_raster = trial_data.spike_info375.roaster(roi_idx, front_frame_drop:back_frame_drop);
                     cur_spikerate = cur_raster.*trial_data.camera_framerate;
 
-                    % Uses center window moving average   
-                    %cur_spikerate = nanfastsmooth(cur_spikerate, srate_win_large, 1, 1);
-                    % Performs a zero-delay filtering 
-                    %cur_spikerate = filter(srate_win_large, 1, cur_spikerate);
+                    % Uses center window moving average with halved window on the ends
+                    %
+                    cur_spikerate = nanfastsmooth(cur_spikerate, srate_win_large, 1, 1);
                         
-                    %Use Multi_func for spike rate
-                    cur_spikerate = Multi_func.estimate_spikerate(cur_raster, trial_data.camera_framerate, srate_win_large);
+                    %Use preceding window points to average and asign to the last point
+                    % |<-------->|  averaging
+                    % ...........*  point assigned
+                    %cur_spikerate = Multi_func.estimate_spikerate(cur_raster, trial_data.camera_framerate, srate_win_large);
                     
                     % Baseline subtract the mean 
                     baseline_idx = find(cur_trace_time < cur_stim_time(1));
@@ -229,13 +231,11 @@ for f_region = fieldnames(region_matfiles)'
                     cur_raster = trial_data.spike_info375.roaster(roi_idx, front_frame_drop:back_frame_drop);
                     cur_spikerate = cur_raster.*trial_data.camera_framerate;
 
-                    %Use Multi_func for spike rate
-                    cur_spikerate = Multi_func.estimate_spikerate(cur_raster, trial_data.camera_framerate, srate_win_small);
+                    %Use preceding window points to average and asign to the last point
+                    %cur_spikerate = Multi_func.estimate_spikerate(cur_raster, trial_data.camera_framerate, srate_win_small);
 
                     % Uses center window moving average   
-                    %cur_spikerate = nanfastsmooth(cur_spikerate, srate_win_small, 1, 1);
-                    % Performs a zero-delay filtering 
-                    %cur_spikerate = filter(srate_win_small, 1, cur_spikerate);
+                    cur_spikerate = nanfastsmooth(cur_spikerate, srate_win_small, 1, 1);
 
                     % Baseline subtract the mean 
                     baseline_idx = find(cur_trace_time < cur_stim_time(1));
