@@ -28,7 +28,7 @@ ignore_trial_dict = Multi_func.csv_to_struct([local_root_path 'Pierre Fabris' f 
                                        'Stim Recordings' f 'Data_Config' f 'byvis_ignore.csv']);
 
 % Parameter to determine whether to combine all regions as one data
-all_regions = 1;
+all_regions = 0;
 
 % Flag to display each neuron's name or not
 display_names = 0;
@@ -185,12 +185,13 @@ end
 
 % Check if combining all of the regions or not
 if all_regions == 1
-    region_data = Multi_func.combine_regions(region_data);
+    region_data = Multi_func.combine_regions_old(region_data);
 end
 
 % Calculate the sampling frequency from all of the 
 avg_Fs = nanmean(all_Fs);
 
+%TODO fix the raw trace and subthreshold Vm neuron line boundary
 % Plot each Region and each frequency raster, raw Vm, and subthreshold Vm
 for f_region = fieldnames(region_data)'
     f_region = f_region{1};
@@ -205,8 +206,8 @@ for f_region = fieldnames(region_data)'
         timeline = nanmean(data_bystim.(f_stim).trace_timestamps, 2)';
 
         % Create a figure that includes: raw, spikes, and SubVm
-        figure('Renderer', 'Painters', 'Position', [200 200 2000 1000]);
-        tiledlayout(1, 3, 'TileSpacing', 'none', 'Padding', 'loose');
+        figure('Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
+        tiledlayout(1, 3, 'TileSpacing', 'none', 'Padding', 'loose', 'Units', 'centimeters', 'InnerPosition', [4 5 16.21 16]);
         
         % Plot the raw traces
         nexttile;
@@ -218,6 +219,9 @@ for f_region = fieldnames(region_data)'
             neuron_bound(end + 1) = neuron_bound(end) + num_neurons;
         end
         imagesc('XData', timeline, 'YData', 1:size(data_map, 1), 'CData', data_map);
+        %colormap(Multi_func.warm_cold_color);
+        %colormap(Multi_func.warm_cold_gray_color);
+        %colormap(flipud(gray));
         caxis([-40, 60]);
         a = colorbar;
         a.Label.String = 'Vm';
@@ -241,6 +245,7 @@ for f_region = fieldnames(region_data)'
             neuron_bound(end + 1) = neuron_bound(end) + num_neurons;
         end
         imagesc('XData', timeline, 'YData', 1:size(data_map, 1), 'CData', data_map);
+        %colormap(flipud(Multi_func.tang_blue_color));
         caxis(color_limits);
         hold on;
         yline(neuron_bound+ 0.5);
@@ -264,7 +269,8 @@ for f_region = fieldnames(region_data)'
             for tr = 1:size(cur_fov, 2)
                 cur_spikeidx = cur_fov(:, tr);
                 cur_spikeidx(isnan(cur_spikeidx)) = [];
-                plot(timeline(cur_spikeidx), repmat(index, length(cur_spikeidx), 1), '.', 'color', cur_color);
+                %plot(timeline(cur_spikeidx), repmat(index, length(cur_spikeidx), 1), '.k', 'MarkerSize', 3, 'color', cur_color);
+                plot(timeline(cur_spikeidx), repmat(index, length(cur_spikeidx), 1), '.k', 'MarkerSize', 3);
                 hold on;
                 index = index + 1;
             end
@@ -299,7 +305,9 @@ for f_region = fieldnames(region_data)'
 
         sgtitle([ f_region ' ' f_stim ' Neuronwise'], 'Interpreter', 'none');
         saveas(gcf, [figure_path 'Neuronwise/' f_region '_' f_stim '_Neuronwise_Plot.png']);
-        saveas(gcf, [figure_path 'Neuronwise/' f_region '_' f_stim '_Neuronwise_Plot.eps'], 'epsc');
+        saveas(gcf, [figure_path 'Neuronwise/' f_region '_' f_stim '_Neuronwise_Plot.pdf']);
+        
+        %saveas(gcf, [figure_path 'Neuronwise/' f_region '_' f_stim '_Neuronwise_Plot.eps'], 'epsc');
     end
 end
 
