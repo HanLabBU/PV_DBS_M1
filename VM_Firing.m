@@ -246,7 +246,6 @@ end
 field1 = fieldnames(region_data);
 field1 = field1(1);
 avg_Fs = mean(region_data.(field1{1}).f_40.framerate, 'omitnan');
-timeline = ( (4+(front_frame_drop:back_frame_drop) )./avg_Fs) - 1;
 
 % Set figure off currently
 set(0,'DefaultFigureVisible','off');
@@ -262,10 +261,10 @@ for f_region = fieldnames(region_data)'
     for f_stim=stims'
         f_stim = f_stim{1};
         timeline = nanmean(data_bystim.(f_stim).trace_timestamps, 2);
-        cur_srate = mean(data_bystim.(f_stim).neuron_srate_large, 2, 'omitnan');
-        std_srate = std(data_bystim.(f_stim).neuron_srate_large, 0, 2, 'omitnan');
-        num_neurons = size(data_bystim.(f_stim).neuron_srate_large, 2);
-        %num_points = size(data_bystim.(f_stim).neuron_srate_large, 1);
+        cur_srate = mean(data_bystim.(f_stim).neuron_srate_100, 2, 'omitnan');
+        std_srate = std(data_bystim.(f_stim).neuron_srate_100, 0, 2, 'omitnan');
+        num_neurons = size(data_bystim.(f_stim).neuron_srate_100, 2);
+        %num_points = size(data_bystim.(f_stim).neurons_srate_100, 1);
         sem_srate = std_srate./sqrt(num_neurons);
         nexttile;
         f = fill([timeline; flip(timeline)], [cur_srate + sem_srate; flipud(cur_srate - sem_srate)], [0.5 0.5 0.5]);
@@ -316,7 +315,7 @@ for f_region = fieldnames(region_data)'
     data_bystim = region_data.(f_region);
     stims = fieldnames(data_bystim);
     
-    figure('Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
+    figure('visible', 'on', 'Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
     fontsize(gcf, 7, "points")
     tiledlayout(1, length(stims), 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 20, 10.68, 3.0886]);
     for f_stim=stims'
@@ -623,8 +622,8 @@ for f_region = fieldnames(region_data)'
     data_bystim = region_data.(f_region);
     stims = fieldnames(data_bystim);
     
-    figure('Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
-    tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 20, 9.86, 5.23]);
+    figure('visible', 'on', 'Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
+    tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 20, 17.5595, 5.23]);
     for f_stim=stims'
         timeline = nanmean(data_bystim.(f_stim{1}).trace_timestamps, 2);
         cur_Vm = mean(data_bystim.(f_stim{1}).neuron_Vm, 2, 'omitnan');
@@ -684,9 +683,9 @@ for f_region = fieldnames(region_data)'
     tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 20, 9.5, 5.0]);
     for f_stim=stims'
         timeline = nanmean(data_bystim.(f_stim{1}).trace_timestamps, 2);
-        cur_srate = mean(data_bystim.(f_stim{1}).neuron_srate_small, 2, 'omitnan');
-        std_srate = std(data_bystim.(f_stim{1}).neuron_srate_small, 0, 2, 'omitnan');
-        num_neurons = size(data_bystim.(f_stim{1}).neuron_srate_small, 2);
+        cur_srate = mean(data_bystim.(f_stim{1}).neuron_srate_20, 2, 'omitnan');
+        std_srate = std(data_bystim.(f_stim{1}).neuron_srate_20, 0, 2, 'omitnan');
+        num_neurons = size(data_bystim.(f_stim{1}).neuron_srate_20, 2);
         sem_srate = std_srate./sqrt(num_neurons);
         %num_points = size(data_bystim.(f_stim{1}).neuron_srate, 1);
         nexttile;
