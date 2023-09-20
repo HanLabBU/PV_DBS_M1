@@ -181,10 +181,12 @@ classdef Multi_func
             ax.FontSize = 7;
         end
 
-        % Re-space axis
+        % Space tick marks starting from 0 and going towards the limits
         function [result] = set_spacing_axis(ax, spacing, num_dec)
-            ticks = round(linspace(ax.Limits(1), ax.Limits(2), spacing), num_dec);    
-            ax.TickValues = ticks;    
+            upper_ticks = 0:spacing:ax.Limits(2);
+            lower_ticks = 0:-spacing:ax.Limits(1);
+            ticks = round(union(lower_ticks, upper_ticks), num_dec);    
+            ax.TickValues = ticks;
             ax.TickLabels = num2cell(ticks);
         end
 
