@@ -32,6 +32,9 @@ ignore_trial_dict = Multi_func.csv_to_struct([local_root_path 'Pierre Fabris' f 
 % Do all region
 all_region = 0;
 
+
+set(0,'DefaultFigureVisible','off');
+
 %%% END Modification
 
 % Check that the server path exists
@@ -197,10 +200,10 @@ for f_region = fieldnames(region_data)'
     tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 20, 3.5, 5]);
     for f_stim=stims'
         timeline = nanmean(data_bystim.(f_stim{1}).trace_timestamps, 2)*1000;
-        cur_srate = mean(data_bystim.(f_stim{1}).neuron_srate_small, 2, 'omitnan');
-        std_srate = std(data_bystim.(f_stim{1}).neuron_srate_small, 0, 2, 'omitnan');
-        num_neurons = size(data_bystim.(f_stim{1}).neuron_srate_small, 2);
-        %num_points = size(data_bystim.(f_stim{1}).neuron_srate_small, 1);
+        cur_srate = mean(data_bystim.(f_stim{1}).neuron_srate_20, 2, 'omitnan');
+        std_srate = std(data_bystim.(f_stim{1}).neuron_srate_20, 0, 2, 'omitnan');
+        num_neurons = size(data_bystim.(f_stim{1}).neuron_srate_20, 2);
+        %num_points = size(data_bystim.(f_stim{1}).neuron_srate_20, 1);
         sem_srate = std_srate./sqrt(num_neurons);
         nexttile;
         f = fill([timeline; flip(timeline)], [cur_srate + sem_srate; flipud(cur_srate - sem_srate)], [0.5 0.5 0.5]);
@@ -218,7 +221,7 @@ for f_region = fieldnames(region_data)'
         % Grab the baseline sub srate for all neurons
         for i = 1:size(data_bystim.(f_stim{1}).trace_timestamps, 2)
             baseline_idx = find(data_bystim.(f_stim{1}).trace_timestamps(:, i) < data_bystim.(f_stim{1}).stim_timestamps(1, i));
-            base_srate = horzcat_pad(base_srate, data_bystim.(f_stim{1}).neuron_srate_small(baseline_idx, i) );
+            base_srate = horzcat_pad(base_srate, data_bystim.(f_stim{1}).neuron_srate_20(baseline_idx, i) );
         end
         base_srate = mean(base_srate, 2, 'omitnan');
         std_baseline = std(base_srate, 0, 'omitnan');
@@ -337,7 +340,7 @@ for f_region = fieldnames(region_data)'
     data_bystim = region_data.(f_region);
     stims = fieldnames(data_bystim);
     
-    figure('Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
+    figure('visible', 'on', 'Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
     tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 20, 3.5, 5]);
     for f_stim=stims'
         timeline = nanmean(data_bystim.(f_stim{1}).trace_timestamps, 2);
@@ -345,12 +348,15 @@ for f_region = fieldnames(region_data)'
         FR_avg = [];
         extra_trace = 3;
         % Looping through each neuron
-        for nr = 1:size(data_bystim.(f_stim{1}).neuron_srate_small, 2)
+        for nr = 1:size(data_bystim.(f_stim{1}).neuron_spikecounts_raster, 2)
 
             % Calculate the number of trace idxs between pulses
             nr_avg_pulse_width = mean(diff(data_bystim.(f_stim{1}).stim_timestamps(:, nr) ), 'omitnan');
             nr_avg_trace_time = mean(diff(data_bystim.(f_stim{1}).trace_timestamps(:, nr) ), 'omitnan');
             trace_width = ceil(nr_avg_pulse_width./nr_avg_trace_time);
+                
+            %Neuron framerate
+            nr_rate = data_bystim.(f_stim{1}).framerate(nr);
 
             % Loop through each stimulation time pulses
             for pulse_time = data_bystim.(f_stim{1}).stim_timestamps(:, nr)'
@@ -360,7 +366,8 @@ for f_region = fieldnames(region_data)'
                 %end_trace_idx = find(pulse_time + nr_avg_pulse_width >= data_bystim.(f_stim{1}).trace_timestamps(:, nr));
                 %end_trace_idx = end_trace_idx(end);
                 
-                fr_pulse_width = data_bystim.(f_stim{1}).neuron_srate_small(start_trace_idx:end_trace_idx, nr);
+                fr_pulse_width = data_bystim.(f_stim{1}).neuron_spikecounts_raster(start_trace_idx:end_trace_idx, nr)*nr_rate;
+                
                 FR_avg = horzcat_pad(FR_avg, fr_pulse_width);
             end
         end
@@ -368,7 +375,7 @@ for f_region = fieldnames(region_data)'
         cur_srate = mean(FR_avg, 2, 'omitnan');
         std_srate = std(FR_avg, 0, 2, 'omitnan');
         num_pulses = size(FR_avg, 2);
-        %num_points = size(data_bystim.(f_stim{1}).neuron_srate_small, 1);
+        %num_points = size(data_bystim.(f_stim{1}).neuron_srate_20, 1);
         sem_srate = std_srate./sqrt(num_pulses);
         
         timeline = [ [0:size(FR_avg, 1) - 1] - extra_trace]*1000./avg_Fs;
@@ -398,7 +405,7 @@ for f_region = fieldnames(region_data)'
         ylabel('Firing Rate(Hz)');
         xlabel('Time from pulse(ms)');
         
-        ylim([-1 10]);
+        %ylim([-1 10]);
 
         title(f_stim{1}(3:end), 'Interpreter', 'none');
     end
@@ -418,9 +425,9 @@ end
 %    tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
 %    for f_stim=stims'
 %        timeline = nanmean(data_bystim.(f_stim{1}).trace_timestamps, 2);
-%        cur_srate = mean(data_bystim.(f_stim{1}).neuron_srate_small, 2, 'omitnan');
-%        std_srate = std(data_bystim.(f_stim{1}).neuron_srate_small, 0, 2, 'omitnan');
-%        num_neurons = size(data_bystim.(f_stim{1}).neuron_srate_small, 2);
+%        cur_srate = mean(data_bystim.(f_stim{1}).neuron_srate_20, 2, 'omitnan');
+%        std_srate = std(data_bystim.(f_stim{1}).neuron_srate_20, 0, 2, 'omitnan');
+%        num_neurons = size(data_bystim.(f_stim{1}).neuron_srate_20, 2);
 %        %num_points = size(data_bystim.(f_stim{1}).neuron_srate, 1);
 %        sem_srate = std_srate./sqrt(num_neurons);
 %        nexttile;
