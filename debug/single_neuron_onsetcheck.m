@@ -19,16 +19,30 @@ front_frame_drop = 15 + round((828*.200));
 back_frame_drop = 2496;
 
 % Calculate population average of all M1
-%ses = dir([pv_data_path '*617100*_140*']);
+ses = dir([pv_data_path '*617100*_140*']);
 %ses = dir([pv_data_path '*617100*_40*']);
 %ses = dir([pv_data_path '*_V1_*_140*']);
-ses = dir([pv_data_path '*_V1_*_40*']);
+%ses = dir([pv_data_path '*_V1_*_40*']);
+
 matfiles = {ses.name};
+% Sort matfiles by recording sesion
+mouse_rec = {};
+for i = 1:length(matfiles)
+    idxs = strfind(matfiles{i}, '_');
+    mouse_rec{i} = [matfiles{i}(idxs(2):idxs(3)) '_'  matfiles{i}(1:idxs(2))];
+end
+[b i] = sort(mouse_rec);
+
+matfiles = matfiles(i);
 pop_avg = [];
 time = [5:2500]*1.2;
 all_stim_time = [];
 all_frame_time = [];
-%figure;
+
+% Plot each individual neuron's Vm close to the stim onset
+figure('Position', [0 0 1000 1000]);
+tiledlayout(length(matfiles) - 4, 1,'TileSpacing', 'compact', 'Padding', 'compact');
+ax = {};
 n = 1;
 for i=1:length(matfiles)
     matfile = matfiles{i};
@@ -70,39 +84,36 @@ for i=1:length(matfiles)
     end
     
     cur_trace = mean(cur_fov_trace, 2);
+    cur_frame_time = mean(cur_fov_frame_time, 2, 'omitnan')*1000;
+    cur_stim_time = mean(cur_fov_stim_time, 2, 'omitnan')*1000;
+    stim_start = cur_stim_time(1);
+
+    % Add plot individual neuron traces
+    ax{end + 1} = nexttile;
+    plot(cur_frame_time - stim_start, cur_trace);
+    hold on;
+    xline(cur_stim_time - stim_start, 'b');
+    title(matfile, 'Interpreter', 'none');
+    Multi_func.set_default_axis(gca);
+    x = gca;
+    x = x.XAxis;
+    
+    Multi_func.set_spacing_axis(x, 50, 1);
+
     %min_trace = min(cur_trace);
     %max_trace = max(cur_trace);
     %norm_trace = (cur_trace - min_trace)./(max_trace - min_trace);
 
     pop_avg(:, end + 1) = cur_trace;
-    all_stim_time(:, end + 1) = mean(cur_fov_stim_time, 2, 'omitnan');
-    all_frame_time(:, end + 1) = mean(cur_fov_frame_time, 2, 'omitnan');
-    figure;
-    % Plot all of the camera frames
-    for j = 1:length(data.align.trial)
-        n = j;
-        %n = n + 1;
-        align_trial = data.align.trial{j};
-        
-        raw_trial = data.raw.trial{j};
-        %stim_start = raw_trial.raw_stimulation_time(1)*1000;
-        camera_start = raw_trial.raw_camera_start_time*1000;
-        plot(align_trial.camera_frame_time*1000 - camera_start, repmat(n, 1, length(align_trial.camera_frame_time)), '-k');
-        hold on;
-        
-        norm_trace = norm(align_trial.detrend_traces);
-        plot(align_trial.camera_frame_time*1000 - camera_start, norm_trace + n, '-g');  
-        hold on;
-        plot(raw_trial.raw_stimulation_time*1000 - camera_start, repmat(n+ 0.5, 1, length(raw_trial.raw_stimulation_time)), '|m');
-        hold on;
-    end
-    
-    xline(1000);
+    all_stim_time(:, end + 1) = cur_stim_time;
+    all_frame_time(:, end + 1) = cur_frame_time;
 end
-plot(time, repmat(0, 1, length(time)), '-r');
-xlim([800 1050]);
+xlabel('time(ms)');
+linkaxes([ax{:}], 'x');
+xlim([-25 100]);
+savefig('617100_140_neuronwise.fig');
 
-close all;
+return;
 
 figure;
 plot(mean(all_frame_time, 2, 'omitnan'), mean(pop_avg, 2))
