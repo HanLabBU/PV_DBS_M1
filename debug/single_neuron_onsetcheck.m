@@ -19,10 +19,10 @@ front_frame_drop = 15 + round((828*.200));
 back_frame_drop = 2496;
 
 % Calculate population average of all M1
-ses = dir([pv_data_path '*617100*_140*']);
+%ses = dir([pv_data_path '*617100*_140*']);
 %ses = dir([pv_data_path '*617100*_40*']);
 %ses = dir([pv_data_path '*_V1_*_140*']);
-%ses = dir([pv_data_path '*_V1_*_40*']);
+ses = dir([pv_data_path '*_V1_*_40*']);
 
 matfiles = {ses.name};
 % Sort matfiles by recording sesion
@@ -41,8 +41,8 @@ all_frame_time = [];
 
 % Plot each individual neuron's Vm close to the stim onset
 figure('Position', [0 0 1000 1000]);
-tiledlayout(length(matfiles) - 4, 1,'TileSpacing', 'compact', 'Padding', 'compact');
-ax = {};
+%tiledlayout(length(matfiles) - 4, 1,'TileSpacing', 'compact', 'Padding', 'compact');
+%ax = {};
 n = 1;
 for i=1:length(matfiles)
     matfile = matfiles{i};
@@ -89,14 +89,15 @@ for i=1:length(matfiles)
     stim_start = cur_stim_time(1);
 
     % Add plot individual neuron traces
-    ax{end + 1} = nexttile;
-    plot(cur_frame_time - stim_start, cur_trace);
+    %ax{end + 1} = nexttile;
+    plot(cur_frame_time - stim_start, cur_trace + (n*20));
     hold on;
-    xline(cur_stim_time - stim_start, 'b');
-    title(matfile, 'Interpreter', 'none');
+    %plot(cur_stim_time - stim_start, ones(size(cur_stim_time))*n*(10) + 5,'|b');
+    %title(matfile, 'Interpreter', 'none');
     Multi_func.set_default_axis(gca);
     x = gca;
     x = x.XAxis;
+    n = n + 1;
     
     Multi_func.set_spacing_axis(x, 50, 1);
 
@@ -108,10 +109,11 @@ for i=1:length(matfiles)
     all_stim_time(:, end + 1) = cur_stim_time;
     all_frame_time(:, end + 1) = cur_frame_time;
 end
+xline(mean(all_stim_time, 2));
 xlabel('time(ms)');
-linkaxes([ax{:}], 'x');
+%linkaxes([ax{:}], 'x');
 xlim([-25 100]);
-savefig('617100_140_neuronwise.fig');
+%savefig('617100_140_neuronwise.fig');
 
 return;
 
