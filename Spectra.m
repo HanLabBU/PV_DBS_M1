@@ -31,7 +31,10 @@ ignore_trial_dict = Multi_func.csv_to_struct([local_root_path 'Pierre Fabris' f 
 srate_win = 100;
 
 % Parameter to determine whether to combine all regions as one data
-all_regions = 1;
+all_regions = 0;
+
+%set figures off
+set(0,'DefaultFigureVisible','off');
 
 % Define transient and sustained periods
 trans_ped = [0, 150];
@@ -170,7 +173,7 @@ end
 %end
 
 % Read in the saved pv data and perform analysis
-save_all_data_file = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Interm_Data' f 'pv_data.mat'];
+save_all_data_file = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Interm_Data' f 'pv_data_ex200.mat'];
 %Load the data
 load(save_all_data_file);
 
@@ -184,14 +187,17 @@ if all_regions == 1
 end
 
 % Calculate the sampling frequency from all of the 
-avg_Fs = mean(region_data.r_combine.f_40.framerate, 'omitnan');
+% Get the first region field
+field1 = fieldnames(region_data);
+field1 = field1{1};
+avg_Fs = mean(region_data.(field1).f_40.framerate, 'omitnan');
 
 % Subthreshold time series spectra with (x - A)/(A + B) normalization for each neuron and 
 for f_region = fieldnames(region_data)'
     f_region = f_region{1};
     data_bystim = region_data.(f_region);
     stims = fieldnames(data_bystim);
-    figure('Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
+    figure('visible', 'on', 'Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
     tiledlayout(1, length(stims), 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [1, 10, 16.62, 2.26]);
     % Loop through each stimulation parameter
     for f_stim=stims'
@@ -230,8 +236,9 @@ for f_region = fieldnames(region_data)'
         Multi_func.plot_dbs_bar([0, 1], 155, '');
 
         a = colorbar;
-        a.Ticks = linspace(a.Limits(1), a.Limits(2), 4);
-        a.TickLabels = num2cell(round(linspace(a.Limits(1), a.Limits(2), 4), 1));
+        caxis([-0.4 0.4]);
+        a.Ticks = linspace(a.Limits(1), a.Limits(2), 5);
+        a.TickLabels = num2cell(round(linspace(a.Limits(1), a.Limits(2), 5), 1));
         a.Label.String = 'Relative Power';
         Multi_func.set_default_axis(gca);
         xlabel('Time from Stim onset(s)');
@@ -246,6 +253,9 @@ for f_region = fieldnames(region_data)'
     %saveas(gcf, [figure_path 'Spectra/' f_region '_A_B_Normalization_Time_Spectra.eps'], 'epsc');
     %savefig(gcf, [figure_path 'Spectra/' f_region '_A_B_Normalization_Time_Spectra.fig']);
 end
+
+%DEBUG
+return;
 
 % Subthreshold time series spectra with (x - A)/(A + B) normalization for each neuron and 
 % zoom in on the 50 Hz
