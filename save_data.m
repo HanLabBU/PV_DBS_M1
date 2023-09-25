@@ -33,7 +33,7 @@ back_frame_drop = 2496;
 %TODO may need to change variable names and add finer resolutions
 srate_win_100 = 100;
 srate_win_20 = 20;
-srate_win_5 = 5;
+srate_win_3 = 3;
 
 % Time periods for comparison of firing rate and sub Vm
 base_ped = [-500 0];
@@ -97,7 +97,7 @@ for f_region = fieldnames(region_matfiles)'
         data_bystim.(f_stim).all_trial_spikeidx = {};
         data_bystim.(f_stim).neuron_srate_100 = [];
         data_bystim.(f_stim).neuron_srate_20 = [];
-        data_bystim.(f_stim).neuron_srate_5 = [];
+        data_bystim.(f_stim).neuron_srate_3 = [];
         data_bystim.(f_stim).neuron_spikecounts_raster = [];
 
         % Power spectra stuff
@@ -135,7 +135,7 @@ for f_region = fieldnames(region_matfiles)'
 
             cur_fov_srate_100 = [];
             cur_fov_srate_20 = [];
-            cur_fov_srate_5 = [];
+            cur_fov_srate_3 = [];
             cur_fov_srate_inst = [];
             cur_fov_raster = [];
 
@@ -258,15 +258,15 @@ for f_region = fieldnames(region_matfiles)'
                     cur_spikerate = cur_raster.*trial_data.camera_framerate;
 
                     %Use preceding window points to average and asign to the last point
-                    %cur_spikerate = Multi_func.estimate_spikerate(cur_raster, trial_data.camera_framerate, srate_win_5);
+                    %cur_spikerate = Multi_func.estimate_spikerate(cur_raster, trial_data.camera_framerate, srate_win_3);
 
                     % Uses center window moving average   
-                    cur_spikerate = nanfastsmooth(cur_spikerate, srate_win_5, 1, 1);
+                    cur_spikerate = nanfastsmooth(cur_spikerate, srate_win_3, 1, 1);
 
                     % Baseline subtract the mean 
                     baseline_idx = find(cur_trace_time < cur_stim_time(1));
                     cur_spikerate = cur_spikerate - mean(cur_spikerate(baseline_idx), 'omitnan');
-                    cur_fov_srate_5 = horzcat_pad(cur_fov_srate_5, cur_spikerate');            
+                    cur_fov_srate_3 = horzcat_pad(cur_fov_srate_3, cur_spikerate');            
 
 
                     % Store the raster plot
@@ -322,8 +322,8 @@ for f_region = fieldnames(region_matfiles)'
             temp = data_bystim.(f_stim).neuron_srate_20;
             data_bystim.(f_stim).neuron_srate_20 = horzcat_pad(temp, nanmean(cur_fov_srate_20, 2));
 
-            temp = data_bystim.(f_stim).neuron_srate_5;
-            data_bystim.(f_stim).neuron_srate_5 = horzcat_pad(temp, nanmean(cur_fov_srate_5, 2));
+            temp = data_bystim.(f_stim).neuron_srate_3;
+            data_bystim.(f_stim).neuron_srate_3 = horzcat_pad(temp, nanmean(cur_fov_srate_3, 2));
 
             % Store the spike counts across trials in a raster
             temp = data_bystim.(f_stim).neuron_spikecounts_raster;
