@@ -196,14 +196,14 @@ for f_region = fieldnames(region_data)'
     data_bystim = region_data.(f_region);
     stims = fieldnames(data_bystim);
     
-    figure('Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
+    figure('visible', 'on', 'Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
     tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 20, 3.5, 5]);
     for f_stim=stims'
         timeline = nanmean(data_bystim.(f_stim{1}).trace_timestamps, 2)*1000;
-        cur_srate = mean(data_bystim.(f_stim{1}).neuron_srate_20, 2, 'omitnan');
-        std_srate = std(data_bystim.(f_stim{1}).neuron_srate_20, 0, 2, 'omitnan');
-        num_neurons = size(data_bystim.(f_stim{1}).neuron_srate_20, 2);
-        %num_points = size(data_bystim.(f_stim{1}).neuron_srate_20, 1);
+        cur_srate = mean(data_bystim.(f_stim{1}).neuron_srate_3, 2, 'omitnan');
+        std_srate = std(data_bystim.(f_stim{1}).neuron_srate_3, 0, 2, 'omitnan');
+        num_neurons = size(data_bystim.(f_stim{1}).neuron_srate_3, 2);
+        %num_points = size(data_bystim.(f_stim{1}).neuron_srate_3, 1);
         sem_srate = std_srate./sqrt(num_neurons);
         nexttile;
         f = fill([timeline; flip(timeline)], [cur_srate + sem_srate; flipud(cur_srate - sem_srate)], [0.5 0.5 0.5]);
@@ -221,7 +221,7 @@ for f_region = fieldnames(region_data)'
         % Grab the baseline sub srate for all neurons
         for i = 1:size(data_bystim.(f_stim{1}).trace_timestamps, 2)
             baseline_idx = find(data_bystim.(f_stim{1}).trace_timestamps(:, i) < data_bystim.(f_stim{1}).stim_timestamps(1, i));
-            base_srate = horzcat_pad(base_srate, data_bystim.(f_stim{1}).neuron_srate_20(baseline_idx, i) );
+            base_srate = horzcat_pad(base_srate, data_bystim.(f_stim{1}).neuron_srate_3(baseline_idx, i) );
         end
         base_srate = mean(base_srate, 2, 'omitnan');
         std_baseline = std(base_srate, 0, 'omitnan');
@@ -236,7 +236,7 @@ for f_region = fieldnames(region_data)'
         % Increase timescale resolution
         xlim([0 - 50, 0 + 50]);
         x = gca; x = x.XAxis;
-        Multi_func.set_spacing_axis(x, 5, 1);
+        Multi_func.set_spacing_axis(x, 20, 1);
         Multi_func.set_default_axis(gca);
         ylabel('Firing Rate(Hz)');
         xlabel('Time from onset(ms)');
@@ -340,7 +340,7 @@ for f_region = fieldnames(region_data)'
     data_bystim = region_data.(f_region);
     stims = fieldnames(data_bystim);
     
-    figure('visible', 'on', 'Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
+    figure('Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
     tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 20, 3.5, 5]);
     for f_stim=stims'
         timeline = nanmean(data_bystim.(f_stim{1}).trace_timestamps, 2);
