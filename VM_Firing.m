@@ -315,7 +315,7 @@ for f_region = fieldnames(region_data)'
     data_bystim = region_data.(f_region);
     stims = fieldnames(data_bystim);
     
-    figure('Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
+    figure('visible', 'on', 'Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
     fontsize(gcf, 7, "points")
     tiledlayout(1, length(stims), 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 20, 10.68, 3.0886]);
     for f_stim=stims'
@@ -645,11 +645,26 @@ for f_region = fieldnames(region_data)'
         xline(stim_time, 'Color', [170, 176, 97]./255, 'LineWidth', 0.5);
         hold on;
 
-        xlim([-0.8 2.05]);
+        % Plot the timescale bar
+        posx = -.100;
+        posy = -3;
+        plot([posx, posx + 0.050], [posy posy], 'k', 'LineWidth', 2);
+        text(posx, posy - 0.5, '50ms');
+        hold on;
+
+        % Plot the Vm scale
+        poxs = .2;
+        posy = 5;
+        Vm_scale = 2;
+        plot([posx, posx], [posy, posy + Vm_scale], 'k', 'LineWidth', 2);
+        text(posx - .01, posy, [num2str(Vm_scale) ' VM'], 'Rotation', 90);
+
+        % Increase timescale resolution
+        xlim([0 - .100, max(stim_time) + 0.100]);
         a = gca;
-        Multi_func.set_default_axis(a);
-        xlabel('time(sec)');
-        ylabel('Vm(A.U.)');
+        a.XAxis.Visible = 'off';
+        a.YAxis.Visible = 'off';
+        set(gca, 'color', 'none')
         title(f_stim{1}(3:end), 'Interpreter', 'none');
     end
     sgtitle([f_region(3:end) ' Average subthreshold Vm Showing all pulses'], 'Interpreter', 'none');
@@ -664,7 +679,7 @@ for f_region = fieldnames(region_data)'
     data_bystim = region_data.(f_region);
     stims = fieldnames(data_bystim);
     
-    figure('visible', 'on', 'Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
+    figure('Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
     tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 20, 9.5, 5.0]);
     for f_stim=stims'
         timeline = nanmean(data_bystim.(f_stim{1}).trace_timestamps, 2);
@@ -702,9 +717,10 @@ for f_region = fieldnames(region_data)'
         text(posx - .01, posy, [num2str(srate_scale) ' FR (Hz)'], 'Rotation', 90, 'FontSize', 7);
 
         % Increase timescale resolution
-        xlim([-0.8 2.05]);
+        xlim([0 - .100, max(stim_time) + 0.100]);
         a = gca;
-        Multi_func.set_default_axis(a);
+        a.XAxis.Visible = 'off';
+        a.YAxis.Visible = 'off';
         set(gca, 'color', 'none')
         title(f_stim{1}(3:end), 'Interpreter', 'none');
     end
