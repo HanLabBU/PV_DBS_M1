@@ -21,7 +21,8 @@ back_frame_drop = 2496;
 % Data on handata3 folder
 pv_data_path = [server_root_path 'Pierre Fabris' f 'PV Project' f 'PV_Data' f];
 
-figure_path = [server_root_path 'Pierre Fabris' f 'PV Project' f 'Plots' f];
+%figure_path = [server_root_path 'Pierre Fabris' f 'PV Project' f 'Plots' f];
+figure_path = Multi_func.save_plot;
 
 % CSV file to determine which trials to ignore
 ignore_trial_dict = Multi_func.csv_to_struct([local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f ...
@@ -225,7 +226,7 @@ for f_region = fieldnames(region_data)'
         end
         base_srate = mean(base_srate, 2, 'omitnan');
         std_baseline = std(base_srate, 0, 'omitnan');
-        sig_idx = find(cur_srate > (3*std_baseline + mean(base_srate, 'omitnan')));
+        sig_idx = find(cur_srate > (2*std_baseline + mean(base_srate, 'omitnan')));
             
         % Calculate a good height for the points
         thres = 0.2;
@@ -234,9 +235,9 @@ for f_region = fieldnames(region_data)'
         plot(timeline(sig_idx), repmat(height, 1, length(sig_idx)), '.b', 'MarkerSize', 10);
 
         % Increase timescale resolution
-        xlim([0 - 50, 0 + 50]);
+        xlim([0 - 50, 0 + 100]);
         x = gca; x = x.XAxis;
-        Multi_func.set_spacing_axis(x, 20, 1);
+        Multi_func.set_spacing_axis(x, 50, 1);
         Multi_func.set_default_axis(gca);
         ylabel('Firing Rate(Hz)');
         xlabel('Time from onset(ms)');
@@ -468,7 +469,7 @@ for f_region = fieldnames(region_data)'
     data_bystim = region_data.(f_region);
     stims = fieldnames(data_bystim);
     
-    figure('Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
+    figure('visible', 'on', 'Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
     tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 20, 3.40, 4.96]);
     for f_stim=stims'
         
@@ -490,7 +491,7 @@ for f_region = fieldnames(region_data)'
         hold on;
         
         % Plot the DBS stimulation time pulses
-        xline(nanmean(data_bystim.(f_stim{1}).stim_timestamps, 2)*1000, 'Color', [170, 176, 97]./255, 'LineWidth', 2);
+        xline(nanmean(data_bystim.(f_stim{1}).stim_timestamps, 2)*1000, 'Color', [170, 176, 97]./255, 'LineWidth', 0.5);
         hold on;
 
         % Plot the semi-significant points on the subthreshold Vm
@@ -505,7 +506,7 @@ for f_region = fieldnames(region_data)'
         % Calculate each Vm point's significance based on the population average of all neurons
         base_Vm = mean(base_Vm, 2, 'omitnan');
         std_baseline = std(base_Vm, 0, 'omitnan'); 
-        sig_idx = find(cur_Vm > (3*std_baseline + mean(base_Vm, 'omitnan')));
+        sig_idx = find(cur_Vm > (2*std_baseline + mean(base_Vm, 'omitnan')));
             
         % Calculate a good height for marking significance
         thres = 0.2;
@@ -514,7 +515,7 @@ for f_region = fieldnames(region_data)'
         plot(timeline(sig_idx), repmat(height, 1, length(sig_idx)), '.b', 'MarkerSize', 8);
 
         % Increase timescale resolution
-        xlim([0 - 50, 0 + 50]);
+        xlim([0 - 50, 0 + 100]);
         ylabel('Vm');
         xlabel('Time from onset(ms)');
 
