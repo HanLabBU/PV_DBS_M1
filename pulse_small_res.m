@@ -232,7 +232,10 @@ for f_region = fieldnames(region_data)'
         thres = 0.2;
         height = range(cur_srate);
         height = (1+thres)*height;
-        plot(timeline(sig_idx), repmat(height, 1, length(sig_idx)), '.b', 'MarkerSize', 10);
+        %plot(timeline(sig_idx), repmat(height, 1, length(sig_idx)), '.b', 'MarkerSize', 10);
+        
+        % Plotting the 2 std line 
+        yline(2*std_baseline, '--', 'Color', [0 0 0 0.5]);
 
         % Increase timescale resolution
         xlim([0 - 50, 0 + 100]);
@@ -512,7 +515,10 @@ for f_region = fieldnames(region_data)'
         thres = 0.2;
         height = range(cur_Vm);
         height = (1+thres)*height;
-        plot(timeline(sig_idx), repmat(height, 1, length(sig_idx)), '.b', 'MarkerSize', 8);
+        %plot(timeline(sig_idx), repmat(height, 1, length(sig_idx)), '.b', 'MarkerSize', 8);
+        
+        % Plotting the 2 std line 
+        yline(2*std_baseline, '--', 'Color', [0 0 0 0.5]);
 
         % Increase timescale resolution
         xlim([0 - 50, 0 + 100]);
