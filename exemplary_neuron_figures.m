@@ -215,6 +215,12 @@ saveas(gcf, [savefig_path 'Exemplary' f 'V1_140Hz_Trace2.pdf']);
 %title('Exemplary V1 140Hz Power Spectra');
 
 %% Get exemplary M1 trace at 140
+
+% Parameters for plot zoom in
+base_zoom = [-600 -400];
+stim_zoom = [10 210];
+offset_zoom = [1300 1500];
+
 example_matfile = [pv_data_path '617100_M1_rec20211111_FOV1_140_60_.mat'];
 data = load(example_matfile);
 trial_idx = 8;
@@ -237,8 +243,15 @@ stim_idx = data.raw.trial{trial_idx}.raw_stimulation_time - data.raw.trial{trial
 stim_idx = round(stim_idx*sam_freq);
 stim_start = data.raw.trial{trial_idx}.raw_stimulation_time(1);
 
+% Calculate the idx time for base, stim, and offset
+base_idx = find(data.align.trial{trial_idx}.camera_frame_time - stim_start > base_zoom(1)./1000 & data.align.trial{trial_idx}.camera_frame_time - stim_start < base_zoom(2)./1000);
+stim_ped_idx = find(data.align.trial{trial_idx}.camera_frame_time - stim_start > stim_zoom(1)./1000 & data.align.trial{trial_idx}.camera_frame_time - stim_start < stim_zoom(2)./1000);
+offset_idx = find(data.align.trial{trial_idx}.camera_frame_time - stim_start > offset_zoom(1)./1000 & data.align.trial{trial_idx}.camera_frame_time - stim_start < offset_zoom(2)./1000);
+
 % Generate figure
-figure('renderer', 'painters', 'Position', [0 0 1200 500]);
+
+figure('renderer', 'painters', 'Position', [0 0 1200 1200]);
+set(gca, 'Units', 'centimeters', 'Position', [0 20 8.05 3.00]);
 % Show file name
 posx = 900;
 posy = 23;
@@ -253,7 +266,7 @@ axis off;
 hold on;
 
 % Plot spikes detected
-plot(spike_idx, detrend_traces(spike_idx)./trace_noise, '.r', 'MarkerSize', 12);
+plot(spike_idx, detrend_traces(spike_idx)./trace_noise, '.r', 'MarkerSize', 6);
 hold on;
 
 % Plot the stimulation time pulses
@@ -271,7 +284,7 @@ posy = 0;
 snr_scale = 5;
 plot([posx posx], [posy posy+snr_scale], 'k', 'LineWidth', 2);
 hold on;
-ht = text(posx - 25, posy , ['Spike SBR ' num2str(snr_scale)]);
+ht = text(posx - 30, posy , ['Spike SBR ' num2str(snr_scale)]);
 set(ht, 'rotation', 90);
 hold on;
 
@@ -281,7 +294,7 @@ posy = -9;
 time_scale = 500; % Plotting 500 ms
 plot([posx posy+time_scale]*sam_freq/1000, [posy posy], 'k', 'LineWidth', 2);
 hold on;
-text(posx, posy-1, [num2str(time_scale) 'ms']);
+text(posx, posy-2, [num2str(time_scale) 'ms']);
 ylim([posy-5 30]);
 title('Exemplary M1 140 Hz trace');
 %saveas(gcf, [savefig_path 'Exemplary' f 'M1_140Hz_Trace.eps'], 'epsc');
@@ -289,17 +302,14 @@ saveas(gcf, [savefig_path 'Exemplary' f 'M1_140Hz_Trace.png']);
 saveas(gcf, [savefig_path 'Exemplary' f 'M1_140Hz_Trace.pdf']);
 
 
-base_zoom = [-600 -400];
-stim_zoom = [10 210];
-offset_zoom = [1300 1500];
 % Baseline zoom in of M1 140Hz trace
-figure('renderer', 'painters', 'Position', [0 0 1200 500]);
-base_idx = find(data.align.trial{trial_idx}.camera_frame_time - stim_start > base_zoom(1)./1000 & data.align.trial{trial_idx}.camera_frame_time - stim_start < base_zoom(2)./1000);
+figure('renderer', 'painters', 'Position', [0 0 1200 1200]);
+set(gca, 'Units', 'centimeters', 'Position', [2 20 4 3.00]);
 base_spike_idx = intersect(base_idx, spike_idx);
 
 plot(detrend_traces(base_idx)./trace_noise, 'k');
 hold on;
-plot(base_spike_idx - base_idx(1) + 1, detrend_traces(base_spike_idx)./trace_noise, '.r', 'MarkerSize', 12);
+plot(base_spike_idx - base_idx(1) + 1, detrend_traces(base_spike_idx)./trace_noise, '.r', 'MarkerSize', 6);
 hold on;
 
 % Plot the SNR line reference
@@ -308,7 +318,7 @@ posy = 0;
 snr_scale = 5;
 plot([posx posx], [posy posy+snr_scale], 'k', 'LineWidth', 2);
 hold on;
-ht = text(posx - 1, posy , ['Spike SBR ' num2str(snr_scale)]);
+ht = text(posx - 10, posy, ['Spike SBR ' num2str(snr_scale)]);
 set(ht, 'rotation', 90);
 hold on;
 
@@ -319,7 +329,7 @@ time_scale = 20; % Plotting 20 ms
 plot([posx posy+time_scale]*sam_freq/1000, [posy posy], 'k', 'LineWidth', 2);
 hold on;
 text(posx, posy-1, [num2str(time_scale) 'ms']);
-ylim([posy-5 30]);
+ylim([posy-5 15]);
 
 Multi_func.set_default_axis(gca);
 axis off;
@@ -330,13 +340,13 @@ saveas(gcf, [savefig_path 'Exemplary' f 'M1_140Hz_BaseZoomIn.png']);
 saveas(gcf, [savefig_path 'Exemplary' f 'M1_140Hz_BaseZoomIn.pdf']);
 
 % Stimulation zoom in of M1 140Hz trace
-figure('renderer', 'painters', 'Position', [0 0 1200 500]);
-stim_ped_idx = find(data.align.trial{trial_idx}.camera_frame_time - stim_start > stim_zoom(1)./1000 & data.align.trial{trial_idx}.camera_frame_time - stim_start < stim_zoom(2)./1000);
+figure('renderer', 'painters', 'Position', [0 0 1200 1200]);
+set(gca, 'Units', 'centimeters', 'Position', [2 20 4 3.00]);
 stim_spike_idx = intersect(stim_ped_idx, spike_idx);
 
 plot(detrend_traces(stim_ped_idx)./trace_noise, 'k');
 hold on;
-plot(stim_spike_idx - stim_ped_idx(1) + 1, detrend_traces(stim_spike_idx)./trace_noise, '.r', 'MarkerSize', 12);
+plot(stim_spike_idx - stim_ped_idx(1) + 1, detrend_traces(stim_spike_idx)./trace_noise, '.r', 'MarkerSize', 6);
 hold on;
 
 % Plot the SNR line reference
@@ -345,7 +355,7 @@ posy = 0;
 snr_scale = 5;
 plot([posx posx], [posy posy+snr_scale], 'k', 'LineWidth', 2);
 hold on;
-ht = text(posx - 1, posy , ['Spike SBR ' num2str(snr_scale)]);
+ht = text(posx - 10, posy , ['Spike SBR ' num2str(snr_scale)]);
 set(ht, 'rotation', 90);
 hold on;
 
@@ -356,7 +366,7 @@ time_scale = 20; % Plotting 20 ms
 plot([posx posy+time_scale]*sam_freq/1000, [posy posy], 'k', 'LineWidth', 2);
 hold on;
 text(posx, posy-1, [num2str(time_scale) 'ms']);
-ylim([posy-5 30]);
+ylim([posy-5 15]);
 
 Multi_func.set_default_axis(gca);
 axis off;
@@ -368,13 +378,13 @@ saveas(gcf, [savefig_path 'Exemplary' f 'M1_140Hz_StimZoomIn.pdf']);
 
 
 % Ofset zoom in of M1 140Hz trace
-figure('renderer', 'painters', 'Position', [0 0 1200 500]);
-offset_idx = find(data.align.trial{trial_idx}.camera_frame_time - stim_start > offset_zoom(1)./1000 & data.align.trial{trial_idx}.camera_frame_time - stim_start < offset_zoom(2)./1000);
+figure('renderer', 'painters', 'Position', [0 0 1200 1200]);
+set(gca, 'Units', 'centimeters', 'Position', [2 20 4 3.00]);
 offset_spike_idx = intersect(offset_idx, spike_idx);
 
 plot(detrend_traces(offset_idx)./trace_noise, 'k');
 hold on;
-plot(offset_spike_idx - offset_idx(1) + 1, detrend_traces(offset_spike_idx)./trace_noise, '.r', 'MarkerSize', 12);
+plot(offset_spike_idx - offset_idx(1) + 1, detrend_traces(offset_spike_idx)./trace_noise, '.r', 'MarkerSize', 6);
 hold on;
 
 % Plot the SNR line reference
@@ -383,7 +393,7 @@ posy = 0;
 snr_scale = 5;
 plot([posx posx], [posy posy+snr_scale], 'k', 'LineWidth', 2);
 hold on;
-ht = text(posx - 1, posy , ['Spike SBR ' num2str(snr_scale)]);
+ht = text(posx - 10, posy , ['Spike SBR ' num2str(snr_scale)]);
 set(ht, 'rotation', 90);
 hold on;
 
@@ -394,7 +404,7 @@ time_scale = 20; % Plotting 20 ms
 plot([posx posy+time_scale]*sam_freq/1000, [posy posy], 'k', 'LineWidth', 2);
 hold on;
 text(posx, posy-1, [num2str(time_scale) 'ms']);
-ylim([posy-5 30]);
+ylim([posy-5 15]);
 
 Multi_func.set_default_axis(gca);
 axis off;
