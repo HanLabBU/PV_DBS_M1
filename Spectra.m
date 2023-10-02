@@ -21,7 +21,8 @@ back_frame_drop = 2496;
 % Data on handata3 folder
 pv_data_path = [server_root_path 'Pierre Fabris' f 'PV Project' f 'PV_Data' f];
 
-figure_path = [server_root_path 'Pierre Fabris' f 'PV Project' f 'Plots' f];
+%figure_path = [server_root_path 'Pierre Fabris' f 'PV Project' f 'Plots' f];
+figure_path = Multi_func.save_plot;
 
 % CSV file to determine which trials to ignore
 ignore_trial_dict = Multi_func.csv_to_struct([local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f ...
@@ -235,14 +236,19 @@ for f_region = fieldnames(region_data)'
         hold on;
         Multi_func.plot_dbs_bar([0, 1], 155, '');
 
-        a = colorbar;
         caxis([-0.4 0.4]);
-        a.Ticks = linspace(a.Limits(1), a.Limits(2), 5);
-        a.TickLabels = num2cell(round(linspace(a.Limits(1), a.Limits(2), 5), 1));
-        a.Label.String = 'Relative Power';
+        
+        % Only have color bar for 40Hz
+        if strcmp(f_stim, 'f_40') == 1
+            a = colorbar;
+            a.Ticks = linspace(a.Limits(1), a.Limits(2), 5);
+            a.TickLabels = num2cell(round(linspace(a.Limits(1), a.Limits(2), 5), 1));
+            a.Label.String = 'Relative Power';
+        end
+
         Multi_func.set_default_axis(gca);
         xlabel('Time from Stim onset(s)');
-        xlim([-1 2.05]);
+        xlim([-0.80 2.05]);
         ylabel('Freq (Hz)');
         title(f_stim(3:end), 'Interpreter', 'none');
     end
@@ -426,7 +432,7 @@ for f_region = fieldnames(region_data)'
 
     saveas(gcf, [figure_path 'Spectra/' f_region '_zscore_freq_Spectra.png']);
     saveas(gcf, [figure_path 'Spectra/' f_region '_zscore_freq_Spectra.pdf']);
-    saveas(gcf, [figure_path 'Spectra/' f_region '_zscore_freq_Spectra.eps'], 'epsc');
+    %saveas(gcf, [figure_path 'Spectra/' f_region '_zscore_freq_Spectra.eps'], 'epsc');
 end
 
 
