@@ -113,6 +113,9 @@ plot([posx posy+time_scale]*sam_freq/1000, [posy posy], 'k', 'LineWidth', 2);
 hold on;
 text(posx, posy-1, [num2str(time_scale) 'ms']);
 ylim([posy-5 30]);
+
+
+
 title('Exemplary V1 140 Hz trace');
 %saveas(gcf, [savefig_path 'Exemplary' f 'V1_140Hz_Trace.eps'], 'epsc');
 saveas(gcf, [savefig_path 'Exemplary' f 'V1_140Hz_Trace.png']);
@@ -219,7 +222,7 @@ saveas(gcf, [savefig_path 'Exemplary' f 'V1_140Hz_Trace2.pdf']);
 % Parameters for plot zoom in
 base_zoom = [-600 -400];
 stim_zoom = [10 210];
-offset_zoom = [1300 1500];
+offset_zoom = [1400 1600];
 
 example_matfile = [pv_data_path '617100_M1_rec20211111_FOV1_140_60_.mat'];
 data = load(example_matfile);
@@ -251,12 +254,8 @@ offset_idx = find(data.align.trial{trial_idx}.camera_frame_time - stim_start > o
 % Generate figure
 
 figure('renderer', 'painters', 'Position', [0 0 1200 1200]);
-set(gca, 'Units', 'centimeters', 'Position', [0 20 8.05 3.00]);
 % Show file name
-posx = 900;
-posy = 23;
-text(posx, posy, ['617100_M1_rec20211111_FOV1_140_60_.mat tr 8'], 'Interpreter', 'none');
-hold on;
+sgtitle(['617100_M1_rec20211111_FOV1_140_60_.mat tr 8'], 'Interpreter', 'none');
 
 %Plot the trace
 plot(detrend_traces./trace_noise, 'k');
@@ -296,6 +295,36 @@ plot([posx posy+time_scale]*sam_freq/1000, [posy posy], 'k', 'LineWidth', 2);
 hold on;
 text(posx, posy-2, [num2str(time_scale) 'ms']);
 ylim([posy-5 30]);
+
+% Plot boxes for each zoom in part
+%baseline
+dim = [];
+dim(1) = base_idx(1);
+dim(2) = -7;
+dim(3) = range(base_idx);
+dim(4) = 25;
+rectangle('Position', dim, 'EdgeColor', Multi_func.base_color, 'LineStyle', '--');
+hold on;
+
+%stimulation
+dim = [];
+dim(1) = stim_ped_idx(1);
+dim(2) = -7;
+dim(3) = range(stim_ped_idx);
+dim(4) = 25;
+rectangle('Position', dim, 'EdgeColor', Multi_func.stim_color, 'LineStyle', '--');
+hold on;
+
+%offset
+dim = [];
+dim(1) = offset_idx(1);
+dim(2) = -7;
+dim(3) = range(offset_idx);
+dim(4) = 25;
+rectangle('Position', dim, 'EdgeColor', Multi_func.post_color, 'LineStyle', '--');
+
+set(gca, 'Units', 'centimeters', 'Position', [5 20 10 3.00], 'PositionConstraint', 'innerposition');
+
 title('Exemplary M1 140 Hz trace');
 %saveas(gcf, [savefig_path 'Exemplary' f 'M1_140Hz_Trace.eps'], 'epsc');
 saveas(gcf, [savefig_path 'Exemplary' f 'M1_140Hz_Trace.png']);
@@ -304,10 +333,10 @@ saveas(gcf, [savefig_path 'Exemplary' f 'M1_140Hz_Trace.pdf']);
 
 % Baseline zoom in of M1 140Hz trace
 figure('renderer', 'painters', 'Position', [0 0 1200 1200]);
-set(gca, 'Units', 'centimeters', 'Position', [2 20 4 3.00]);
+set(gca, 'Units', 'centimeters', 'Position', [15 20 2.86 3.00]);
 base_spike_idx = intersect(base_idx, spike_idx);
 
-plot(detrend_traces(base_idx)./trace_noise, 'k');
+plot(detrend_traces(base_idx)./trace_noise, 'Color', Multi_func.base_color);
 hold on;
 plot(base_spike_idx - base_idx(1) + 1, detrend_traces(base_spike_idx)./trace_noise, '.r', 'MarkerSize', 6);
 hold on;
@@ -329,7 +358,7 @@ time_scale = 20; % Plotting 20 ms
 plot([posx posy+time_scale]*sam_freq/1000, [posy posy], 'k', 'LineWidth', 2);
 hold on;
 text(posx, posy-1, [num2str(time_scale) 'ms']);
-ylim([posy-5 15]);
+ylim([posy-5 18]);
 
 Multi_func.set_default_axis(gca);
 axis off;
@@ -341,10 +370,10 @@ saveas(gcf, [savefig_path 'Exemplary' f 'M1_140Hz_BaseZoomIn.pdf']);
 
 % Stimulation zoom in of M1 140Hz trace
 figure('renderer', 'painters', 'Position', [0 0 1200 1200]);
-set(gca, 'Units', 'centimeters', 'Position', [2 20 4 3.00]);
+set(gca, 'Units', 'centimeters', 'Position', [15 20 2.86 3.00]);
 stim_spike_idx = intersect(stim_ped_idx, spike_idx);
 
-plot(detrend_traces(stim_ped_idx)./trace_noise, 'k');
+plot(detrend_traces(stim_ped_idx)./trace_noise, 'Color', Multi_func.stim_color);
 hold on;
 plot(stim_spike_idx - stim_ped_idx(1) + 1, detrend_traces(stim_spike_idx)./trace_noise, '.r', 'MarkerSize', 6);
 hold on;
@@ -379,10 +408,10 @@ saveas(gcf, [savefig_path 'Exemplary' f 'M1_140Hz_StimZoomIn.pdf']);
 
 % Ofset zoom in of M1 140Hz trace
 figure('renderer', 'painters', 'Position', [0 0 1200 1200]);
-set(gca, 'Units', 'centimeters', 'Position', [2 20 4 3.00]);
+set(gca, 'Units', 'centimeters', 'Position', [15 20 2.86 3.00]);
 offset_spike_idx = intersect(offset_idx, spike_idx);
 
-plot(detrend_traces(offset_idx)./trace_noise, 'k');
+plot(detrend_traces(offset_idx)./trace_noise, 'Color', Multi_func.post_color);
 hold on;
 plot(offset_spike_idx - offset_idx(1) + 1, detrend_traces(offset_spike_idx)./trace_noise, '.r', 'MarkerSize', 6);
 hold on;
