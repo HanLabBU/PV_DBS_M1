@@ -9,9 +9,7 @@ server_root_path = '~/handata_server/eng_research_handata3/';
 % Windows server
 %local_root_path = 'Z:\';
 
-% Parameters for frames to chop off
-front_frame_drop = 15;
-back_frame_drop = 2496;
+exclude_200ms = 1;
 
 % List path where all of the matfiles are stored
 %pv_data_path = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'PV_Data' f];
@@ -37,11 +35,15 @@ if ~isfolder(local_root_path)
     return;
 end
 
-% Read in the saved pv data and perform analysis
-save_all_data_file = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Interm_Data' f 'pv_data.mat'];
+if ~exclude_200ms
+    % Read in the saved pv data and perform analysis
+    save_all_data_file = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Interm_Data' f 'pv_data.mat'];
+else
+    save_all_data_file = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Interm_Data' f 'pv_data_ex200.mat'];
+end
+
 %Load the data
 load(save_all_data_file);
-
 if all_regions == 1
     region_data = Multi_func.combine_regions(region_data);
 end
@@ -51,7 +53,7 @@ field1 = fieldnames(region_data);
 field1 = field1(1);
 avg_Fs = mean(region_data.(field1{1}).f_40.framerate, 'omitnan');
 
-
+% Calculating the time from stimulation onset to peak Vm
 for f_region = fieldnames(region_data)'
     f_region = f_region{1};
     data_bystim = region_data.(f_region);
@@ -99,16 +101,71 @@ for f_region = fieldnames(region_data)'
         plot([0 timeline(locs(prom_peak_loc)) ], [0 0 ]);
 
         disp(f_region(3:end));
-        disp(['Population Average Time from ' f_stim]);
+        disp(['Population time to Vm ' f_stim]);
         disp(num2str(timeline(locs(prom_peak_loc))*1000 ));
-        disp();
+        disp([]);
 
     end
 
-    sgtitle([ f_region(3:end) ' Population average peak']);
+    sgtitle([ f_region(3:end) ' Population to peak Vm']);
 end
 
-% Calculate onset 
+% Calculating the time from stimulation onset to peak firing rate
+for f_region = fieldnames(region_data)'
+    f_region = f_region{1};
+    data_bystim = region_data.(f_region);
+    stims = fieldnames(data_bystim);
+    
+    figure('Renderer', 'Painters', 'Position', [200 200 2000 700]);
+    tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
+
+    for f_stim=stims'
+        f_stim = f_stim{1};
+        
+        % Store neuron's Vm for heatmap
+        Fr_map = [];
+        time_to_peak = [];
+
+        % Find the peaks in the Firing Rate
+        avg_srate = mean(data_bystim.(f_stim).neuron_srate_3, 2, 'omitnan');
+        nexttile;
+        
+        [pks, locs, w, p] = findpeaks(avg_srate);
+    
+        % Plot the average Vm and each of the peak locations
+        timeline = nanmean(data_bystim.(f_stim).trace_timestamps, 2)';
+        plot(timeline, avg_srate);
+        hold on;
+        plot(timeline(locs), avg_srate(locs), 'or');
+        hold on;
+        
+        % Plot the prominences from the peak value to the bottom
+        for i=1:length(locs)
+            plot([timeline(locs(i)), timeline(locs(i)) ], [avg_srate(locs(i)) avg_srate(locs(i)) - p(i)], '-g');
+            hold on;
+        end
+        title(['Stim ' f_stim], 'Interpreter', 'none');
+
+        % find the max peak value and the distance from 0
+
+        % Get points within the stimulation period
+        stim_idxs = find(timeline >= 0 & timeline <= 1);
+        [c, ia] = ismember(locs, stim_idxs);
+        locs = locs(c);
+        pks = pks(c);
+        p = p(c);
+        prom_peak_loc = find(max(p) == p);
+        plot([0 timeline(locs(prom_peak_loc)) ], [0 0 ]);
+
+        disp(f_region(3:end));
+        disp(['Population time for firing rate ' f_stim]);
+        disp(num2str(timeline(locs(prom_peak_loc))*1000 ));
+        disp([]);
+
+    end
+
+    sgtitle([ f_region(3:end) 'Population, to peak firing rate']);
+end
 
 return;
 
