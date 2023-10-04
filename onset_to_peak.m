@@ -27,7 +27,7 @@ ignore_trial_dict = Multi_func.csv_to_struct([local_root_path 'Pierre Fabris' f 
 % Parameter to determine how much before and after a stimulation pulse to take the average
 trace_sur = 10; % This is ~6ms before and after stim pulse
 
-all_regions = 1;
+all_regions = 0;
 
 %%% END Modification
 
@@ -46,8 +46,10 @@ if all_regions == 1
     region_data = Multi_func.combine_regions(region_data);
 end
 
-avg_Fs = mean(region_data.r_combine.f_40.framerate, 'omitnan');
-timeline = ( (4+(front_frame_drop:back_frame_drop) )./avg_Fs) - 1;
+% Grab average framerate
+field1 = fieldnames(region_data);
+field1 = field1(1);
+avg_Fs = mean(region_data.(field1{1}).f_40.framerate, 'omitnan');
 
 
 for f_region = fieldnames(region_data)'
@@ -96,13 +98,19 @@ for f_region = fieldnames(region_data)'
         prom_peak_loc = find(max(p) == p);
         plot([0 timeline(locs(prom_peak_loc)) ], [0 0 ]);
 
+        disp(f_region(3:end));
         disp(['Population Average Time from ' f_stim]);
         disp(num2str(timeline(locs(prom_peak_loc))*1000 ));
+        disp();
 
     end
 
-    sgtitle('Population average peak');
+    sgtitle([ f_region(3:end) ' Population average peak']);
 end
+
+% Calculate onset 
+
+return;
 
 % Calculate the peak by averaging the peak to each neuron's Vm, 
 % This was not really working well because the peak for some neurons was way later
@@ -158,21 +166,24 @@ for f_region = fieldnames(region_data)'
             %plot([0 timeline(locs(prom_peak_loc)) ], [0 0 ], '-m');
 
         end
-        
-        % Print the histogram of the timepoints
-        figure('Renderer', 'Painters', 'Position', [500 500 2000 700]);
-        histogram(time_to_peak*1000, 0:0.2:100);
-        title(f_stim, 'Interpreter', 'none');
-
+       
         % Print out the time results
         disp([f_stim ' time to peak Vm']);
         mean_peak = mean(time_to_peak*1000, 'omitnan');
         std_peak = std(time_to_peak*1000, 'omitnan');
         disp([num2str(mean_peak) '±' num2str(std_peak)]);
+
+        % Print the histogram of the timepoints
+        figure('Renderer', 'Painters', 'Position', [500 500 2000 700]);
+        histogram(time_to_peak*1000, 0:0.2:100);
+        hold on;
+        xline(mean_peak, 'r', 'LineWidth', 4);
+        xlabel('Time to peak (ms)');
+        ylabel('Counts');
+        title(f_stim, 'Interpreter', 'none');
+
     end
 end
-
-return;
 
 %% Plot the histograms for all pulse to spike times
 stims = fieldnames(data_bystim);
