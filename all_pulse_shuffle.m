@@ -51,7 +51,6 @@ end
 field1 = fieldnames(region_data);
 field1 = field1{1};
 avg_Fs = mean(region_data.(field1).f_40.framerate, 'omitnan');
-timeline = ( (4+(front_frame_drop:back_frame_drop) )./avg_Fs) - 1;
 
 
 % All pulse for Vm
@@ -62,11 +61,12 @@ for f_region = {'r_M1'} %fieldnames(region_data)'
     stims = fieldnames(data_bystim);
     
     figure('Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
-    tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters' ); %,'InnerPosition', [4, 20, 3.62, 5.16]);
+    tiledlayout(length(stims), 2, 'TileSpacing', 'compact', 'Padding', 'compact'); %, 'Units', 'centimeters', 'InnerPosition', [4, 20, 3.62, 5.16]);
     for f_stim=stims'
         f_stim = f_stim{1};
         all_pulse_vm = [];
         extra_trace = 3;
+
         % Looping through each neuron
         for nr = 1:size(data_bystim.(f_stim).neuron_Vm, 2)
             
@@ -95,7 +95,23 @@ for f_region = {'r_M1'} %fieldnames(region_data)'
                 all_pulse_vm = horzcat_pad(all_pulse_vm, Vm_pulse_width);
             end
         end
+        
+        % Find the peak vm value and idx in reference to the extra frames
         fig_all_pulse_avg = mean(all_pulse_vm, 2, 'omitnan');
+        timeline = [ [0:size(fig_all_pulse_avg, 1) - 1] - extra_trace]*1000./avg_Fs;
+        win_time = find(timeline >= 0 & timeline <= nr_avg_pulse_width*1000);
+        peak_vm = max(fig_all_pulse_avg(win_time));
+        peak_vm_idx = find(peak_vm == fig_all_pulse_avg(win_time)) + win_time(1) - 1;
+        
+
+        % Plot the original all pulse shuffle plot
+        nexttile;
+        plot(timeline, fig_all_pulse_avg, 'k');
+        hold on;
+        plot(timeline(peak_vm_idx), fig_all_pulse_avg(peak_vm_idx), 'or');
+        hold on;
+        % Plot the DBS stimulation time pulses
+        xline([0:nr_avg_pulse_width*1000:nr_avg_pulse_width*1000], 'Color', [170, 176, 97]./255, 'LineWidth', 2);
 
         % Shuffle and create null distribution of vm between pulses from each pulse window
         
@@ -125,22 +141,30 @@ for f_region = {'r_M1'} %fieldnames(region_data)'
         hold on;
         xline(high_perc, 'b', 'DisplayName', ['High Perc: ' num2str(high_perc)]);
         hold on;
-        xline(max(fig_all_pulse_avg), 'k', 'DisplayName', ['Observ ' num2str(max(fig_all_pulse_avg))]);
+        xline(peak_vm, 'k', 'DisplayName', ['Observ ' num2str(peak_vm)]);
         
+        % Print out the info of the shuffling data
         disp([f_region(3:end) ' ' f_stim(3:end) ' Vm']);
         disp(['Lower precent ' num2str(low_perc)]);
         disp(['higher precent ' num2str(high_perc)]);
-        disp(['Max val is ' num2str(max(fig_all_pulse_avg))]);
-        fprintf('\n\n');
+        disp(['Max val is ' num2str(peak_vm)]);
+        fprintf('\n');
     
+        % Time from max Vm change
+        disp(['Time to peak ' num2str(timeline(peak_vm_idx))]);
+        fprintf('\n\n');
+
         legend();
         title([ f_stim(3:end) ' Vm All Pulse Shuffled'], 'Interpreter', 'none');
+        
+
     
     end
     sgtitle([f_region(3:end) ' Vm All Pulse Avg Shuffled'], 'Interpreter', 'none');
     %saveas(gcf, [figure_path 'Average/' f_region '_All_Pulse_Avg_Vm.png']);
     %saveas(gcf, [figure_path 'Average/' f_region '_All_Pulse_Avg_Vm.pdf']);
 end
+
 
 % Shuffling the firing rate 
 for f_region = fieldnames(region_data)'
@@ -149,7 +173,7 @@ for f_region = fieldnames(region_data)'
     stims = fieldnames(data_bystim);
     
     figure('Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
-    tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters' ); %, 'InnerPosition', [4, 20, 3.5, 5]);
+    tiledlayout(length(stims), 2, 'TileSpacing', 'compact', 'Padding', 'compact'); %, 'Units', 'centimeters', 'InnerPosition', [4, 20, 3.5, 5]);
     for f_stim=stims'
         f_stim = f_stim{1};
         timeline = nanmean(data_bystim.(f_stim).trace_timestamps, 2);
@@ -180,7 +204,23 @@ for f_region = fieldnames(region_data)'
                 all_pulse_fr = horzcat_pad(all_pulse_fr, fr_pulse_width);
             end
         end
+
+        % Find the peak firing rate and idx reference to the extra frames
         fig_all_pulse_avg = mean(all_pulse_fr, 2, 'omitnan');
+        timeline = [ [0:size(fig_all_pulse_avg, 1) - 1] - extra_trace]*1000./avg_Fs;
+        win_time = find(timeline >= 0 & timeline <= nr_avg_pulse_width*1000);
+        peak_fr = max(fig_all_pulse_avg(win_time));
+        peak_fr_idx = find(peak_fr == fig_all_pulse_avg(win_time)) + win_time(1) - 1;
+        
+        % Plot the original all pulse shuffle plot
+        nexttile;
+        plot(timeline, fig_all_pulse_avg, 'k');
+        hold on;
+        plot(timeline(peak_fr_idx), fig_all_pulse_avg(peak_fr_idx), 'or');
+        hold on;
+        % Plot the DBS stimulation time pulses
+        xline([0:nr_avg_pulse_width*1000:nr_avg_pulse_width*1000], 'Color', [170, 176, 97]./255, 'LineWidth', 2);
+
 
         % Shuffle x amount of times
         wind_size = size(all_pulse_fr, 1);
@@ -208,12 +248,16 @@ for f_region = fieldnames(region_data)'
         hold on;
         xline(high_perc, 'b', 'DisplayName', ['High Perc: ' num2str(high_perc)]);
         hold on;
-        xline(max(fig_all_pulse_avg), 'k', 'DisplayName', ['Observ ' num2str(max(fig_all_pulse_avg))]);
+        xline(max(fig_all_pulse_avg), 'k', 'DisplayName', ['Observ ' num2str(peak_fr)]);
         
         disp([f_region(3:end) ' ' f_stim(3:end) ' firing rate' ]);
         disp(['Lower precent ' num2str(low_perc)]);
         disp(['higher precent ' num2str(high_perc)]);
-        disp(['Max val is ' num2str(max(fig_all_pulse_avg))]);
+        disp(['Max val is ' num2str(peak_fr)]);
+        fprintf('\n');
+    
+        % Time from max fr change
+        disp(['Time to peak ' num2str(timeline(peak_fr_idx))]);
         fprintf('\n\n');
 
         %cur_srate = mean(all_pulse_fr, 2, 'omitnan');
