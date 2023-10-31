@@ -1,4 +1,3 @@
-clear all;
 close all;
 f = filesep;
 
@@ -37,6 +36,9 @@ all_region = 0;
 set(0,'DefaultFigureVisible','off');
 
 %%% END Modification
+
+% Seed number for random number generation
+rng(100);
 
 % Check that the server path exists
 if ~isfolder(local_root_path)
@@ -197,7 +199,7 @@ for f_region = fieldnames(region_data)'
     data_bystim = region_data.(f_region);
     stims = fieldnames(data_bystim);
     
-    figure('visible', 'on', 'Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
+    figure('Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
     tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 20, 3.5, 5]);
     for f_stim=stims'
         timeline = nanmean(data_bystim.(f_stim{1}).trace_timestamps, 2)*1000;
@@ -263,6 +265,7 @@ for f_region = fieldnames(region_data)'
     for f_stim=stims'
         
         Vm_avg = [];
+        all_pulse_vm = [];
         extra_trace = 3;
         % Looping through each neuron
         for nr = 1:size(data_bystim.(f_stim{1}).neuron_Vm, 2)
@@ -290,6 +293,9 @@ for f_region = fieldnames(region_data)'
 
                 Vm_pulse_width = data_bystim.(f_stim{1}).neuron_Vm(start_trace_idx:end_trace_idx, nr);
                 Vm_avg = horzcat_pad(Vm_avg, Vm_pulse_width);
+
+                % Store all of the Vm pulses
+                all_pulse_vm = horzcat_pad(all_pulse_vm, Vm_pulse_width);
             end
         end
 
@@ -308,6 +314,34 @@ for f_region = fieldnames(region_data)'
         hold on;
         plot(timeline, cur_subVm, 'k', 'LineWidth', 1);
         hold on;
+
+        % Shuffle all pulse average and plot average lines
+        wind_size = size(all_pulse_vm, 1);
+        shuf_val_dist = [];
+        for i=1:1000
+            shuf_all_pulse_vm = [];
+            for j=1:size(all_pulse_vm, 2)
+                shuf_idx = randperm(wind_size);
+                shuf_all_pulse_vm = horzcat_pad(shuf_all_pulse_vm, all_pulse_vm(shuf_idx, j));
+            end
+
+            % Calculate the average value
+            shuf_avg_all_pulse = mean(shuf_all_pulse_vm, 2, 'omitnan');
+            
+            % This was the original value
+            %shuf_val_dist(end + 1) = mean(avg_all_pulse, 'omitnan');;
+            shuf_val_dist = horzcat_pad(shuf_val_dist, shuf_avg_all_pulse);
+        end
+
+        % Calculate percentile values
+        low_perc = prctile(shuf_val_dist(:), 2.5);
+        high_perc = prctile(shuf_val_dist(:), 97.5);
+        shuf_mean = mean(shuf_val_dist(:), 'omitnan');
+        
+        % Plot the shuffled values
+        yline([low_perc, high_perc], '--');
+        hold on;
+        yline(shuf_mean);
 
         % Plot the DBS stimulation time pulses
         xline([0:nr_avg_pulse_width*1000:nr_avg_pulse_width*1000], 'Color', [170, 176, 97]./255, 'LineWidth', 2);
@@ -344,13 +378,15 @@ for f_region = fieldnames(region_data)'
     data_bystim = region_data.(f_region);
     stims = fieldnames(data_bystim);
     
-    figure('Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
+    figure('visible', 'on', 'Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
     tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 20, 3.5, 5]);
     for f_stim=stims'
         timeline = nanmean(data_bystim.(f_stim{1}).trace_timestamps, 2);
         
         FR_avg = [];
         extra_trace = 3;
+        all_pulse_fr = [];
+
         % Looping through each neuron
         for nr = 1:size(data_bystim.(f_stim{1}).neuron_spikecounts_raster, 2)
 
@@ -373,6 +409,7 @@ for f_region = fieldnames(region_data)'
                 fr_pulse_width = data_bystim.(f_stim{1}).neuron_spikecounts_raster(start_trace_idx:end_trace_idx, nr)*nr_rate;
                 
                 FR_avg = horzcat_pad(FR_avg, fr_pulse_width);
+                all_pulse_fr = horzcat_pad(all_pulse_fr, fr_pulse_width);
             end
         end
 
@@ -390,6 +427,34 @@ for f_region = fieldnames(region_data)'
         hold on;
         plot(timeline, cur_srate, 'k', 'LineWidth', 0.3);
         hold on;
+
+        % Perform shuffling for all firing rate
+        wind_size = size(all_pulse_fr, 1);
+        shuf_val_dist = [];
+        for i=1:1000 
+            shuf_all_pulse_fr = [];
+            for j=1:size(all_pulse_fr, 2)
+                shuf_idx = randperm(wind_size);
+                shuf_all_pulse_fr = horzcat_pad(shuf_all_pulse_fr, all_pulse_fr(shuf_idx, j));
+            end
+
+            % Calculate the average value
+            shuf_avg_all_pulse = mean(shuf_all_pulse_fr, 2, 'omitnan');
+            
+            % This was the original value
+            %shuf_val_dist(end + 1) = mean(avg_all_pulse, 'omitnan');;
+            shuf_val_dist = horzcat_pad(shuf_val_dist, shuf_avg_all_pulse);
+        end
+
+        % Calculate percentile values
+        low_perc = prctile(shuf_val_dist(:), 2.5);
+        high_perc = prctile(shuf_val_dist(:), 97.5);
+        shuf_mean = mean(shuf_val_dist(:), 'omitnan');
+
+        % Plot the shuffled values
+        yline([low_perc, high_perc], '--');
+        hold on;
+        yline(shuf_mean);
 
         % Plot the DBS stimulation time pulses
         xline([0:nr_avg_pulse_width*1000:nr_avg_pulse_width*1000], 'Color', [170, 176, 97]./255, 'LineWidth', 0.5);
@@ -472,7 +537,7 @@ for f_region = fieldnames(region_data)'
     data_bystim = region_data.(f_region);
     stims = fieldnames(data_bystim);
     
-    figure('visible', 'on', 'Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
+    figure('Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
     tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 20, 3.40, 4.96]);
     for f_stim=stims'
         
