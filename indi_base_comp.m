@@ -96,13 +96,22 @@ for f_region = fieldnames(region_data)'
             %plot(timeline, neuron_vm + [spacing:spacing:size(neuron_vm, 2)*spacing], '-k');
             base_vm = mean(neuron_vm(baseline_idx), 'omitnan');
             stim_vm = mean(neuron_vm(stim_idx), 'omitnan');
+            
+            % Need to perform linear interpolation here
+            xq = 1:length(stim_idx)/length(baseline_idx):length(stim_idx);
+            downsample = interp1(1:length(stim_idx), neuron_vm(stim_idx), xq);
+
+            % Check for distribution difference
+            [p,h] = signrank(neuron_vm(baseline_idx), downsample);
 
             % Check for Vm increase
             color = [0 0 0 0.4];
-            if stim_vm > base_vm*(1 + thres_percent)
-                color = [[30, 2, 237]/255, 0.4];
-            elseif stim_vm < base_vm*(1 - thres_percent)
-                color = [[235, 5, 28]/255, 0.4];
+            if h == 1
+                if stim_vm > base_vm
+                    color = [[30, 2, 237]/255, 0.4];
+                elseif stim_vm < base_vm
+                    color = [[235, 5, 28]/255, 0.4];
+                end
             end
             plot(timeline, neuron_vm, 'Color', color);
             hold on;
@@ -203,7 +212,7 @@ for f_region = fieldnames(region_data)'
     end
 end
 
-% Plot each neuron's Vm between baseline and stimulation
+% Violins of each neuron's Vm between baseline and stimulation
 for f_region = fieldnames(region_data)'    
     f_region = f_region{1};    
     data_bystim = region_data.(f_region);    
@@ -264,7 +273,7 @@ for f_region = fieldnames(region_data)'
 end
 
 
-% Plot each neuron's firing rate between baseline and stimulation
+% Violis of each neuron's firing rate between baseline and stimulation
 for f_region = fieldnames(region_data)'    
     f_region = f_region{1};    
     data_bystim = region_data.(f_region);    
