@@ -340,9 +340,12 @@ for f_region = fieldnames(region_data)'
         
         % Plot the shuffled values as dashed horizontal lines
         %yline([low_perc, high_perc], '--');
+        %hold on;
+        %yline(shuf_mean);
+
         % Plot the percentiles as a different colored shading
         shade_yvals = [repmat(high_perc, 1, length(timeline)), repmat(low_perc, 1, length(timeline))];
-        f = fill([timeline, flip(timeline)], shade_yvals, [0.2 0.2 0.2]);
+        f = fill([timeline, flip(timeline)], shade_yvals, [0.62 0.71 1]);
         Multi_func.set_fill_properties(f);
         hold on;
         yline(shuf_mean, '--');
@@ -461,7 +464,7 @@ for f_region = fieldnames(region_data)'
         %hold on;
         %yline(shuf_mean);
         shade_yvals = [repmat(high_perc, 1, length(timeline)), repmat(low_perc, 1, length(timeline))];
-        f = fill([timeline, flip(timeline)], shade_yvals, [0.2 0.2 0.2]);
+        f = fill([timeline, flip(timeline)], shade_yvals, [0.62 0.71 1]);
         Multi_func.set_fill_properties(f);
         hold on;
         yline(shuf_mean, '--');
