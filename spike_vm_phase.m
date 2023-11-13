@@ -139,7 +139,9 @@ for f_region = fieldnames(region_data)'
 
     for f_stim=stims'
         f_stim = f_stim{1};
-        stim_num = [2:10]; % Delta/Theta frequency
+
+        %TODO may need to filter better here
+        low_range = [2, 10]; % Delta/Theta frequency
         
         figure('visible', 'on', 'Renderer', 'Painters', 'Position', [200 200 2000 700]);
         tiledlayout(1, 2, 'TileSpacing', 'compact', 'Padding', 'compact');
@@ -148,15 +150,14 @@ for f_region = fieldnames(region_data)'
         stim_phases = [];
     
         %Loop through each neuron 
-        for nr = 1:length(data_bystim.(f_stim).neuron_hilbfilt)
+        for nr = 1:length(data_bystim.(f_stim).all_trial_spikeidx)
             base_idx = find(data_bystim.(f_stim).trace_timestamps(:, nr) < data_bystim.(f_stim).stim_timestamps(1, nr));
             stim_idx = find(data_bystim.(f_stim).trace_timestamps(:, nr) >= data_bystim.(f_stim).stim_timestamps(1, nr) & ...
                             data_bystim.(f_stim).trace_timestamps(:, nr) <= data_bystim.(f_stim).stim_timestamps(end, nr));
     
-            hilb_nr = data_bystim.(f_stim).neuron_hilbfilt{nr};
-    
+
             % Loop through each trial
-            for tr = 1:size(hilb_nr, 3)
+            for tr = 1:size(data_bystim.(f_stim).all_trial_SubVm{nr}, 2)
                 % Grab the spike idx from current trial
                 cur_tr_spikeidx = data_bystim.(f_stim).all_trial_spikeidx{nr};
                 cur_tr_spikeidx = cur_tr_spikeidx(:, tr);
@@ -165,10 +166,13 @@ for f_region = fieldnames(region_data)'
                 base_spikeidx = intersect(cur_tr_spikeidx, base_idx);
                 % Get stimulation spikes
                 stim_spikeidx = intersect(cur_tr_spikeidx, stim_idx);
-                
+    
+                % Get the hilbert of the filtered 2-10Hz subVm
+                cur_hilb = filt_range(data_bystim.(f_stim).all_trial_SubVm{nr}(:, tr), low_range, avg_Fs)';
+
                 % Grab the phases of each period
-                base_phases = [base_phases, angle(hilb_nr(stim_num, base_spikeidx, tr))];
-                stim_phases = [stim_phases, angle(hilb_nr(stim_num, stim_spikeidx, tr))];
+                base_phases = [base_phases, angle(cur_hilb(base_spikeidx))];
+                stim_phases = [stim_phases, angle(cur_hilb(stim_spikeidx))];
                 
             end
         end
@@ -177,13 +181,13 @@ for f_region = fieldnames(region_data)'
         nexttile;
         edges = linspace(0, 2*pi, 24);
         polarhistogram(base_phases, edges, 'Normalization', 'probability', 'FaceColor', 'blue', 'FaceAlpha', 0.3);
-        rlim([0 .1]);
+        rlim([0 .2]);
         title('Base');
         set(gca, 'Color', 'none');
     
         nexttile;
         polarhistogram(stim_phases, edges, 'Normalization', 'probability', 'FaceColor', 'red', 'FaceAlpha', 0.3);
-        rlim([0 .1]);
+        rlim([0 .2]);
         title('Stim');
         set(gca, 'Color', 'none');
     
@@ -195,6 +199,13 @@ for f_region = fieldnames(region_data)'
     end
 end
 
+function [filt_sig] = filt_range(sig, range, FS)
+    Fn = FS/2;
+    FB = [0.8 1.2].*range
+    
+    [B, A] = butter(2, [min(FB)/Fn max(FB)/Fn]);
+    filt_sig = hilbert(filtfilt(B,A,sig));
+end
 
 %DEBUG
 %nexttile;
