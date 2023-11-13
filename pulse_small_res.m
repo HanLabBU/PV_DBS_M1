@@ -260,7 +260,7 @@ for f_region = fieldnames(region_data)'
     data_bystim = region_data.(f_region);
     stims = fieldnames(data_bystim);
     
-    figure('Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
+    figure('visible', 'on', 'Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
     tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 20, 3.62, 5.16]);
     for f_stim=stims'
         
@@ -338,10 +338,14 @@ for f_region = fieldnames(region_data)'
         high_perc = prctile(shuf_val_dist(:), 97.5);
         shuf_mean = mean(shuf_val_dist(:), 'omitnan');
         
-        % Plot the shuffled values
-        yline([low_perc, high_perc], '--');
+        % Plot the shuffled values as dashed horizontal lines
+        %yline([low_perc, high_perc], '--');
+        % Plot the percentiles as a different colored shading
+        shade_yvals = [repmat(high_perc, 1, length(timeline)), repmat(low_perc, 1, length(timeline))];
+        f = fill([timeline, flip(timeline)], shade_yvals, [0.2 0.2 0.2]);
+        Multi_func.set_fill_properties(f);
         hold on;
-        yline(shuf_mean);
+        yline(shuf_mean, '--');
 
         % Plot the DBS stimulation time pulses
         xline([0:nr_avg_pulse_width*1000:nr_avg_pulse_width*1000], 'Color', [170, 176, 97]./255, 'LineWidth', 2);
@@ -359,7 +363,7 @@ for f_region = fieldnames(region_data)'
         Multi_func.set_default_axis(gca);
         ylabel('Vm');
         xlabel('Time from pulse(ms)');
-        ylim([0, 7]);
+        %ylim([0, 7]);
 
         % Remove x-axis and right y-axis
         %set(gca,'xtick',[]);
@@ -452,9 +456,15 @@ for f_region = fieldnames(region_data)'
         shuf_mean = mean(shuf_val_dist(:), 'omitnan');
 
         % Plot the shuffled values
-        yline([low_perc, high_perc], '--');
+        % Plotting using dashed lines
+        %yline([low_perc, high_perc], '--');
+        %hold on;
+        %yline(shuf_mean);
+        shade_yvals = [repmat(high_perc, 1, length(timeline)), repmat(low_perc, 1, length(timeline))];
+        f = fill([timeline, flip(timeline)], shade_yvals, [0.2 0.2 0.2]);
+        Multi_func.set_fill_properties(f);
         hold on;
-        yline(shuf_mean);
+        yline(shuf_mean, '--');
 
         % Plot the DBS stimulation time pulses
         xline([0:nr_avg_pulse_width*1000:nr_avg_pulse_width*1000], 'Color', [170, 176, 97]./255, 'LineWidth', 0.5);
