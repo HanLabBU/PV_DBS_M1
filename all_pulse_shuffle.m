@@ -112,6 +112,7 @@ for f_region = {'r_M1'} %fieldnames(region_data)'
         hold on;
         % Plot the DBS stimulation time pulses
         xline([0:nr_avg_pulse_width*1000:nr_avg_pulse_width*1000], 'Color', [170, 176, 97]./255, 'LineWidth', 2);
+        hold on;
 
         % Shuffle and create null distribution of vm between pulses from each pulse window
         
@@ -132,17 +133,28 @@ for f_region = {'r_M1'} %fieldnames(region_data)'
             %shuf_val_dist(end + 1) = mean(avg_all_pulse, 'omitnan');;
             shuf_val_dist = horzcat_pad(shuf_val_dist, shuf_avg_all_pulse);
         end
+        
+        % Calculate and plot the percentiles
+        low_perc = prctile(shuf_val_dist(:), 2.5);
+        high_perc = prctile(shuf_val_dist(:), 97.5);
+        yline([low_perc, high_perc], '--');
+        hold on;
+
+        % Find the time to first point that is significantly different
+        all_sig_val_idx = find(fig_all_pulse_avg(win_time) > high_perc);
+        first_sig_idx = all_sig_val_idx(1) + win_time(1) - 1;
+        plot(timeline(first_sig_idx), fig_all_pulse_avg(first_sig_idx), 'og');
+
         nexttile;
         histogram(shuf_val_dist(:), 100);
         hold on;
-        low_perc = prctile(shuf_val_dist(:), 2.5);
-        high_perc = prctile(shuf_val_dist(:), 97.5);
         xline(low_perc, 'b', 'DisplayName', ['Low Perc: ' num2str(low_perc)]);
         hold on;
         xline(high_perc, 'b', 'DisplayName', ['High Perc: ' num2str(high_perc)]);
         hold on;
         xline(peak_vm, 'k', 'DisplayName', ['Observ ' num2str(peak_vm)]);
-        
+        hold on;
+
         % Print out the info of the shuffling data
         disp([f_region(3:end) ' ' f_stim(3:end) ' Vm']);
         disp(['Lower precent ' num2str(low_perc)]);
@@ -152,6 +164,10 @@ for f_region = {'r_M1'} %fieldnames(region_data)'
     
         % Time from max Vm change
         disp(['Time to peak ' num2str(timeline(peak_vm_idx))]);
+        fprintf('\n');
+        
+        % Time to first significant Vm change
+        disp(['Time to first sig point ' num2str(timeline(first_sig_idx))]);
         fprintf('\n\n');
 
         legend();
@@ -220,7 +236,7 @@ for f_region = fieldnames(region_data)'
         hold on;
         % Plot the DBS stimulation time pulses
         xline([0:nr_avg_pulse_width*1000:nr_avg_pulse_width*1000], 'Color', [170, 176, 97]./255, 'LineWidth', 2);
-
+        hold on;
 
         % Shuffle x amount of times
         wind_size = size(all_pulse_fr, 1);
@@ -239,11 +255,23 @@ for f_region = fieldnames(region_data)'
             %shuf_val_dist(end + 1) = mean(avg_all_pulse, 'omitnan');;
             shuf_val_dist = horzcat_pad(shuf_val_dist, shuf_avg_all_pulse);
         end
+        
+        % Calculate and plot the significant values
+        low_perc = prctile(shuf_val_dist(:), 2.5);
+        high_perc = prctile(shuf_val_dist(:), 97.5);
+        yline([low_perc, high_perc], '--');
+        hold on;
+
+        % Find the time to first point that is significantly different
+        all_sig_val_idx = find(fig_all_pulse_avg(win_time) > high_perc);
+        if length(all_sig_val_idx) > 0
+            first_sig_idx = all_sig_val_idx(1) + win_time(1) - 1;
+            plot(timeline(first_sig_idx), fig_all_pulse_avg(first_sig_idx), 'og');
+        end
+
         nexttile;
         histogram(shuf_val_dist(:), 100);
         hold on;
-        low_perc = prctile(shuf_val_dist(:), 2.5);
-        high_perc = prctile(shuf_val_dist(:), 97.5);
         xline(low_perc, 'b', 'DisplayName', ['Low Perc: ' num2str(low_perc)]);
         hold on;
         xline(high_perc, 'b', 'DisplayName', ['High Perc: ' num2str(high_perc)]);
@@ -258,6 +286,10 @@ for f_region = fieldnames(region_data)'
     
         % Time from max fr change
         disp(['Time to peak ' num2str(timeline(peak_fr_idx))]);
+        fprintf('\n');
+
+        % Time to first significant firing rate change
+        disp(['Time to first sig point ' num2str(timeline(first_sig_idx))]);
         fprintf('\n\n');
 
         %cur_srate = mean(all_pulse_fr, 2, 'omitnan');
