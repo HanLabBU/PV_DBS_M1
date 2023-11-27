@@ -1,4 +1,3 @@
-clear all;
 close all;
 f = filesep;
 
@@ -250,7 +249,7 @@ for f_region = fieldnames(region_data)'
     data_bystim = region_data.(f_region);
     stims = fieldnames(data_bystim);
     
-    figure('visible','on', 'Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
+    figure('Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
     tiledlayout(1, length(stims), 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 20, 17.56, 3.17]);
     for f_stim=stims'
         f_stim = f_stim{1};
@@ -373,7 +372,7 @@ for f_region = fieldnames(region_data)'
 
     sub_vm_stat_data.(f_region) = struct();
 
-    figure('Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
+    figure('visible', 'on', 'Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
     tiledlayout(1, length(stims), 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 20, 8.096, 3]);
     for f_stim=stims'
         nexttile;
@@ -392,6 +391,9 @@ for f_region = fieldnames(region_data)'
         violins(2).ViolinColor = {Multi_func.sus_color};
 
         hold on;
+
+        % Plot zero horizontal line
+        yline(0);
 
         % Plot individual lines between violins
         %plot([1, 2], data, '-', 'Color', [0 0 0 0.2]);
@@ -491,7 +493,7 @@ for f_region = fieldnames(region_data)'
 
     fr_stat_data.(f_region) = struct();
 
-    figure('Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
+    figure('visible', 'on', 'Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
     tiledlayout(1, length(stims), 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 20, 8.096, 3]);
     for f_stim=stims'
         nexttile;
@@ -509,6 +511,8 @@ for f_region = fieldnames(region_data)'
         violins(2).ViolinColor = {Multi_func.sus_color};
 
         hold on;
+
+        yline(0);
 
         % Plot individual lines between violins
         %plot([1, 2], data, '-', 'Color', [0 0 0 0.2]);
@@ -652,7 +656,7 @@ for f_region = fieldnames(region_data)'
         posy = 5;
         Vm_scale = 2;
         plot([posx, posx], [posy, posy + Vm_scale], 'k', 'LineWidth', 2);
-        text(posx - .01, posy, [num2str(Vm_scale) ' VM'], 'Rotation', 90);
+        text(posx - .01, posy, [num2str(Vm_scale) ' Vm'], 'Rotation', 90);
 
         % Increase timescale resolution
         xlim([0 - .100, max(stim_time) + 0.100]);
@@ -674,7 +678,7 @@ for f_region = fieldnames(region_data)'
     data_bystim = region_data.(f_region);
     stims = fieldnames(data_bystim);
     
-    figure('visible', 'on', 'Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
+    figure('Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
     tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 20, 9.5, 5.0]);
     for f_stim=stims'
         timeline = nanmean(data_bystim.(f_stim{1}).trace_timestamps, 2);
@@ -744,6 +748,7 @@ for f_region = fieldnames(sub_vm_stat_data)'
             sub_vm_stat_data.(f_region).(f_stim).([f_ped '_stats']) = stats;
             sub_vm_stat_data.(f_region).(f_stim).([f_ped '_p']) = p;
 
+            clear p, h, stats;
         end
 
         % Perform individual signtests on firing rate
@@ -754,12 +759,15 @@ for f_region = fieldnames(sub_vm_stat_data)'
             fr_stat_data.(f_region).(f_stim).([f_ped '_stats']) = stats;
             fr_stat_data.(f_region).(f_stim).([f_ped '_p']) = p;
 
+            clear p, h, stats;
         end
 
         % Perform the trans and sus comparison
         [p, h, stats] = signrank(sub_vm_stat_data.(f_region).(f_stim).trans_vm, sub_vm_stat_data.(f_region).(f_stim).sus_vm);
         sub_vm_stat_data.(f_region).(f_stim).trans_sus_stats = stats;
         sub_vm_stat_data.(f_region).(f_stim).trans_sus_p = p;
+
+        clear p, h, stats;
 
         [p, h, stats] = signrank(fr_stat_data.(f_region).(f_stim).trans_fr, fr_stat_data.(f_region).(f_stim).sus_fr);
         fr_stat_data.(f_region).(f_stim).trans_sus_stats = stats;
