@@ -11,6 +11,17 @@ f = filesep;
 
 sophis_bleachdetrend = 1;
 
+% Option for excluding or including first 200ms
+exclude_200ms = 1;
+
+% Parameters for frames to chop off
+if ~exclude_200ms
+    front_frame_drop = 15;
+else 
+    front_frame_drop = 15 + round((828*.200));
+end
+back_frame_drop = 2496;
+
 % Maingear office computer
 local_root_path = '/home/pierfier/Projects/';
 server_root_path = '~/handata_server/';
@@ -40,33 +51,30 @@ example_matfile = [pv_data_path '611284_V1_rec20210827_FOV1_140_60_.mat'];
 data = load(example_matfile);
 trial_idx = 5;
 
-exclude_200ms = 1;
-
-if ~exclude_200ms
-    front_frame_drop = 15;
-else
-    front_frame_drop = 15 + round((828*.200));
-end
-
-back_frame_drop = 2496;
-
 if sophis_bleachdetrend == 2
-    [baseline, coeff] = Multi_func.exp_fit_Fx_Base(data.raw.trial{trial_idx}.raw_traces,...
+    [baseline, coeff] = Multi_func.exp_fit_Fx_Base(data.raw.trial{trial_idx}.raw_traces(front_frame_drop:back_frame_drop),...
         round(data.align.trial{trial_idx}.camera_framerate));
 
 elseif sophis_bleachdetrend == 1
-    [baseline, coeff] = Multi_func.exp_fit_Fx(data.raw.trial{trial_idx}.raw_traces,...
+    [baseline, coeff] = Multi_func.exp_fit_Fx(data.raw.trial{trial_idx}.raw_traces(front_frame_drop:back_frame_drop),...
         round(data.align.trial{trial_idx}.camera_framerate));
 else
-    [baseline, coeff] = Multi_func.exp_fit(data.raw.trial{trial_idx}.raw_traces);
+    [baseline, coeff] = Multi_func.exp_fit(data.raw.trial{trial_idx}.raw_traces(front_frame_drop:back_frame_drop));
 end
 
-detrend_traces = data.raw.trial{trial_idx}.raw_traces - baseline';
+detrend_traces = data.raw.trial{trial_idx}.raw_traces(front_frame_drop:back_frame_drop) - baseline';
 trace_noise = data.align.trial{trial_idx}.spike_info375.trace_noise;
 spike_idx = data.align.trial{trial_idx}.spike_info375.spike_idx{1};
+spike_idx(find(spike_idx < front_frame_drop | spike_idx > back_frame_drop)) = [];
+spike_idx = spike_idx - front_frame_drop + 1;
+if length(spike_idx) == 0
+    spike_idx = [NaN];
+end
+
 sam_freq = data.align.trial{trial_idx}.camera_framerate;
-stim_idx = data.raw.trial{trial_idx}.raw_stimulation_time - data.raw.trial{trial_idx}.raw_camera_start_time;
-stim_idx = round(stim_idx*sam_freq);
+stim_time = data.raw.trial{trial_idx}.raw_stimulation_time - data.raw.trial{trial_idx}.raw_camera_start_time;
+stim_idx = round(stim_time*sam_freq);
+stim_idx = stim_idx - front_frame_drop + 1;
 
 % Generate figure
 figure('renderer', 'painters', 'Position', [0 0 1200 500]);
@@ -123,6 +131,9 @@ title('Exemplary V1 140 Hz trace');
 saveas(gcf, [savefig_path 'Exemplary' f 'V1_140Hz_Trace.png']);
 saveas(gcf, [savefig_path 'Exemplary' f 'V1_140Hz_Trace.pdf']);
 
+%DEBUG
+return;
+
 %From same exemplary trace as above, show the individual spectrum
 %signal = data.align.trial{trial_idx}.spike_info375.trace_ws;
 %[wt, f] = Multi_func.get_power_spec(signal, sam_freq);
@@ -140,22 +151,29 @@ data = load(example_matfile);
 trial_idx = 2;
 
 if sophis_bleachdetrend == 2
-    [baseline, coeff] = Multi_func.exp_fit_Fx_Base(data.raw.trial{trial_idx}.raw_traces,...
+    [baseline, coeff] = Multi_func.exp_fit_Fx_Base(data.raw.trial{trial_idx}.raw_traces(front_frame_drop:back_frame_drop),...
         round(data.align.trial{trial_idx}.camera_framerate));
 
 elseif sophis_bleachdetrend == 1
-    [baseline, coeff] = Multi_func.exp_fit_Fx(data.raw.trial{trial_idx}.raw_traces,...
+    [baseline, coeff] = Multi_func.exp_fit_Fx(data.raw.trial{trial_idx}.raw_traces(front_frame_drop:back_frame_drop),...
         round(data.align.trial{trial_idx}.camera_framerate));
 else
-    [baseline, coeff] = Multi_func.exp_fit(data.raw.trial{trial_idx}.raw_traces);
+    [baseline, coeff] = Multi_func.exp_fit(data.raw.trial{trial_idx}.raw_traces(front_frame_drop:back_frame_drop));
 end
 
-detrend_traces = data.raw.trial{trial_idx}.raw_traces - baseline';
+detrend_traces = data.raw.trial{trial_idx}.raw_traces(front_frame_drop:back_frame_drop) - baseline';
 trace_noise = data.align.trial{trial_idx}.spike_info375.trace_noise;
 spike_idx = data.align.trial{trial_idx}.spike_info375.spike_idx{1};
+spike_idx(find(spike_idx < front_frame_drop | spike_idx > back_frame_drop)) = [];
+spike_idx = spike_idx - front_frame_drop + 1;
+if length(spike_idx) == 0
+    spike_idx = [NaN];
+end
+
 sam_freq = data.align.trial{trial_idx}.camera_framerate;
-stim_idx = data.raw.trial{trial_idx}.raw_stimulation_time - data.raw.trial{trial_idx}.raw_camera_start_time;
-stim_idx = round(stim_idx*sam_freq);
+stim_time = data.raw.trial{trial_idx}.raw_stimulation_time - data.raw.trial{trial_idx}.raw_camera_start_time;
+stim_idx = round(stim_time*sam_freq);
+stim_idx = stim_idx - front_frame_drop + 1;
 
 % Generate figure
 figure('renderer', 'painters', 'Position', [0 0 1200 500]);
@@ -231,27 +249,29 @@ data = load(example_matfile);
 trial_idx = 8;
 
 if sophis_bleachdetrend == 2
-    [baseline, coeff] = Multi_func.exp_fit_Fx_Base(data.raw.trial{trial_idx}.raw_traces,...
+    [baseline, coeff] = Multi_func.exp_fit_Fx_Base(data.raw.trial{trial_idx}.raw_traces(front_frame_drop:back_frame_drop),...
         round(data.align.trial{trial_idx}.camera_framerate));
 
 elseif sophis_bleachdetrend == 1
-    [baseline, coeff] = Multi_func.exp_fit_Fx(data.raw.trial{trial_idx}.raw_traces,...
+    [baseline, coeff] = Multi_func.exp_fit_Fx(data.raw.trial{trial_idx}.raw_traces(front_frame_drop:back_frame_drop),...
         round(data.align.trial{trial_idx}.camera_framerate));
 else
-    [baseline, coeff] = Multi_func.exp_fit(data.raw.trial{trial_idx}.raw_traces);
+    [baseline, coeff] = Multi_func.exp_fit(data.raw.trial{trial_idx}.raw_traces(front_frame_drop:back_frame_drop));
 end
-detrend_traces = data.raw.trial{trial_idx}.raw_traces - baseline';
+
+detrend_traces = data.raw.trial{trial_idx}.raw_traces(front_frame_drop:back_frame_drop) - baseline';
 trace_noise = data.align.trial{trial_idx}.spike_info375.trace_noise;
 spike_idx = data.align.trial{trial_idx}.spike_info375.spike_idx{1};
-sam_freq = data.align.trial{trial_idx}.camera_framerate;
-stim_idx = data.raw.trial{trial_idx}.raw_stimulation_time - data.raw.trial{trial_idx}.raw_camera_start_time;
-stim_idx = round(stim_idx*sam_freq);
-stim_start = data.raw.trial{trial_idx}.raw_stimulation_time(1);
+spike_idx(find(spike_idx < front_frame_drop | spike_idx > back_frame_drop)) = [];
+spike_idx = spike_idx - front_frame_drop + 1;
+if length(spike_idx) == 0
+    spike_idx = [NaN];
+end
 
-% Calculate the idx time for base, stim, and offset
-base_idx = find(data.align.trial{trial_idx}.camera_frame_time - stim_start > base_zoom(1)./1000 & data.align.trial{trial_idx}.camera_frame_time - stim_start < base_zoom(2)./1000);
-stim_ped_idx = find(data.align.trial{trial_idx}.camera_frame_time - stim_start > stim_zoom(1)./1000 & data.align.trial{trial_idx}.camera_frame_time - stim_start < stim_zoom(2)./1000);
-offset_idx = find(data.align.trial{trial_idx}.camera_frame_time - stim_start > offset_zoom(1)./1000 & data.align.trial{trial_idx}.camera_frame_time - stim_start < offset_zoom(2)./1000);
+sam_freq = data.align.trial{trial_idx}.camera_framerate;
+stim_time = data.raw.trial{trial_idx}.raw_stimulation_time - data.raw.trial{trial_idx}.raw_camera_start_time;
+stim_idx = round(stim_time*sam_freq);
+stim_idx = stim_idx - front_frame_drop + 1;
 
 % Generate figure
 
@@ -465,21 +485,30 @@ trial_idx = 3;
 data = load(example_matfile);
 
 if sophis_bleachdetrend == 2
-    [baseline, coeff] = Multi_func.exp_fit_Fx_Base(data.raw.trial{trial_idx}.raw_traces,...
+    [baseline, coeff] = Multi_func.exp_fit_Fx_Base(data.raw.trial{trial_idx}.raw_traces(front_frame_drop:back_frame_drop),...
         round(data.align.trial{trial_idx}.camera_framerate));
 
 elseif sophis_bleachdetrend == 1
-    [baseline, coeff] = Multi_func.exp_fit_Fx(data.raw.trial{trial_idx}.raw_traces,...
+    [baseline, coeff] = Multi_func.exp_fit_Fx(data.raw.trial{trial_idx}.raw_traces(front_frame_drop:back_frame_drop),...
         round(data.align.trial{trial_idx}.camera_framerate));
 else
-    [baseline, coeff] = Multi_func.exp_fit(data.raw.trial{trial_idx}.raw_traces);
+    [baseline, coeff] = Multi_func.exp_fit(data.raw.trial{trial_idx}.raw_traces(front_frame_drop:back_frame_drop));
 end
-detrend_traces = data.raw.trial{trial_idx}.raw_traces - baseline';
+
+detrend_traces = data.raw.trial{trial_idx}.raw_traces(front_frame_drop:back_frame_drop) - baseline';
 trace_noise = data.align.trial{trial_idx}.spike_info375.trace_noise;
 spike_idx = data.align.trial{trial_idx}.spike_info375.spike_idx{1};
+spike_idx(find(spike_idx < front_frame_drop | spike_idx > back_frame_drop)) = [];
+spike_idx = spike_idx - front_frame_drop + 1;
+if length(spike_idx) == 0
+    spike_idx = [NaN];
+end
+
 sam_freq = data.align.trial{trial_idx}.camera_framerate;
-stim_idx = data.raw.trial{trial_idx}.raw_stimulation_time - data.raw.trial{trial_idx}.raw_camera_start_time;
-stim_idx = round(stim_idx*sam_freq);
+stim_time = data.raw.trial{trial_idx}.raw_stimulation_time - data.raw.trial{trial_idx}.raw_camera_start_time;
+stim_idx = round(stim_time*sam_freq);
+stim_idx = stim_idx - front_frame_drop + 1;
+
 
 % Generate figure
 figure('renderer', 'painters', 'Position', [0 0 1200 500]);
@@ -539,21 +568,29 @@ data = load(example_matfile);
 trial_idx = 3;
 
 if sophis_bleachdetrend == 2
-    [baseline, coeff] = Multi_func.exp_fit_Fx_Base(data.raw.trial{trial_idx}.raw_traces,...
+    [baseline, coeff] = Multi_func.exp_fit_Fx_Base(data.raw.trial{trial_idx}.raw_traces(front_frame_drop:back_frame_drop),...
         round(data.align.trial{trial_idx}.camera_framerate));
 
 elseif sophis_bleachdetrend == 1
-    [baseline, coeff] = Multi_func.exp_fit_Fx(data.raw.trial{trial_idx}.raw_traces,...
+    [baseline, coeff] = Multi_func.exp_fit_Fx(data.raw.trial{trial_idx}.raw_traces(front_frame_drop:back_frame_drop),...
         round(data.align.trial{trial_idx}.camera_framerate));
 else
-    [baseline, coeff] = Multi_func.exp_fit(data.raw.trial{trial_idx}.raw_traces);
+    [baseline, coeff] = Multi_func.exp_fit(data.raw.trial{trial_idx}.raw_traces(front_frame_drop:back_frame_drop));
 end
-detrend_traces = data.raw.trial{trial_idx}.raw_traces - baseline';
+
+detrend_traces = data.raw.trial{trial_idx}.raw_traces(front_frame_drop:back_frame_drop) - baseline';
 trace_noise = data.align.trial{trial_idx}.spike_info375.trace_noise;
 spike_idx = data.align.trial{trial_idx}.spike_info375.spike_idx{1};
+spike_idx(find(spike_idx < front_frame_drop | spike_idx > back_frame_drop)) = [];
+spike_idx = spike_idx - front_frame_drop + 1;
+if length(spike_idx) == 0
+    spike_idx = [NaN];
+end
+
 sam_freq = data.align.trial{trial_idx}.camera_framerate;
-stim_idx = data.raw.trial{trial_idx}.raw_stimulation_time - data.raw.trial{trial_idx}.raw_camera_start_time;
-stim_idx = round(stim_idx*sam_freq);
+stim_time = data.raw.trial{trial_idx}.raw_stimulation_time - data.raw.trial{trial_idx}.raw_camera_start_time;
+stim_idx = round(stim_time*sam_freq);
+stim_idx = stim_idx - front_frame_drop + 1;
 
 % Generate figure
 figure('renderer', 'painters', 'Position', [0 0 1200 500]);
@@ -625,21 +662,12 @@ data = load(example_matfile);
 trial_idx = 8;
 
 if sophis_bleachdetrend == 2
-    [baseline, coeff] = Multi_func.exp_fit_Fx_Base(data.raw.trial{trial_idx}.raw_traces,...
+    [baseline, coeff] = Multi_func.exp_fit_Fx_Base(data.raw.trial{trial_idx}.raw_traces(front_frame_drop:back_frame_drop),...
         round(data.align.trial{trial_idx}.camera_framerate));
 
 elseif sophis_bleachdetrend == 1
-    [baseline, coeff] = Multi_func.exp_fit_Fx(data.raw.trial{trial_idx}.raw_traces,...
-        round(data.align.trial{trial_idx}.camera_framerate));
-else
-    [baseline, coeff] = Multi_func.exp_fit(data.raw.trial{trial_idx}.raw_traces);
-end
-detrend_traces = data.raw.trial{trial_idx}.raw_traces - baseline';
-trace_noise = data.align.trial{trial_idx}.spike_info375.trace_noise;
-spike_idx = data.align.trial{trial_idx}.spike_info375.spike_idx{1};
-sam_freq = data.align.trial{trial_idx}.camera_framerate;
-stim_idx = data.raw.trial{trial_idx}.raw_stimulation_time - data.raw.trial{trial_idx}.raw_camera_start_time;
-stim_idx = round(stim_idx*sam_freq);
+
+end 
 
 % Generate figure
 figure('renderer', 'painters', 'Position', [0 0 1200 500]);
@@ -716,16 +744,16 @@ data = load(example_matfile);
 trial_idx = 9;
 
 if sophis_bleachdetrend == 2
-    [baseline, coeff] = Multi_func.exp_fit_Fx_Base(data.raw.trial{trial_idx}.raw_traces,...
+    [baseline, coeff] = Multi_func.exp_fit_Fx_Base(data.raw.trial{trial_idx}.raw_traces(front_frame_drop:back_frame_drop),...
         round(data.align.trial{trial_idx}.camera_framerate));
 
 elseif sophis_bleachdetrend == 1
-    [baseline, coeff] = Multi_func.exp_fit_Fx(data.raw.trial{trial_idx}.raw_traces,...
+    [baseline, coeff] = Multi_func.exp_fit_Fx(data.raw.trial{trial_idx}.raw_traces(front_frame_drop:back_frame_drop),...
         round(data.align.trial{trial_idx}.camera_framerate));
 else
-    [baseline, coeff] = Multi_func.exp_fit(data.raw.trial{trial_idx}.raw_traces);
+    [baseline, coeff] = Multi_func.exp_fit(data.raw.trial{trial_idx}.raw_traces(front_frame_drop:back_frame_drop));
 end
-detrend_traces = data.raw.trial{trial_idx}.raw_traces - baseline';
+detrend_traces = data.raw.trial{trial_idx}.raw_traces(front_frame_drop:back_frame_drop) - baseline';
 trace_noise = data.align.trial{trial_idx}.spike_info375.trace_noise;
 spike_idx = data.align.trial{trial_idx}.spike_info375.spike_idx{1};
 sam_freq = data.align.trial{trial_idx}.camera_framerate;
@@ -755,12 +783,12 @@ axis off;
 hold on;
 
 % Plot spikes detected
-plot(spike_idx, detrend_traces(spike_idx)./trace_noise, '.r', 'MarkerSize', 12);
+plot(spike_idx, detrend_traces(spike_idx)./trace_noise, '.r', 'MarkerSize', 6);
 hold on;
 
 % Plot the stimulation time pulses
 posx = 3;
-posy = 18;
+posy = 22;
 plot(stim_idx, repmat(posy, length(stim_idx), 1), '|k');
 hold on;
 plot([1, length(detrend_traces)], [posy posy], '-k');
@@ -813,7 +841,7 @@ dim(3) = range(offset_idx);
 dim(4) = 25;
 rectangle('Position', dim, 'EdgeColor', Multi_func.post_color, 'LineStyle', '--');
 
-set(gca, 'Units', 'centimeters', 'Position', [5 20 10 3.00], 'PositionConstraint', 'innerposition');
+set(gca, 'Units', 'centimeters', 'Position', [5 20 9 3.00], 'PositionConstraint', 'innerposition');
 
 title('Exemplary M1 40 Hz trace');
 %saveas(gcf, [savefig_path 'Exemplary' f 'M1_40Hz_Trace.eps'], 'epsc');
