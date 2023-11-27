@@ -72,7 +72,7 @@ for f_region = fieldnames(region_data)'
     stims = fieldnames(data_bystim);
     for f_stim=stims'
         f_stim = f_stim{1};
-        stim_num = str2num(f_stim(3:end))
+        stim_num = str2num(f_stim(3:end));
         
         figure('Renderer', 'Painters', 'Position', [200 200 2000 700]);
         tiledlayout(1, 2, 'TileSpacing', 'compact', 'Padding', 'compact');
@@ -140,11 +140,11 @@ for f_region = fieldnames(region_data)'
     for f_stim=stims'
         f_stim = f_stim{1};
 
-        %TODO may need to filter better here
+        % Specify low frequency range to filter
         low_range = [2, 10]; % Delta/Theta frequency
         
-        figure('visible', 'on', 'Renderer', 'Painters', 'Position', [200 200 2000 700]);
-        tiledlayout(1, 2, 'TileSpacing', 'compact', 'Padding', 'compact');
+        figure('visible', 'on', 'Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
+        tiledlayout(1, 2, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 20, 8.25, 4.13]);
     
         base_phases = [];
         stim_phases = [];
@@ -177,17 +177,19 @@ for f_region = fieldnames(region_data)'
             end
         end
     
+        % TODO need to change the face colors to the standard color acorss all figures
+
         % Plot the polar histgrams
         nexttile;
         edges = linspace(0, 2*pi, 24);
         polarhistogram(base_phases, edges, 'Normalization', 'probability', 'FaceColor', 'blue', 'FaceAlpha', 0.3);
-        rlim([0 .2]);
+        rlim([0 .15]);
         title('Base');
         set(gca, 'Color', 'none');
     
         nexttile;
         polarhistogram(stim_phases, edges, 'Normalization', 'probability', 'FaceColor', 'red', 'FaceAlpha', 0.3);
-        rlim([0 .2]);
+        rlim([0 .15]);
         title('Stim');
         set(gca, 'Color', 'none');
     
@@ -201,7 +203,7 @@ end
 
 function [filt_sig] = filt_range(sig, range, FS)
     Fn = FS/2;
-    FB = [0.8 1.2].*range
+    FB = [0.8 1.2].*range;
     
     [B, A] = butter(2, [min(FB)/Fn max(FB)/Fn]);
     filt_sig = hilbert(filtfilt(B,A,sig));
