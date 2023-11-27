@@ -1,3 +1,4 @@
+% This script will perform spike detection with the specified threshold and append it as a new spike_info<threshold>
 f = filesep;
 
 %USER modify everything below here
@@ -16,7 +17,10 @@ server_root_path = '~/handata_server/';
 addpath(genpath([server_root_path 'EricLowet']));
 
 % Folder location of all the saved and aligned data
-data_path = [server_root_path 'eng_research_handata3' f 'Pierre Fabris' f 'PV Project' f 'PV_Data' f];
+%data_path = [server_root_path 'eng_research_handata3' f 'Pierre Fabris' f 'PV Project' f 'PV_Data' f];
+
+% Data on local computer
+data_path = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'PV_Data' f];
 
 %USER END modification
 
