@@ -10,10 +10,6 @@ server_root_path = '~/handata_server/eng_research_handata3/';
 % Windows server
 %local_root_path = 'Z:\';
 
-% Parameters for frames to chop off
-front_frame_drop = 15;
-back_frame_drop = 2496;
-
 % List path where all of the matfiles are stored
 %pv_data_path = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'PV_Data' f];
 % Data on local linux machine
@@ -28,7 +24,9 @@ ignore_trial_dict = Multi_func.csv_to_struct([local_root_path 'Pierre Fabris' f 
                                        'Stim Recordings' f 'Data_Config' f 'byvis_ignore.csv']);
 
 % Parameter to determine whether to combine all regions as one data
-all_regions = 1;
+all_regions = 0;
+
+exclude_200ms = 1;
 
 %%% END Modification
 
@@ -37,6 +35,15 @@ if ~isfolder(local_root_path)
     disp('Server rootpath does not exist!!!');
     return;
 end
+
+% Parameters for frames to chop off
+if ~exclude_200ms
+    front_frame_drop = 15;
+else
+    front_frame_drop = 15 + round((828*.200));
+end
+
+back_frame_drop = 2496;
 
 ses = dir([pv_data_path '*.mat']);
 
@@ -73,7 +80,7 @@ for f_region = {'r_M1'} %fieldnames(region_matfiles)'
         data_bystim.(f_stim).trace_timestamps = [];
 
         % Loop through each matfile of the current stimulation condition
-        for matfile = matfiles(17) % DEBUG just trying the one neuron first
+        for matfile = matfiles(19) % DEBUG just trying the one neuron first
             % Read in the mat file of the current condition
             data = load([pv_data_path matfile{1}]);
             trial_idxs = find(~cellfun(@isempty, data.align.trial));
@@ -88,28 +95,26 @@ for f_region = {'r_M1'} %fieldnames(region_matfiles)'
 
             % Loop through each ROI
             for roi_idx=1:size(trial_data.detrend_traces, 2)
+                %Determine whether this roi is to be ignored for this particular trial
+                ri = strsplit(matfile{1}, '_');
+                try
+                    trial_ignr_list = ignore_trial_dict.(['mouse_' ri{1}]).(['rec_' erase(ri{3}, 'rec')]).(ri{4}).(['f_' ri{5}]).(['ROI' num2str(roi_idx)]);
+                catch
+                    trial_ignr_list = [];
+                end
+        
+                % Remove ignored trials from trial idx list
+                trial_idxs = setdiff(trial_idxs, trial_ignr_list);
+
+                % Skip ROI if there are at most 2 trials
+                if length(trial_idxs) <= 2
+                    continue;
+                end
+
                 % Loop through each trial                
                 for tr_idx=trial_idxs        
                     trial_data = data.align.trial{tr_idx};
                     raw_trial_data = data.raw.trial{tr_idx};
-
-                    %Determine whether this roi is to be ignored for this particular trial
-                    ri = strsplit(matfile{1}, '_');
-                    try
-                        trial_ignr_list = ignore_trial_dict.(['mouse_' ri{1}]).(['rec_' erase(ri{3}, 'rec')]).(ri{4}).(['f_' ri{5}]).(['ROI' num2str(roi_idx)]);
-                    catch
-                        trial_ignr_list = [];
-                    end
-    
-                    % Check if current trial is in the ignore list
-                    if ismember(tr_idx, trial_ignr_list)
-                        continue;
-                    end
-                    
-                    % If the trial data is empty, that means it was skipped
-                    if isempty(trial_data) || sum(isnan(cur_fov_subVm(:))) > 0
-                        continue;
-                    end
 
                     % Store the camera framerate
                     all_Fs(end+1) = trial_data.camera_framerate;
@@ -145,46 +150,62 @@ for f_region = {'r_M1'} %fieldnames(region_matfiles)'
             end
 
             % Plot the subthreshold heatmap, and then the coherence
-            figure('Renderer', 'Painters', 'Position', [200 200 900 700]);
-            tiledlayout(3, 1, 'TileSpacing', 'compact', 'Padding', 'compact');
-            nexttile;
+            figure('visible', 'on', 'Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 20.59 27.94]);
+            tiledlayout(2, 1, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 20, 7.0658, 6.36]);
+            ax1 = nexttile;
             surface(nanmean(cur_fov_trace_time, 2), 1:size(cur_fov_subVm, 2), cur_fov_subVm', 'CDataMapping', 'scaled', 'FaceColor', 'texturemap', 'edgecolor', 'none');
+            %colormap(ax1, Multi_func.green_warm_cold_color);
             Multi_func.set_default_axis(gca);
+            y = gca; y = y.YAxis;
+            Multi_func.set_spacing_axis(y, 3, 1);
+            a = colorbar;    
+            a.Label.String = 'Vm';
             xlabel('Time from onset(s)');
             ylabel('Trial #');
             xlim([-1, 2.05]);
             title('Sub Vm');
             
-            nexttile;
+            ax2 = nexttile;
+            % Creates smooth ITC
             itc_map = abs(mean(cur_fov_fourcoeff./abs(cur_fov_fourcoeff), 3, 'omitnan'));
+            
+            % Creates ridged ITC plot
             %itc_map = exp(1i.*angle(cur_fov_fourcoeff));
             %itc_map = abs(mean(itc_map, 3, 'omitnan'));
+
             surface(nanmean(cur_fov_trace_time, 2), f, itc_map, 'CDataMapping', 'scaled', 'FaceColor', 'texturemap', 'edgecolor', 'none' );
+            colormap(ax2, Multi_func.warm_cold_color);
             xlim([-1, 2.05]);
             xlabel('Time from onset(s)');
             ylabel('Frequency (Hz)');
+            ylim([0 20]);
             a = colorbar;    
             a.Label.String = 'ITC';
             Multi_func.set_default_axis(gca);
+            y = gca; y = y.YAxis;
+            Multi_func.set_spacing_axis(y, 5, 1);
             title('ITC');
+            fontsize(gcf, 7, "points");
 
-            nexttile;
-            % One method has NaNs and the other has zeroes
-            % Either one seems very close
-            %itc_map_hil = abs(mean(cur_fov_filtsig./abs(cur_fov_filtsig), 3, 'omitnan'));
-            itc_map_hil = exp(1i.*angle(cur_fov_filtsig));
-            itc_map_hil = abs(mean(itc_map_hil, 3, 'omitnan'));
+            %nexttile;
+            %% One method has NaNs and the other has zeroes
+            %% Either one seems very close
+            %%itc_map_hil = abs(mean(cur_fov_filtsig./abs(cur_fov_filtsig), 3, 'omitnan'));
+            %itc_map_hil = exp(1i.*angle(cur_fov_filtsig));
+            %itc_map_hil = abs(mean(itc_map_hil, 3, 'omitnan'));
 
-            surface(nanmean(cur_fov_trace_time, 2), [1:1:150], itc_map_hil, 'CDataMapping', 'scaled', 'FaceColor', 'texturemap', 'edgecolor', 'none' );
-            xlim([-1, 2.05]);
-            xlabel('Time from onset(s)');
-            ylabel('Frequency (Hz)');
-            a = colorbar;    
-            a.Label.String = 'ITC';
-            Multi_func.set_default_axis(gca);
-            title('ITC from Hilbert');
+            %surface(nanmean(cur_fov_trace_time, 2), [1:1:150], itc_map_hil, 'CDataMapping', 'scaled', 'FaceColor', 'texturemap', 'edgecolor', 'none' );
+            %xlim([-1, 2.05]);
+            %xlabel('Time from onset(s)');
+            %ylabel('Frequency (Hz)');
+            %a = colorbar;    
+            %a.Label.String = 'ITC';
+            %Multi_func.set_default_axis(gca);
+            %title('ITC from Hilbert');
             sgtitle(matfile, 'Interpreter', 'none');
-            
+            saveas(gcf, [figure_path 'ITC/40Hz_exemplary_ITC.pdf']);
+            saveas(gcf, [figure_path 'ITC/40Hz_exemplary_ITC.png']);
+
             % Look at rose plot for 2.2 sec time point, 1817 idx
             %data_line = cur_fov_fourcoeff(35, 1817, :);
             %figure;
@@ -219,8 +240,10 @@ if all_regions == 1
     region_data = Multi_func.combine_regions(region_data);
 end
 
-% Calculate the sampling frequency from all of the 
-avg_Fs = nanmean(all_Fs);
+%% Calculate the sampling frequency from all of the 
+%field1 = fieldnames(region_data);
+%field1 = field1{1};
+%avg_Fs = mean(region_data.(field1).f_40.framerate, 'omitnan');
 
 % Filter data with hilbert transform
 function  [filt_sig]=filt_data(sig,frs, FS)
