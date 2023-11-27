@@ -32,13 +32,15 @@ back_frame_drop = 2496;
 %Variables to differentiate between the larger and finer resolution of spike rate
 %TODO may need to change variable names and add finer resolutions
 srate_win_100 = 100;
+srate_win_50 = 50;
 srate_win_20 = 20;
+srate_win_10 = 10;
 srate_win_3 = 3;
 
 % Time periods for comparison of firing rate and sub Vm
 base_ped = [-500 0];
-trans_ped = [0, 150];
-sus_ped = [150, 1000];
+trans_ped = [0, 100];
+sus_ped = [100, 1000];
 stim_ped = [0 1000];
 offset_trans_ped = [1000, 1150];
 
@@ -92,11 +94,15 @@ for f_region = fieldnames(region_matfiles)'
         data_bystim.(f_stim).all_trial_SubVm = {};
         data_bystim.(f_stim).neuron_Vm = [];
         data_bystim.(f_stim).all_trial_rawVm = {};
+        data_bystim.(f_stim).all_trial_trace_noise = {};
+
         
         % Spike stuff
         data_bystim.(f_stim).all_trial_spikeidx = {};
         data_bystim.(f_stim).neuron_srate_100 = [];
+        data_bystim.(f_stim).neuron_srate_50 = [];
         data_bystim.(f_stim).neuron_srate_20 = [];
+        data_bystim.(f_stim).neuron_srate_10 = [];
         data_bystim.(f_stim).neuron_srate_3 = [];
         data_bystim.(f_stim).neuron_spikecounts_raster = [];
 
@@ -131,10 +137,13 @@ for f_region = fieldnames(region_matfiles)'
             cur_fov_Fs = [];
             cur_fov_subVm = [];
             cur_fov_rawtraces = [];
+            cur_fov_tracenoises = [];
             cur_fov_spikeidx = [];
 
             cur_fov_srate_100 = [];
+            cur_fov_srate_50 = [];
             cur_fov_srate_20 = [];
+            cur_fov_srate_10 = [];
             cur_fov_srate_3 = [];
             cur_fov_srate_inst = [];
             cur_fov_raster = [];
@@ -219,7 +228,10 @@ for f_region = fieldnames(region_matfiles)'
                     detrend_Vm = cur_raw_trace - baseline';
                     cur_fov_rawtraces = horzcat_pad(cur_fov_rawtraces, detrend_Vm);
 
-                    % Calculate spikerate with a large window size
+                    cur_trace_noise = trial_data.spike_info375.trace_noise;
+                    cur_fov_tracenoises = horzcat_pad(cur_fov_tracenoises, cur_trace_noise);
+
+                    % Calculate spikerate with a window size of 100
                     cur_raster = trial_data.spike_info375.roaster(roi_idx, front_frame_drop:back_frame_drop);
                     cur_spikerate = cur_raster.*trial_data.camera_framerate;
 
@@ -237,7 +249,28 @@ for f_region = fieldnames(region_matfiles)'
                     cur_spikerate = cur_spikerate - mean(cur_spikerate(baseline_idx), 'omitnan');
                     cur_fov_srate_100 = horzcat_pad(cur_fov_srate_100, cur_spikerate');            
                     
-                    % Calculate spikerate with a small window size
+                    
+                    % Calculate spikerate with a window size of 50
+                    cur_raster = trial_data.spike_info375.roaster(roi_idx, front_frame_drop:back_frame_drop);
+                    cur_spikerate = cur_raster.*trial_data.camera_framerate;
+
+                    % Uses center window moving average with halved window on the ends
+                    %
+                    cur_spikerate = nanfastsmooth(cur_spikerate, srate_win_50, 1, 1);
+                        
+                    %Use preceding window points to average and asign to the last point
+                    % |<-------->|  averaging
+                    % ...........*  point assigned
+                    %cur_spikerate = Multi_func.estimate_spikerate(cur_raster, trial_data.camera_framerate, srate_win_50);
+                    
+                    % Baseline subtract the mean 
+                    baseline_idx = find(cur_trace_time < cur_stim_time(1));
+                    cur_spikerate = cur_spikerate - mean(cur_spikerate(baseline_idx), 'omitnan');
+                    cur_fov_srate_50 = horzcat_pad(cur_fov_srate_50, cur_spikerate');            
+        
+
+
+                    % Calculate spikerate with window size of 20
                     cur_raster = trial_data.spike_info375.roaster(roi_idx, front_frame_drop:back_frame_drop);
                     cur_spikerate = cur_raster.*trial_data.camera_framerate;
 
@@ -252,8 +285,25 @@ for f_region = fieldnames(region_matfiles)'
                     cur_spikerate = cur_spikerate - mean(cur_spikerate(baseline_idx), 'omitnan');
                     cur_fov_srate_20 = horzcat_pad(cur_fov_srate_20, cur_spikerate');            
 
+
+                    % Calculate spikerate with a window size of 10
+                    cur_raster = trial_data.spike_info375.roaster(roi_idx, front_frame_drop:back_frame_drop);
+                    cur_spikerate = cur_raster.*trial_data.camera_framerate;
+
+                    %Use preceding window points to average and asign to the last point
+                    %cur_spikerate = Multi_func.estimate_spikerate(cur_raster, trial_data.camera_framerate, srate_win_10);
+
+                    % Uses center window moving average   
+                    cur_spikerate = nanfastsmooth(cur_spikerate, srate_win_10, 1, 1);
+
+                    % Baseline subtract the mean 
+                    baseline_idx = find(cur_trace_time < cur_stim_time(1));
+                    cur_spikerate = cur_spikerate - mean(cur_spikerate(baseline_idx), 'omitnan');
+                    cur_fov_srate_10 = horzcat_pad(cur_fov_srate_10, cur_spikerate');            
+
                     
-                    % Calculate spikerate with a smaller window size
+
+                    % Calculate spikerate with a window size of 3
                     cur_raster = trial_data.spike_info375.roaster(roi_idx, front_frame_drop:back_frame_drop);
                     cur_spikerate = cur_raster.*trial_data.camera_framerate;
 
@@ -319,8 +369,14 @@ for f_region = fieldnames(region_matfiles)'
             temp = data_bystim.(f_stim).neuron_srate_100;
             data_bystim.(f_stim).neuron_srate_100 = horzcat_pad(temp, nanmean(cur_fov_srate_100, 2));
 
+            temp = data_bystim.(f_stim).neuron_srate_50;
+            data_bystim.(f_stim).neuron_srate_50 = horzcat_pad(temp, nanmean(cur_fov_srate_50, 2));
+
             temp = data_bystim.(f_stim).neuron_srate_20;
             data_bystim.(f_stim).neuron_srate_20 = horzcat_pad(temp, nanmean(cur_fov_srate_20, 2));
+
+            temp = data_bystim.(f_stim).neuron_srate_10;
+            data_bystim.(f_stim).neuron_srate_10 = horzcat_pad(temp, nanmean(cur_fov_srate_10, 2));
 
             temp = data_bystim.(f_stim).neuron_srate_3;
             data_bystim.(f_stim).neuron_srate_3 = horzcat_pad(temp, nanmean(cur_fov_srate_3, 2));
@@ -332,6 +388,11 @@ for f_region = fieldnames(region_matfiles)'
             % Save all trial raw traces
             temp = data_bystim.(f_stim).all_trial_rawVm;
             data_bystim.(f_stim).all_trial_rawVm{end + 1} = cur_fov_rawtraces;
+            
+            % Save all the trial trace noises
+            temp = data_bystim.(f_stim).all_trial_trace_noise;
+            data_bystim.(f_stim).all_trial_trace_noise{end + 1} = cur_fov_tracenoises;
+
 
             % Save all spike idxs
             temp = data_bystim.(f_stim).all_trial_spikeidx;
@@ -396,7 +457,7 @@ end
 % Filter data with hilbert transform
 function  [filt_sig]=filt_data(sig,frs, FS)
     Fn = FS/2;
-    for steps=1:length(frs);
+    for steps=frs;
         FB=[ frs(steps)*0.8 frs(steps)*1.2];
         [B, A] = butter(2, [min(FB)/Fn max(FB)/Fn]);
         filt_sig(steps, :)= hilbert(filtfilt(B,A,sig));
