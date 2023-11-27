@@ -100,7 +100,7 @@ for i=1:length(matfile_names)
 
             % Plotting detrended trace by exponential fit with stimulation pattern and spike detected points
             nexttile;
-            [x y] = exp_fit(raw_trace(:), round(trial_data.camera_framerate));
+            [y x] = Multi_func.exp_fit_Fx(raw_trace(:), round(trial_data.camera_framerate));
             detrend_trace = raw_trace - y';
             plot(trial_data.camera_frame_time, detrend_trace, '-b');
             hold on
