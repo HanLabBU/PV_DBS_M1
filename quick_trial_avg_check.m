@@ -40,6 +40,7 @@ figure;
 timeline = (1:size(all_subVm, 1))./Fs - 1;
 plot(timeline, mean(all_subVm, 2, 'omitnan'));
 title('Plotting average subthreshold Vm');
+savefig(gcf, [path files(1:end - 5) '_subVmAvg.fig']);
 
 % Plot the spike rasters
 figure;
@@ -58,11 +59,13 @@ for i=1:size(all_rasters, 2)
     hold on;
 end
 title('Plotting spike raster');
+savefig(gcf, [path files(1:end - 5) '_spike_raster.fig']);
 
 % Plot all of the traces
 figure;
 surface(timeline, 1:size(all_subVm, 2), all_subVm', 'CDataMapping', 'scaled', 'FaceColor', 'texturemap', 'edgecolor', 'none');
 title('All Traces Heatmap');
+savefig(gcf, [path files(1:end - 5) '_trials_heatmap.fig']);
 
 %TODO Show the subthreshold spectra
 Fs = 828;
@@ -72,7 +75,7 @@ surface(timeline, ...
         f, ...
         abs(wt), 'CDataMapping', 'scaled', 'FaceColor', 'texturemap', 'edgecolor', 'none');
 title('Power spectra of average signal');
-
+savefig(gcf, [path files(1:end - 5) '_SpecAvg.fig']);
 
 % Calculate cwt for input signal and 
 function [wt, f] = get_power_spec(signal, samp_freq)
