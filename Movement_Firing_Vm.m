@@ -31,7 +31,7 @@ ignore_trial_dict = Multi_func.csv_to_struct([local_root_path 'Pierre Fabris' f 
 srate_win = 100;
 
 % Parameter to determine whether to combine all regions as one data
-all_regions = 1;
+all_regions = 0;
 
 %%% END Modification
 
