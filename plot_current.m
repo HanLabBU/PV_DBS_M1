@@ -35,6 +35,8 @@ all_matfiles = {ses.name};
 % Select matfiles by brain region
 [region_matfiles] = Multi_func.find_region(all_matfiles);
 region_data = struct();
+all_currents = [];
+
 all_Fs = [];
 for f_region = fieldnames(region_matfiles)'
     f_region = f_region{1};
@@ -94,10 +96,19 @@ for f_region = fieldnames(region_matfiles)'
                 % Saving the current at neuron number index
                 region_data.(f_region).(f_mouse).(f_rec).(f_stim).currents(neuron_num) = str2num(ri{6});
 
+                % Save all of the currents
+                all_currents(end + 1) = str2num(ri{6});
+
             end
         end
     end
 end
+
+% Clear all zeros in the current array
+all_currents(find(all_currents == 0)) = [];
+
+disp(['Average currents ' num2str(mean(all_currents))]);
+disp(['Std currents ' num2str(std(all_currents))]);
 
 % Plot all of the currents as a single plot
 figure;
@@ -115,7 +126,7 @@ for f_region = fieldnames(region_data)'
  
             % Check if each stimulation condition exists for the neuron
             if isfield(region_data.(f_region).(f_mouse).(f_rec), 's_40')
-                current = region_data.(f_region).(f_mouse).(f_rec).s_40.currents
+                current = region_data.(f_region).(f_mouse).(f_rec).s_40.currents;
                 current(find(current == 0)) = [];
                 
                 plot(i + rand(1, length(current)), current, '.r');
@@ -124,7 +135,7 @@ for f_region = fieldnames(region_data)'
             i = i + 1;
             
             if isfield(region_data.(f_region).(f_mouse).(f_rec), 's_140')
-                current = region_data.(f_region).(f_mouse).(f_rec).s_140.currents
+                current = region_data.(f_region).(f_mouse).(f_rec).s_140.currents;
                 current(find(current == 0)) = [];
                 plot(i + rand(1, length(current)), current, '.b');
                 hold on;
@@ -134,7 +145,7 @@ for f_region = fieldnames(region_data)'
             tick_labels{end + 1} = [erase(f_mouse, 'm_')]; % ' ' erase(f_rec, 'r_')
             tick_spots(end + 1) = i;
 
-            i = i + 2
+            i = i + 2;
         end 
 
         i = i + 3;
