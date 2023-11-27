@@ -1,9 +1,14 @@
 %% This class is used to have the implementation of commonly called routines consolidated into a single file.
 % The functions here are hopefully specific to the PV DBS project, and therefore may look similar to other previously made functions but with slight differences
-
 classdef Multi_func
     properties (Constant)
         
+        % Path to save plot files
+        % Into Dropbox
+        save_plot = ['~/Dropbox/RKC-HanLab/Pierre PV DBS Project Dropbox/Materials/Plots/'];
+        % Into the server
+        %save_plot = ['~/handata_server/eng_research_handata3/Pierre Fabris/PV Project/Plots/'];
+
         % Colors for violin plots
         trans_color = [153, 51, 51]/255;
         sus_color = [51, 51, 153]/255;
