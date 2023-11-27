@@ -26,7 +26,7 @@ show_ignored = 1;
 % USER make sure this path changes based on the above line
 %save_path = [server_rootpath 'Pierre Fabris' f 'PV DBS neocortex' f 'Ignored_Traces' f];
 
-figure_path = [server_rootpath 'Pierre Fabris' f 'PV Project' f 'Figures' f 'Raster plots' f];
+figure_path = [server_rootpath 'Pierre Fabris' f 'PV Project' f 'Plots' f 'Raster plots' f];
 
 % Filepath name for ignoring individual trial csv
 ignore_trial_csv = [local_rootpath 'Pierre Fabris' f 'PV DBS neocortex' f 'Stim Recordings' f 'Data_Config' f 'byvis_ignore.csv'];
