@@ -21,7 +21,8 @@ back_frame_drop = 2496;
 % Data on handata3 folder
 pv_data_path = [server_root_path 'Pierre Fabris' f 'PV Project' f 'PV_Data' f];
 
-figure_path = [server_root_path 'Pierre Fabris' f 'PV Project' f 'Plots' f];
+%figure_path = [server_root_path 'Pierre Fabris' f 'PV Project' f 'Plots' f];
+figure_path = Multi_func.save_plot;
 
 % CSV file to determine which trials to ignore
 ignore_trial_dict = Multi_func.csv_to_struct([local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f ...
@@ -31,7 +32,7 @@ ignore_trial_dict = Multi_func.csv_to_struct([local_root_path 'Pierre Fabris' f 
 all_regions = 0;
 
 % Flag to display each neuron's name or not
-display_names = 0;
+display_names = 1;
 
 %%% END Modification
 
@@ -234,6 +235,10 @@ for f_region = fieldnames(region_data)'
         ylim([0 size(data_map, 1)]);
         ylabel('Neuron Trials');
         title('Raw Traces', 'Interpreter', 'none');
+        
+        %DEBUG
+        %hold on;
+        %xline(0, '--');
 
         % Plot the Subthreshold Vm
         nexttile;  
@@ -258,6 +263,10 @@ for f_region = fieldnames(region_data)'
         ylabel('Neuron Trials');
         set(gca, 'YTick', []);
         title('Subthreshold Vm', 'Interpreter', 'none');
+        
+        %DEBUG
+        %hold on;
+        %xline(0, '--');
 
         % Plot the raster plot
         nexttile;  
@@ -294,6 +303,11 @@ for f_region = fieldnames(region_data)'
         set(gca, 'YTick', []);
         ylabel('Neuron Trials');
  
+        
+        %DEBUG
+        %hold on;
+        %xline(0, '--');
+
         % Adjust x axis if displaying names or not
         if display_names == 1
             xlim([-1 4]);
@@ -306,6 +320,7 @@ for f_region = fieldnames(region_data)'
         sgtitle([ f_region ' ' f_stim ' Neuronwise'], 'Interpreter', 'none');
         saveas(gcf, [figure_path 'Neuronwise/' f_region '_' f_stim '_Neuronwise_Plot.png']);
         saveas(gcf, [figure_path 'Neuronwise/' f_region '_' f_stim '_Neuronwise_Plot.pdf']);
+        savefig(gcf, [figure_path 'Neuronwise/' f_region '_' f_stim '_Neuronwise_Plot.fig']);
         
         %saveas(gcf, [figure_path 'Neuronwise/' f_region '_' f_stim '_Neuronwise_Plot.eps'], 'epsc');
     end
