@@ -159,25 +159,35 @@ for f_region = fieldnames(region_data)'
     data_bystim = region_data.(f_region).data_bystim;
     stims = fieldnames(data_bystim);
     figure('Renderer', 'Painters', 'Position', [200 200 2000 700]);
-    tiledlayout(1, length(stims), 'TileSpacing', 'compact', 'Padding', 'compact');
+    tiledlayout(length(stims), 2, 'TileSpacing', 'compact', 'Padding', 'compact');
     % Loop through each stimulation parameter
     for f_stim=stims'
         f_stim = f_stim{1};
-        nexttile;
         
-        % Plot each neuron
+        % Subthreshold Vm
+        nexttile;
         timeline = mean(data_bystim.(f_stim).neuron_trace_sur_time, 2, 'omitnan')*1000;
         plot(timeline, data_bystim.(f_stim).neuron_stim_SubVm);
     
         set(gca, 'color', 'none');
         xlabel('Time from Stim pulse(ms)');
         ylabel('Vm');
-        title(f_stim(3:end), 'Interpreter', 'none');
-    end
-    sgtitle([ f_region ' Subthreshold Vm'], 'Interpreter', 'none');
+        title([f_stim(3:end) ' Sub Vm'], 'Interpreter', 'none');
+        
+        % Raw Vm
+        nexttile;
+        timeline = mean(data_bystim.(f_stim).neuron_trace_sur_time, 2, 'omitnan')*1000;
+        plot(timeline, data_bystim.(f_stim).neuron_stim_RawVm);
     
-    saveas(gcf, [figure_path 'Stim_trig_avg/' f_region '_Pop_SubVm_Stim_Trig.png']);
-    saveas(gcf, [figure_path 'Stim_trig_avg/' f_region '_Pop_SubVm_Stim_Trig.eps'], 'epsc');
+        set(gca, 'color', 'none');
+        xlabel('Time from Stim pulse(ms)');
+        ylabel('Vm');
+        title([f_stim(3:end) ' Raw Vm'], 'Interpreter', 'none');
+    end
+    sgtitle([ f_region], 'Interpreter', 'none');
+    
+    saveas(gcf, [figure_path 'Stim_trig_avg/' f_region '_Pop_Stim_Trig.png']);
+    saveas(gcf, [figure_path 'Stim_trig_avg/' f_region '_Pop_Stim_Trig.eps'], 'epsc');
 end
 
 %% Specific functions for determining which FOVs to look at
