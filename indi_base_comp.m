@@ -77,8 +77,8 @@ for f_region = fieldnames(region_data)'
     for f_stim=stims'
         
         f_stim = f_stim{1};
-        figure('Renderer', 'Painters', 'Position', [200 200 2000 1000]);    
-        tiledlayout(size(data_bystim.(f_stim).trace_timestamps, 2), 1, 'TileSpacing', 'none', 'Padding', 'compact');    
+        figure('visible', 'on', 'Renderer', 'Painters', 'Position', [200 200 2000 1000]);    
+        tiledlayout(size(data_bystim.(f_stim).trace_timestamps, 2), 2, 'TileSpacing', 'none', 'Padding', 'compact');    
 
         
         timeline = nanmean(data_bystim.(f_stim).trace_timestamps, 2); 
@@ -100,9 +100,16 @@ for f_region = fieldnames(region_data)'
             % Need to perform linear interpolation here
             xq = 1:length(stim_idx)/length(baseline_idx):length(stim_idx);
             downsample = interp1(1:length(stim_idx), neuron_vm(stim_idx), xq);
-
+            
             % Check for distribution difference
             [p,h] = signrank(neuron_vm(baseline_idx), downsample);
+
+            % Plot the 2 distributions
+            histogram(neuron_vm(baseline_idx), 100, 'FaceColor', [0.8500 0.3250 0.0980]);
+            hold on;
+            histogram(downsample, 100, 'FaceColor', [0.4660 0.6740 0.1880]);
+            legend('Baseline', ['Stimulation ' num2str(p)]);
+            nexttile;
 
             % Check for Vm increase
             color = [0 0 0 0.4];
@@ -115,17 +122,16 @@ for f_region = fieldnames(region_data)'
             end
             plot(timeline, neuron_vm, 'Color', color);
             hold on;
-
+            
             %-- Find points with higher than 2 std baseline
             
             % Calculate the baseline std for each neuron
-            avg_base_vm = mean(base_vm, 1, 'omitnan');
-            base_std = std(base_vm, 0, 1, 'omitnan');
-
-            [row, col] = find(neuron_vm > 2*base_std + avg_base_vm);
+            %avg_base_vm = mean(base_vm, 1, 'omitnan');
+            %base_std = std(base_vm, 0, 1, 'omitnan');
+            %[row, col] = find(neuron_vm > 2*base_std + avg_base_vm);
+            %plot(timeline(row), max(neuron_vm) + 1, '.b', 'MarkerSize', 6);
+            %hold on;
             
-            plot(timeline(row), max(neuron_vm) + 1, '.b', 'MarkerSize', 6);
-            hold on;
             xlim([-1 2.05]);
             ylim([min(neuron_vm) - 1, max(neuron_vm) + 1]);
             set(gca,'XTick',[]);
@@ -138,7 +144,7 @@ for f_region = fieldnames(region_data)'
 
         end
 
-        sgtitle([f_region(3:end) '_' f_stim(3:end) ' Vm with 2 stds above baseline for individual neurons' ], 'Interpreter', 'non');
+        sgtitle([f_region(3:end) '_' f_stim(3:end) ' Vm' ], 'Interpreter', 'non');
 
         % Save the figure
         saveas(gcf, [figure_path 'Neuronwise/' f_region '_' f_stim '_indi_vm_base_comp.png']);
@@ -156,8 +162,8 @@ for f_region = fieldnames(region_data)'
     for f_stim=stims'
         f_stim = f_stim{1};
             
-        figure('Renderer', 'Painters', 'Position', [200 200 2000 1000]);    
-        tiledlayout(size(data_bystim.(f_stim).trace_timestamps, 2), 1, 'TileSpacing', 'none', 'Padding', 'compact');    
+        figure('visible', 'on', 'Renderer', 'Painters', 'Position', [200 200 2000 1000]);    
+        tiledlayout(size(data_bystim.(f_stim).trace_timestamps, 2), 2, 'TileSpacing', 'none', 'Padding', 'compact');    
         timeline = nanmean(data_bystim.(f_stim).trace_timestamps, 2); 
         
         for nr=1:size(data_bystim.(f_stim).trace_timestamps, 2)
@@ -173,25 +179,39 @@ for f_region = fieldnames(region_data)'
             base_fr = mean(neuron_fr(baseline_idx), 'omitnan');
             stim_fr = mean(neuron_fr(stim_idx), 'omitnan');
             
+            % Downsample the stimulation data with linear interpolation
+            xq = 1:length(stim_idx)/length(baseline_idx):length(stim_idx);
+            downsample = interp1(1:length(stim_idx), neuron_fr(stim_idx), xq);
+
+            [p, h] = signrank(neuron_fr(baseline_idx), downsample);
+            
+            % Plot the 2 distributions
+            histogram(neuron_fr(baseline_idx), 100, 'FaceColor', [0.8500 0.3250 0.0980]);
+            hold on;
+            histogram(downsample, 100, 'FaceColor', [0.4660 0.6740 0.1880]);
+            legend('Baseline', ['Stimulation ' num2str(p)]);
+            nexttile;
+
             % Plot the firing rate with color indicating increase or decrease
-            color = [0 0 0 0.4];
-            if stim_fr > base_fr*(1 + thres_percent)
-                color = [[30, 2, 237]/255, 0.4];
-            elseif stim_fr < base_fr*(1 - thres_percent)
-                color = [[235, 5, 28]/255, 0.4];
+            if h == 1
+                color = [0 0 0 0.4];
+                if stim_fr > base_fr
+                    color = [[30, 2, 237]/255, 0.4];
+                elseif stim_fr < base_fr
+                    color = [[235, 5, 28]/255, 0.4];
+                end
             end
             plot(timeline, neuron_fr, 'Color', color);
             hold on;
 
             %-- Find points with higher than 2 std baseline
             % Calculate the baseline std for each neuron
-            avg_base_fr = mean(base_fr, 1, 'omitnan');
-            base_std = std(base_fr, 0, 1, 'omitnan');
-
-            [row, col] = find(neuron_fr > 2*base_std + avg_base_fr);
+            %avg_base_fr = mean(base_fr, 1, 'omitnan');
+            %base_std = std(base_fr, 0, 1, 'omitnan');
+            %[row, col] = find(neuron_fr > 2*base_std + avg_base_fr);
+            %plot(timeline(row), max(neuron_fr) + 1, '.b', 'MarkerSize', 6);
+            %hold on;
             
-            plot(timeline(row), max(neuron_fr) + 1, '.b', 'MarkerSize', 6);
-            hold on;
             xlim([-1 2.05]);
             ylim([min(neuron_fr) - 1, max(neuron_fr) + 1]);
             set(gca,'XTick',[]);
@@ -203,7 +223,7 @@ for f_region = fieldnames(region_data)'
             xline(1, '--');
         end
 
-        sgtitle([f_region(3:end) ' ' f_stim(3:end) ' Firing Rate with 2 stds above baseline for individual neurons' ], 'Interpreter', 'none');
+        sgtitle([f_region(3:end) ' ' f_stim(3:end) ' Firing Rate' ], 'Interpreter', 'none');
 
         % Save the figure
         saveas(gcf, [figure_path 'Neuronwise/' f_region '_' f_stim '_indi_fr_base_comp.png']);
@@ -237,7 +257,7 @@ for f_region = fieldnames(region_data)'
         end
 
         % PLot the violins of the data
-        figure('visible', 'on', 'Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
+        figure(  'Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
         data = [base_vm, stim_vm];
         %data = log2(data);
         labels = [repmat({'Base'}, 1, length(base_vm)), repmat({'Stim'}, 1, length(stim_vm))];
@@ -305,7 +325,7 @@ for f_region = fieldnames(region_data)'
         end
 
         % PLot the violins of the data
-        figure('visible', 'on', 'Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
+        figure(  'Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
         data = [base_fr, stim_fr];
         %data = log2(data);
         labels = [repmat({'Base'}, 1, length(base_fr)), repmat({'Stim'}, 1, length(stim_fr))];
