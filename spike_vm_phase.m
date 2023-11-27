@@ -35,7 +35,7 @@ all_regions = 0;
 
 %TODO add Post stimulation distribution period as well
 
-%% Check that the server path exists
+% Check that the server path exists
 %if ~isfolder(local_root_path)
 %    disp('Server rootpath does not exist!!!');
 %    return;
@@ -61,6 +61,8 @@ avg_Fs = mean(region_data.(field1{1}).f_40.framerate, 'omitnan');
 set(0,'DefaultFigureVisible','off');
 
 % Look at spike phase Vm at stimulation frequency
+
+%% Plotting spike-Vm phase filtered at stim frequency
 
 % Loop through all regions
 for f_region = fieldnames(region_data)'
@@ -109,12 +111,12 @@ for f_region = fieldnames(region_data)'
         % Plot the polar histgrams
         nexttile;
         edges = linspace(0, 2*pi, 24);
-        polarhistogram(base_phases, edges, 'Normalization', 'probability', 'FaceColor', 'blue', 'FaceAlpha', 0.3);
+        polarhistogram(base_phases, edges, 'Normalization', 'probability', 'FaceColor', Multi_func.base_color, 'FaceAlpha', 0.3);
         title('Base');
         set(gca, 'Color', 'none');
 
         nexttile;
-        polarhistogram(stim_phases, edges, 'Normalization', 'probability', 'FaceColor', 'red', 'FaceAlpha', 0.3);
+        polarhistogram(stim_phases, edges, 'Normalization', 'probability', 'FaceColor', Multi_func.stim_color, 'FaceAlpha', 0.3);
         title('Stim');
     
         set(gca, 'Color', 'none');
@@ -126,7 +128,8 @@ for f_region = fieldnames(region_data)'
     end
 end
 
-% Look at phase for 2-10Hz filtered
+
+%% Plotting phase for 2-10Hz filtered
 
 % Loop through all regions
 for f_region = fieldnames(region_data)'
@@ -144,7 +147,7 @@ for f_region = fieldnames(region_data)'
         low_range = [2, 10]; % Delta/Theta frequency
         
         figure('visible', 'on', 'Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
-        tiledlayout(1, 2, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 20, 8.25, 4.13]);
+        tiledlayout(1, 2, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 20, 11.50, 6.20]);
     
         base_phases = [];
         stim_phases = [];
@@ -168,7 +171,7 @@ for f_region = fieldnames(region_data)'
                 stim_spikeidx = intersect(cur_tr_spikeidx, stim_idx);
     
                 % Get the hilbert of the filtered 2-10Hz subVm
-                cur_hilb = filt_range(data_bystim.(f_stim).all_trial_SubVm{nr}(:, tr), low_range, avg_Fs)';
+                cur_hilb = Multi_func.filt_range(data_bystim.(f_stim).all_trial_SubVm{nr}(:, tr), low_range, avg_Fs)';
 
                 % Grab the phases of each period
                 base_phases = [base_phases, angle(cur_hilb(base_spikeidx))];
@@ -182,13 +185,13 @@ for f_region = fieldnames(region_data)'
         % Plot the polar histgrams
         nexttile;
         edges = linspace(0, 2*pi, 24);
-        polarhistogram(base_phases, edges, 'Normalization', 'probability', 'FaceColor', 'blue', 'FaceAlpha', 0.3);
+        polarhistogram(base_phases, edges, 'Normalization', 'probability', 'FaceColor', Multi_func.base_color, 'FaceAlpha', 0.3);
         rlim([0 .15]);
         title('Base');
         set(gca, 'Color', 'none');
     
         nexttile;
-        polarhistogram(stim_phases, edges, 'Normalization', 'probability', 'FaceColor', 'red', 'FaceAlpha', 0.3);
+        polarhistogram(stim_phases, edges, 'Normalization', 'probability', 'FaceColor', Multi_func.stim_color, 'FaceAlpha', 0.3);
         rlim([0 .15]);
         title('Stim');
         set(gca, 'Color', 'none');
@@ -201,13 +204,6 @@ for f_region = fieldnames(region_data)'
     end
 end
 
-function [filt_sig] = filt_range(sig, range, FS)
-    Fn = FS/2;
-    FB = [0.8 1.2].*range;
-    
-    [B, A] = butter(2, [min(FB)/Fn max(FB)/Fn]);
-    filt_sig = hilbert(filtfilt(B,A,sig));
-end
 
 %DEBUG
 %nexttile;
