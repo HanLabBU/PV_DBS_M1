@@ -1,4 +1,4 @@
-%% This class is used to have the implementation of commonly called routines consolidated into a single file.
+%fieldnames(region_matfiles)'% This class is used to have the implementation of commonly called routines consolidated into a single file.
 % The functions here are hopefully specific to the PV DBS project, and therefore may look similar to other previously made functions but with slight differences
 classdef Multi_func
     properties (Constant)
@@ -149,6 +149,27 @@ classdef Multi_func
             %plot(v' - fitbaseline);
            
             coeff=xunc;    
+        end
+
+        % Filter and perform hilbert transform for range
+        function [filt_sig] = filt_range(sig, range, FS)
+            Fn = FS/2;
+            FB = [0.8 1.2].*range;
+            
+            [B, A] = butter(2, [min(FB)/Fn max(FB)/Fn]);
+            filt_sig = hilbert(filtfilt(B,A,sig));
+        end
+
+        % Filter and grab the hilbert transform for at each frequency
+        
+        function  [filt_sig]=filt_data(sig,frs, FS)
+            Fn = FS/2;
+            for steps=1:length(frs);
+                FB=[ frs(steps)*0.9 frs(steps)*1.1];
+                
+                [B, A] = butter(2, [min(FB)/Fn max(FB)/Fn]);
+                filt_sig(:,steps)= hilbert(filtfilt(B,A,sig));
+            end
         end
 
         % Calculate cwt for input signal and 
