@@ -9,6 +9,13 @@ classdef Multi_func
         % Into the server
         %save_plot = ['~/handata_server/eng_research_handata3/Pierre Fabris/PV Project/Plots/'];
 
+        % Specify the transient and sustained time period
+        trans_ped = [0, 100];
+        sus_ped = [100, 1000];
+        base_ped = [-500 0];
+        stim_ped = [0 1000];
+        offset_trans_ped = [1000, 1150];
+
         % Colors for violin plots
         trans_color = [153, 51, 51]/255;
         sus_color = [51, 51, 153]/255;

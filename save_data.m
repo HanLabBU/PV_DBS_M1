@@ -38,11 +38,11 @@ srate_win_10 = 10;
 srate_win_3 = 3;
 
 % Time periods for comparison of firing rate and sub Vm
-base_ped = [-500 0];
-trans_ped = [0, 100];
-sus_ped = [100, 1000];
-stim_ped = [0 1000];
-offset_trans_ped = [1000, 1150];
+base_ped = Multi_func.base_ped;
+trans_ped =Multi_func.trans_ped;
+sus_ped = Multi_func.sus_ped;
+stim_ped = Multi_func.stim_ped;
+offset_trans_ped = Multi_func.offset_trans_ped;
 
 % Data path for all of the intermediate anaylsis data
 if ~exclude_200ms
