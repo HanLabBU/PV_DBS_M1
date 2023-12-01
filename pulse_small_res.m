@@ -261,7 +261,7 @@ for f_region = fieldnames(region_data)'
     stims = fieldnames(data_bystim);
     
     figure('visible', 'on', 'Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
-    tiledlayout(length(stims), 2, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 20, 3.62*2, 5.16]);
+    tiledlayout(length(stims), 3, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 20, 3.62*3, 5.16]);
     for f_stim=stims'
         
         Vm_avg = [];
@@ -467,6 +467,82 @@ for f_region = fieldnames(region_data)'
         %set(gca,'xtick',[]);
         title([f_stim{1}(3:end) ' Transient'], 'Interpreter', 'none');
         %-- End of transient plotting the pulse averages
+
+        
+        %-- Calculate the sustained stimulation period average
+        cur_subVm = mean(sus_vm_avg, 2, 'omitnan');
+        std_subVm = std(sus_vm_avg, 0, 2, 'omitnan');
+        num_pulses = size(sus_vm_avg, 2);
+        %num_points = size(data_bystim.(f_stim{1}).neuron_subVm, 1);
+        sem_subVm = std_subVm./sqrt(num_pulses);
+        nexttile;
+        
+        % Use the average trace framerate to calculate the timelinefigure_path = [server_root_path 'Pierre Fabris' f 'PV Project' f 'Plots' f];
+        timeline = [ [0:size(sus_vm_avg, 1) - 1] - extra_trace]*1000./avg_Fs;
+        
+        f = fill([timeline, flip(timeline)], [cur_subVm + sem_subVm; flipud(cur_subVm - sem_subVm)], [0.5 0.5 0.5]);
+        Multi_func.set_fill_properties(f);
+        hold on;
+        plot(timeline, cur_subVm, 'k', 'LineWidth', 1);
+        hold on;
+
+        % Shuffle all pulse average and plot average lines
+        wind_size = size(all_sus_pulse_vm, 1);
+        shuf_val_dist = [];
+        for i=1:1000
+            shuf_all_sus_pulse_vm = [];
+            for j=1:size(all_sus_pulse_vm, 2)
+                shuf_idx = randperm(wind_size);
+                shuf_all_sus_pulse_vm = horzcat_pad(shuf_all_sus_pulse_vm, all_sus_pulse_vm(shuf_idx, j));
+            end
+
+            % Calculate the average value
+            shuf_avg_all_pulse = mean(shuf_all_sus_pulse_vm, 2, 'omitnan');
+            
+            % This was the original value
+            %shuf_val_dist(end + 1) = mean(avg_all_pulse, 'omitnan');;
+            shuf_val_dist = horzcat_pad(shuf_val_dist, shuf_avg_all_pulse);
+        end
+
+        % Calculate percentile values
+        low_perc = prctile(shuf_val_dist(:), 2.5);
+        high_perc = prctile(shuf_val_dist(:), 97.5);
+        shuf_mean = mean(shuf_val_dist(:), 'omitnan');
+        
+        % Plot the shuffled values as dashed horizontal lines
+        %yline([low_perc, high_perc], '--');
+        %hold on;
+        %yline(shuf_mean);
+
+        % Plot the percentiles as a different colored shading
+        shade_yvals = [repmat(high_perc, 1, length(timeline)), repmat(low_perc, 1, length(timeline))];
+        f = fill([timeline, flip(timeline)], shade_yvals, [0.62 0.71 1]);
+        Multi_func.set_fill_properties(f);
+        hold on;
+        yline(shuf_mean, '--');
+
+        % Plot the DBS stimulation time pulses
+        xline([0:nr_avg_pulse_width*1000:nr_avg_pulse_width*1000], 'Color', [170, 176, 97]./255, 'LineWidth', 2);
+        hold on;
+
+        % Plot the timescale bar
+        posx = 0;
+        posy = 0;
+        timelength = 0.5;
+        %plot([posx, posx + timelength], [posy posy], 'k', 'LineWidth', 2);
+        %text(posx, posy - 0.2, [num2str(timelength*(1/avg_Fs)) 'ms']);
+
+        % Increase timescale resolution
+        %xlim([0 - .100, 0 + .100]);
+        Multi_func.set_default_axis(gca);
+        ylabel('Vm');
+        xlabel('Time from pulse(ms)');
+        %ylim([0, 7]);
+
+        % Remove x-axis and right y-axis
+        %set(gca,'xtick',[]);
+        title([f_stim{1}(3:end) ' Sustained'], 'Interpreter', 'none');
+        %-- End of sustained plotting the pulse averages
 
     end
     sgtitle([f_region(3:end) ' Sub Vm all pulse average'], 'Interpreter', 'none');
