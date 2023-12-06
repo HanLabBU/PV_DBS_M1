@@ -4,6 +4,10 @@ clear all;
 close all;
 f = filesep;
 
+% Other sample traces to try
+%617100_M1_rec20211111_FOV3_140 trial #4 (has delta)
+% 31556noeartag_M1_rec20221206_FOV1_140 (hyperpolarization) trial 3 or 9
+
 % Specify which photobleaching detrending to use
 % (2) for photobleaching only the baseline
 % (1) for the photobleaching taking into account the stimulation bump
@@ -37,14 +41,113 @@ pv_data_path = [server_root_path 'eng_research_handata3' f 'Pierre Fabris' f 'PV
 %savefig_path = [server_root_path 'eng_research_handata3' f 'Pierre Fabris' f 'PV Project' f 'Plots' f];
 savefig_path = Multi_func.save_plot();
 
-% Set figure off currently
-set(0,'DefaultFigureVisible','off');
 
 % Check if the figure path exists
 if ~exist(savefig_path)
     disp('Figure path not found');
     return;
 end
+
+% Read in the saved pv data and perform analysis
+save_all_data_file = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Interm_Data' f 'pv_data_ex200.mat'];
+%Load the data
+load(save_all_data_file);
+f_region = 'r_M1';
+data_bystim = region_data.(f_region);
+
+%% Infor for a 40Hz example without delta
+neuron = '50373_M1_rec20230801_FOV2_40_200';
+trial_num = 1;
+nr_idx = find(contains(data_bystim.f_40.neuron_name, neuron));
+neuron_data = data_bystim.f_40;
+
+%% Info for a 40Hz example with delta
+neuron = '617100_M1_rec20211110_FOV3_40_60';
+trial_num = 4;
+nr_idx = find(contains(data_bystim.f_40.neuron_name, neuron));
+neuron_data = data_bystim.f_40;
+
+%% Infor for a 140Hz neuron hyperpolarized
+neuron = '31556noeartag_M1_rec20221206_FOV1_140';
+trial_num = 1;
+nr_idx = find(contains(data_bystim.f_140.neuron_name, neuron));
+neuron_data = data_bystim.f_140;
+
+%% Code to plot a heatmap with raster plot
+figure('Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
+tiledlayout(3, 1, 'TileSpacing', 'loose', 'Padding', 'loose', 'Units', 'centimeters', 'InnerPosition', [4 5 8 9]);
+timeline = neuron_data.trace_timestamps(:, nr_idx);
+
+% Plot example trial
+nexttile;
+raw_tr = neuron_data.all_trial_rawVm{nr_idx}(:, trial_num);
+tr_noise = neuron_data.all_trial_trace_noise{nr_idx}(trial_num);
+plot(timeline, raw_tr./tr_noise, 'k');
+hold on;
+
+spike_idx = neuron_data.all_trial_spikeidx{nr_idx}(:, trial_num);
+%spike_idx(find(spike_idx < front_frame_drop | spike_idx > back_frame_drop)) = [];
+%spike_idx = spike_idx - front_frame_drop + 1;
+%spike_idx = spike_idx + 1;
+spike_idx(isnan(spike_idx)) = [];
+plot(timeline(spike_idx), raw_tr(spike_idx)./tr_noise, '.r');
+hold on;
+
+% Plot the stim pulses
+stim_idx = neuron_data.stim_timestamps(:, nr_idx);
+plot(stim_idx, ones(size(stim_idx))*(max(raw_tr(spike_idx)./tr_noise) + 3), '|k');
+hold on;
+plot(timeline, ones(size(timeline))*(max(raw_tr(spike_idx)./tr_noise) + 3), '-k');
+hold on;
+plot([min(timeline) min(timeline)], [-5 0], 'b', 'LineWidth', 2)
+
+xlim([min(timeline) max(timeline)]);
+ax = gca;
+ax.YAxis.Visible = 'off';
+Multi_func.set_default_axis(gca);
+
+% Plot the fluorescence heatmap
+nexttile;
+vm_map = [];
+spidx_map = [];
+% Loop through each trial of given neuron
+for i = 1:size(neuron_data.all_trial_rawVm{nr_idx}, 2)
+    vm_map = [vm_map; neuron_data.all_trial_rawVm{nr_idx}(:, i)'];
+    cur_spikeidx = neuron_data.all_trial_spikeidx{nr_idx}(:, i);
+    spidx_map = [spidx_map; cur_spikeidx'];
+end
+imagesc('XData', timeline, 'YData', 1:size(vm_map, 1), 'CData', vm_map);
+hold on;
+rectangle('Position', [min(timeline), -0.5 + trial_num, range(timeline), 1]);
+
+xlim([min(timeline) max(timeline)]);
+ylim([0.5 size(vm_map, 1)]);
+
+ax = gca;
+set(ax, 'Color', 'none', 'Box', 'on', 'TickDir', 'out', 'linewidth', 0.2);
+
+nexttile;
+
+raster_map = NaN(size(spidx_map));
+raster_map(find(~isnan(spidx_map))) = 1;
+
+raster_map = raster_map.*(1:size(spidx_map, 1))';
+
+% Clean up the nans
+spidx_map(isnan(spidx_map)) = [];
+raster_map(isnan(raster_map)) = [];
+
+% Plot all of the raster points
+plot(timeline(spidx_map), raster_map, '.k');
+
+xlim([min(timeline) max(timeline)]);
+ylim([0.5 size(vm_map, 1)]);
+ax = gca;
+set(ax, 'Color', 'none', 'Box', 'on', 'TickDir', 'out', 'linewidth', 0.2);
+
+% Save figure
+saveas(gcf, [savefig_path 'Exemplary' f neuron '.png']);
+saveas(gcf, [savefig_path 'Exemplary' f neuron '.pdf']);
 
 %% Get exemplary trace at 140 for V1
 example_matfile = [pv_data_path '611284_V1_rec20210827_FOV1_140_60_.mat'];
@@ -130,9 +233,6 @@ title('Exemplary V1 140 Hz trace');
 %saveas(gcf, [savefig_path 'Exemplary' f 'V1_140Hz_Trace.eps'], 'epsc');
 saveas(gcf, [savefig_path 'Exemplary' f 'V1_140Hz_Trace.png']);
 saveas(gcf, [savefig_path 'Exemplary' f 'V1_140Hz_Trace.pdf']);
-
-%DEBUG
-return;
 
 %From same exemplary trace as above, show the individual spectrum
 %signal = data.align.trial{trial_idx}.spike_info375.trace_ws;
