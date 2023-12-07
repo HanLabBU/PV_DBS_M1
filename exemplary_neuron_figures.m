@@ -55,9 +55,15 @@ load(save_all_data_file);
 f_region = 'r_M1';
 data_bystim = region_data.(f_region);
 
-%% Infor for a 40Hz example without delta
+%% Info for a 140Hz neuron regular polarized
+neuron = '617100_M1_rec20211110_FOV4_140_60';
+trial_num = 3;
+nr_idx = find(contains(data_bystim.f_140.neuron_name, neuron));
+neuron_data = data_bystim.f_140;
+
+%% Info for a 40Hz example without delta
 neuron = '50373_M1_rec20230801_FOV2_40_200';
-trial_num = 1;
+trial_num = 8;
 nr_idx = find(contains(data_bystim.f_40.neuron_name, neuron));
 neuron_data = data_bystim.f_40;
 
@@ -72,6 +78,101 @@ neuron = '31556noeartag_M1_rec20221206_FOV1_140';
 trial_num = 1;
 nr_idx = find(contains(data_bystim.f_140.neuron_name, neuron));
 neuron_data = data_bystim.f_140;
+
+
+%% Code to plot individual trials with raster plot and average
+figure('Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
+tiledlayout(3, 1, 'TileSpacing', 'loose', 'Padding', 'loose', 'Units', 'centimeters', 'InnerPosition', [4 5 8 15]);
+timeline = neuron_data.trace_timestamps(:, nr_idx);
+
+% Plot trial-averaged fluorescence
+nexttile;
+all_traces = neuron_data.all_trial_rawVm{nr_idx};
+snr_traces = all_traces./neuron_data.all_trial_trace_noise{nr_idx};
+
+% Calculate the average and SEM
+avg_trace = nanmean(snr_traces, 2);
+std_trace = nanstd(snr_traces, 0, 2);
+num_trials = size(snr_traces, 2);
+sem_trace = std_trace./sqrt(num_trials);
+
+% Plot neuron's trial SEM
+fill_handle = fill([timeline; flip(timeline)], [avg_trace + sem_trace; flipud(avg_trace - sem_trace)], [0.5 0.5 0.5]);
+Multi_func.set_fill_properties(fill_handle);
+hold on;
+
+% Plot trial-averaged trace
+plot(timeline, avg_trace, 'k');
+
+hold on;
+
+% Plot the stim pulses
+stim_idx = neuron_data.stim_timestamps(:, nr_idx);
+plot(stim_idx, ones(size(stim_idx))*(max(avg_trace + sem_trace) + 1), '|k');
+hold on;
+plot(timeline, ones(size(timeline))*(max(avg_trace + sem_trace) + 1), '-k');
+hold on;
+
+% Plotting the SNR scale
+plot([min(timeline) min(timeline)], [-5 0], 'b', 'LineWidth', 2)
+
+xlim([min(timeline) max(timeline)]);
+ax = gca;
+ax.YAxis.Visible = 'off';
+Multi_func.set_default_axis(gca);
+
+% Plot each individual trial trace
+nexttile;
+trace_map = [];
+spidx_map = [];
+% Loop through each trial of given neuron
+for i = 1:size(neuron_data.all_trial_rawVm{nr_idx}, 2)
+    tr_trace = neuron_data.all_trial_rawVm{nr_idx}(:, i)';
+    norm_trace = (tr_trace - min(tr_trace)) ./(max(tr_trace) - min(tr_trace));
+    trace_map = [trace_map; norm_trace + (i - 0.5)];
+    cur_spikeidx = neuron_data.all_trial_spikeidx{nr_idx}(:, i);
+    spidx_map = [spidx_map; cur_spikeidx'];
+end
+plot(timeline, trace_map, 'k');
+hold on;
+% loop through and plot the spikes detected
+for i =1:size(spidx_map, 1)
+    temp_spidx = spidx_map(i, :);
+    temp_spidx(isnan(temp_spidx)) = [];
+    plot(timeline(temp_spidx), trace_map(i, temp_spidx), '.r');
+    hold on;
+end
+%TODO change this guy
+%rectangle('Position', [min(timeline), -0.5 + trial_num, range(timeline), 1]);
+
+xlim([min(timeline) max(timeline)]);
+ylim([0.5 size(trace_map, 1) + 0.5]);
+
+ax = gca;
+set(ax, 'Color', 'none', 'Box', 'on', 'TickDir', 'out', 'linewidth', 0.2);
+
+nexttile;
+
+raster_map = NaN(size(spidx_map));
+raster_map(find(~isnan(spidx_map))) = 1;
+
+raster_map = raster_map.*(1:size(spidx_map, 1))';
+
+% Clean up the nans
+spidx_map(isnan(spidx_map)) = [];
+raster_map(isnan(raster_map)) = [];
+
+% Plot all of the raster points
+plot(timeline(spidx_map), raster_map, '.k');
+
+xlim([min(timeline) max(timeline)]);
+ylim([0.5 size(trace_map, 1)]);
+ax = gca;
+set(ax, 'Color', 'none', 'Box', 'on', 'TickDir', 'out', 'linewidth', 0.2);
+
+% Save figure
+saveas(gcf, [savefig_path 'Exemplary' f neuron '_tr_traces_average.png']);
+saveas(gcf, [savefig_path 'Exemplary' f neuron '_tr_traces_average.pdf']);
 
 %% Code to plot a heatmap with raster plot
 figure('Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
@@ -146,8 +247,8 @@ ax = gca;
 set(ax, 'Color', 'none', 'Box', 'on', 'TickDir', 'out', 'linewidth', 0.2);
 
 % Save figure
-saveas(gcf, [savefig_path 'Exemplary' f neuron '.png']);
-saveas(gcf, [savefig_path 'Exemplary' f neuron '.pdf']);
+saveas(gcf, [savefig_path 'Exemplary' f neuron '_heatmap.png']);
+saveas(gcf, [savefig_path 'Exemplary' f neuron '_heatmap.pdf']);
 
 %% Get exemplary trace at 140 for V1
 example_matfile = [pv_data_path '611284_V1_rec20210827_FOV1_140_60_.mat'];
