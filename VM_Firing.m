@@ -1,7 +1,7 @@
 close all;
 f = filesep;
 
-%%% USER Modification
+%% USER Modification
 % Linux server
 local_root_path = '~/Projects/';
 % Handata Server on Linux
@@ -37,7 +37,7 @@ ignore_trial_dict = Multi_func.csv_to_struct([local_root_path 'Pierre Fabris' f 
 % Parameter to determine whether to combine all regions as one data
 all_regions = 0;
 
-%%% END Modification
+%% END Modification
 
 %% Check that the server path exists
 if ~isfolder(local_root_path)
@@ -68,9 +68,6 @@ field1 = fieldnames(region_data);
 field1 = field1(1);
 avg_Fs = mean(region_data.(field1{1}).f_40.framerate, 'omitnan');
 
-% Set figure off currently
-set(0,'DefaultFigureVisible','off');
-
 %%Compact full collective spike rate over time
 for f_region = fieldnames(region_data)'
     f_region = f_region{1};
@@ -89,8 +86,8 @@ for f_region = fieldnames(region_data)'
         %num_points = size(data_bystim.(f_stim).neurons_srate_50, 1);
         sem_srate = std_srate./sqrt(num_neurons);
         nexttile;
-        f = fill([timeline; flip(timeline)], [cur_srate + sem_srate; flipud(cur_srate - sem_srate)], [0.5 0.5 0.5]);
-        Multi_func.set_fill_properties(f);
+        fill_h = fill([timeline; flip(timeline)], [cur_srate + sem_srate; flipud(cur_srate - sem_srate)], [0.5 0.5 0.5]);
+        Multi_func.set_fill_properties(fill_h);
         hold on;
         plot(timeline, cur_srate, 'k', 'LineWidth', 0.3);
         hold on;
@@ -131,7 +128,7 @@ for f_region = fieldnames(region_data)'
     %saveas(gcf, [figure_path 'Average/' f_region '_Summary_Continuous_FiringRate.eps']);
 end
 
-%%Compact population Subthreshold Vm
+%% Compact population Subthreshold Vm
 for f_region = fieldnames(region_data)'
     f_region = f_region{1};
     data_bystim = region_data.(f_region);
@@ -143,14 +140,15 @@ for f_region = fieldnames(region_data)'
     for f_stim=stims'
         f_stim = f_stim{1};
         timeline = nanmean(data_bystim.(f_stim).trace_timestamps, 2);
-        cur_Vm = mean(data_bystim.(f_stim).neuron_Vm, 2, 'omitnan');
-        std_Vm = std(data_bystim.(f_stim).neuron_Vm, 0, 2, 'omitnan');
-        num_neurons = size(data_bystim.(f_stim).neuron_Vm, 2);
+        norm_vms = data_bystim.(f_stim).neuron_Vm./data_bystim.(f_stim).neuron_spike_amp;
+        cur_Vm = mean(norm_vms, 2, 'omitnan');
+        std_Vm = std(norm_vms, 0, 2, 'omitnan');
+        num_neurons = size(norm_vms, 2);
         sem_Vm = std_Vm./sqrt(num_neurons);
         %num_points = size(data_bystim.(f_stim{1}).neuron_Vm, 1);
         nexttile;
-        f = fill([timeline; flip(timeline)], [cur_Vm + sem_Vm; flipud(cur_Vm - sem_Vm)], [0.5 0.5 0.5], 'linewidth', 0.2);
-        Multi_func.set_fill_properties(f);
+        fill_h = fill([timeline; flip(timeline)], [cur_Vm + sem_Vm; flipud(cur_Vm - sem_Vm)], [0.5 0.5 0.5], 'linewidth', 0.2);
+        Multi_func.set_fill_properties(fill_h);
         hold on;
         plot(timeline, cur_Vm, 'k', 'LineWidth', 0.3);
         hold on;
@@ -164,22 +162,25 @@ for f_region = fieldnames(region_data)'
         else
             xlim([-1 2.05]);
         end
+        
+        % Plot a DBS bar generically
+        Multi_func.plot_dbs_bar([0, 1], max(cur_Vm)+ 0.3, [f_stim(3:end) 'Hz DBS']);
 
         % Determine limits based on what is plotted
-        if strcmp(f_region, 'r_M1') == 1
-            Multi_func.plot_dbs_bar([0, 1], 8, [f_stim(3:end) 'Hz DBS']);
-            y.Limits = [-5 10];
-            Multi_func.set_spacing_axis(y, 5, 1);
-        elseif strcmp(f_region, 'r_combine') == 1
-            y.Limits = [-2 8];
-        elseif strcmp(f_region, 'r_V1') == 1
-            Multi_func.plot_dbs_bar([0, 1], 18, [f_stim(3:end) 'Hz DBS']);
-            y.Limits = [-10 20];
-            Multi_func.set_spacing_axis(y, 10, 1);
-        end
+        %if strcmp(f_region, 'r_M1') == 1
+        %    Multi_func.plot_dbs_bar([0, 1], , [f_stim(3:end) 'Hz DBS']);
+        %    y.Limits = [-5 10];
+        %    Multi_func.set_spacing_axis(y, 5, 1);
+        %elseif strcmp(f_region, 'r_combine') == 1
+        %    y.Limits = [-2 8];
+        %elseif strcmp(f_region, 'r_V1') == 1
+        %    Multi_func.plot_dbs_bar([0, 1], 18, [f_stim(3:end) 'Hz DBS']);
+        %    y.Limits = [-10 20];
+        %    Multi_func.set_spacing_axis(y, 10, 1);
+        %end
 
         %title(f_stim(3:end), 'Interpreter', 'none');
-        ylabel('Vm (A.U.)');
+        ylabel('Normalized Vm');
         xlabel('Time from stim onset (s)');
     end
     sgtitle([f_region(3:end) ' Average subthreshold Vm'], 'Interpreter', 'none');
@@ -189,11 +190,11 @@ for f_region = fieldnames(region_data)'
 end
 
 
-
+%% Violin plots sub vm transient and sustained periods
 % Struct to identify each group of data
 sub_vm_stat_data = struct();
 % Make Violin plots on Subthreshold Vm for transient and sustained
-for f_region = fieldnames(region_data)'
+for f_region = {'r_M1'} %fieldnames(region_data)'
     f_region = f_region{1};
     data_bystim = region_data.(f_region);
     stims = fieldnames(data_bystim);
@@ -203,14 +204,36 @@ for f_region = fieldnames(region_data)'
     figure('visible', 'on', 'Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
     tiledlayout(1, length(stims), 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 20, 8.096, 3]);
     for f_stim=stims'
+        f_stim = f_stim{1};
         nexttile;
+
+        % Normalize the Vm
+        norm_vms = data_bystim.(f_stim).neuron_Vm./data_bystim.(f_stim).neuron_spike_amp;
+        
+        tim_stamp = data_bystim.(f_stim).trace_timestamps;
+        [trans_r, trans_c] = find(tim_stamp > Multi_func.trans_ped(1)/1000 & tim_stamp < Multi_func.trans_ped(2)/1000);
+        [sus_r, sus_c] = find(tim_stamp > Multi_func.sus_ped(1)/1000 & tim_stamp < Multi_func.sus_ped(2)/1000);
+        [base_r, base_c] = find(tim_stamp > Multi_func.base_ped(1)/1000 & tim_stamp < Multi_func.base_ped(2)/1000);
+        
+        base_r = unique(base_r);
+        base_c = unique(base_c);
+        trans_r = unique(trans_r);
+        trans_c = unique(trans_c);
+        sus_r = unique(sus_r);
+        sus_c = unique(sus_c);
+
+        % Find the base values and then reshape the array to maintain length
+        neuron_base_vm = nanmean(norm_vms(base_r, base_c), 1);
+        neuron_trans_vm = nanmean(norm_vms(trans_r, trans_c), 1) - neuron_base_vm;
+        neuron_sus_vm = nanmean(norm_vms(sus_r, sus_c), 1) - neuron_base_vm;
+
+        num_neurons = size(neuron_trans_vm, 2);
+ 
         % Plot violins
         labels = [];
         data = [];
-        f_stim = f_stim{1};
-        num_neurons = length(data_bystim.(f_stim).neuron_trans_Vm);
         labels = [labels; repmat({'Trans'}, num_neurons, 1); repmat({'Sus'}, num_neurons, 1)];
-        data = [data; data_bystim.(f_stim).neuron_trans_Vm', data_bystim.(f_stim).neuron_sus_Vm'];
+        data = [data; neuron_trans_vm', neuron_sus_vm'];
  
         ViolinOpts = Multi_func.get_default_violin();
         violins = violinplot(data, labels, 'GroupOrder', {'Trans', 'Sus'}, ViolinOpts);
@@ -235,17 +258,17 @@ for f_region = fieldnames(region_data)'
             y.Limits = [-2 8];
             Multi_func.set_spacing_axis(y, 4, 1);
         elseif strcmp(f_region, 'r_M1') == 1
-            y.Limits = [-10 25];
-            Multi_func.set_spacing_axis(y, 10, 1);
+            y.Limits = [-1 2];
+            %Multi_func.set_spacing_axis(y, 10, 1);
         elseif strcmp(f_region, 'r_V1') == 1
             y.Limits = [-5 45];
             Multi_func.set_spacing_axis(y, 20, 1);
         end
         title([f_stim(3:end) ' Hz DBS']);
-        ylabel('Vm Change (A.U.)');
+        ylabel('Normalized Vm Change');
 
-        sub_vm_stat_data.(f_region).(f_stim).trans_vm = data_bystim.(f_stim).neuron_trans_Vm;
-        sub_vm_stat_data.(f_region).(f_stim).sus_vm = data_bystim.(f_stim).neuron_sus_Vm;
+        sub_vm_stat_data.(f_region).(f_stim).trans_vm = neuron_trans_vm;
+        sub_vm_stat_data.(f_region).(f_stim).sus_vm = neuron_sus_vm;
     end
     
     sgtitle([f_region(3:end) ' Sub Vm Violins'], 'Interpreter', 'none');
@@ -254,6 +277,7 @@ for f_region = fieldnames(region_data)'
     %saveas(gcf, [figure_path 'Average/' f_region '_population_comp_Vm_violin.eps'], 'epsc');
 end
 
+%%
 % Make Violin plots on Subthreshold Vm for stimulation period
 for f_region = fieldnames(region_data)'
     f_region = f_region{1};
@@ -443,7 +467,8 @@ for f_region = fieldnames(region_data)'
     %saveas(gcf, [figure_path 'Average/' f_region '_population_comp_FR_violin.eps']);
 end
 
-% Subthreshold Vm showing all DBS pulses
+
+%% Subthreshold Vm showing all DBS pulses
 for f_region = fieldnames(region_data)'
     f_region = f_region{1};
     data_bystim = region_data.(f_region);
@@ -452,39 +477,41 @@ for f_region = fieldnames(region_data)'
     figure('Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
     tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 20, 9, 5.23]);
     for f_stim=stims'
-        timeline = nanmean(data_bystim.(f_stim{1}).trace_timestamps, 2);
-        cur_Vm = mean(data_bystim.(f_stim{1}).neuron_Vm, 2, 'omitnan');
-        std_Vm = std(data_bystim.(f_stim{1}).neuron_Vm, 0, 2, 'omitnan');
-        num_neurons = size(data_bystim.(f_stim{1}).neuron_Vm, 2);
+        f_stim = f_stim{1};
+        timeline = nanmean(data_bystim.(f_stim).trace_timestamps, 2);
+        norm_vms = data_bystim.(f_stim).neuron_Vm./data_bystim.(f_stim).neuron_spike_amp;
+        cur_Vm = mean(norm_vms, 2, 'omitnan');
+        std_Vm = std(norm_vms, 0, 2, 'omitnan');
+        num_neurons = size(norm_vms, 2);
         sem_Vm = std_Vm./sqrt(num_neurons);
         %num_points = size(data_bystim.(f_stim{1}).neuron_Vm, 1);
         nexttile;
 
         % Plot the subthreshold Vm
-        f = fill([timeline; flip(timeline)], [cur_Vm + sem_Vm; flipud(cur_Vm - sem_Vm)], [0.5 0.5 0.5]);
-        Multi_func.set_fill_properties(f);
+        fill_h = fill([timeline; flip(timeline)], [cur_Vm + sem_Vm; flipud(cur_Vm - sem_Vm)], [0.5 0.5 0.5]);
+        Multi_func.set_fill_properties(fill_h);
         hold on;
         plot(timeline, cur_Vm, 'k', 'LineWidth', 1);
         hold on;
         
         % Plot the DBS stimulation time pulses
-        stim_time = nanmean(data_bystim.(f_stim{1}).stim_timestamps, 2);
+        stim_time = nanmean(data_bystim.(f_stim).stim_timestamps, 2);
         xline(stim_time, 'Color', [170, 176, 97]./255, 'LineWidth', 0.5);
         hold on;
 
         % Plot the timescale bar
         posx = -.100;
-        posy = -3;
+        posy = -0.5;
         plot([posx, posx + 0.050], [posy posy], 'k', 'LineWidth', 2);
-        text(posx, posy - 0.5, '50ms');
+        text(posx, posy - 0.1, '50ms');
         hold on;
 
         % Plot the Vm scale
         poxs = .2;
-        posy = 5;
-        Vm_scale = 2;
+        posy = 0;
+        Vm_scale = 0.5;
         plot([posx, posx], [posy, posy + Vm_scale], 'k', 'LineWidth', 2);
-        text(posx - .01, posy, [num2str(Vm_scale) ' Vm'], 'Rotation', 90);
+        text(posx - .01, posy, [num2str(Vm_scale) ' Norm Vm'], 'Rotation', 90);
 
         % Increase timescale resolution
         xlim([0 - .100, max(stim_time) + 0.100]);
@@ -492,7 +519,7 @@ for f_region = fieldnames(region_data)'
         a.XAxis.Visible = 'off';
         a.YAxis.Visible = 'off';
         set(gca, 'color', 'none')
-        title(f_stim{1}(3:end), 'Interpreter', 'none');
+        title(f_stim(3:end), 'Interpreter', 'none');
     end
     sgtitle([f_region(3:end) ' Average subthreshold Vm Showing all pulses'], 'Interpreter', 'none');
     saveas(gcf, [figure_path 'Average/' f_region '_Display_All_Pulse_Vm.png']);
@@ -500,7 +527,7 @@ for f_region = fieldnames(region_data)'
     %saveas(gcf, [figure_path 'Average/' f_region '_Display_All_Pulse_Vm.eps'], 'epsc');
 end
 
-% Continuous firing rate showing all DBS pulses
+%% Continuous firing rate showing all DBS pulses
 for f_region = fieldnames(region_data)'
     f_region = f_region{1};
     data_bystim = region_data.(f_region);
@@ -518,8 +545,8 @@ for f_region = fieldnames(region_data)'
         nexttile;
 
         % Plot the subthreshold srate
-        f = fill([timeline; flip(timeline)], [cur_srate + sem_srate; flipud(cur_srate - sem_srate)], [0.5 0.5 0.5]);
-        Multi_func.set_fill_properties(f);
+        fill_h = fill([timeline; flip(timeline)], [cur_srate + sem_srate; flipud(cur_srate - sem_srate)], [0.5 0.5 0.5]);
+        Multi_func.set_fill_properties(fill_h);
         hold on;
         plot(timeline, cur_srate, 'k', 'LineWidth', 0.3);
         hold on;
