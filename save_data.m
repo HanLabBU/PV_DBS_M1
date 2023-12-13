@@ -99,12 +99,14 @@ for f_region = fieldnames(region_matfiles)'
         
         % Spike stuff
         data_bystim.(f_stim).all_trial_spikeidx = {};
+        data_bystim.(f_stim).all_trial_spike_amp = {};
         data_bystim.(f_stim).neuron_srate_100 = [];
         data_bystim.(f_stim).neuron_srate_50 = [];
         data_bystim.(f_stim).neuron_srate_20 = [];
         data_bystim.(f_stim).neuron_srate_10 = [];
         data_bystim.(f_stim).neuron_srate_3 = [];
         data_bystim.(f_stim).neuron_spikecounts_raster = [];
+        data_bystim.(f_stim).neuron_spike_amp = [];
 
         % Power spectra stuff
         data_bystim.(f_stim).neuron_spec_power = [];
@@ -139,6 +141,7 @@ for f_region = fieldnames(region_matfiles)'
             cur_fov_rawtraces = [];
             cur_fov_tracenoises = [];
             cur_fov_spikeidx = [];
+            cur_fov_spike_amp = [];
 
             cur_fov_srate_100 = [];
             cur_fov_srate_50 = [];
@@ -215,7 +218,7 @@ for f_region = fieldnames(region_matfiles)'
                     % Grab the spike idxs
                     cur_spike_idx = trial_data.spike_info375.spike_idx{1};
                     cur_spike_idx(find(cur_spike_idx < front_frame_drop | cur_spike_idx > back_frame_drop)) = NaN;
-                    cur_spike_idx = cur_spike_idx - front_frame_drop;
+                    cur_spike_idx = cur_spike_idx - front_frame_drop + 1;
                     % Add if spikes were detected
                     if length(cur_spike_idx)  == 0
                         cur_spike_idx = [NaN];
@@ -230,6 +233,9 @@ for f_region = fieldnames(region_matfiles)'
 
                     cur_trace_noise = trial_data.spike_info375.trace_noise;
                     cur_fov_tracenoises = horzcat_pad(cur_fov_tracenoises, cur_trace_noise);
+
+                    cur_spike_amp = trial_data.spike_info375.spike_amplitude{1};
+                    cur_fov_spike_amp = horzcat_pad(cur_fov_spike_amp, cur_spike_amp');
 
                     % Calculate spikerate with a window size of 100
                     cur_raster = trial_data.spike_info375.roaster(roi_idx, front_frame_drop:back_frame_drop);
@@ -393,6 +399,13 @@ for f_region = fieldnames(region_matfiles)'
             temp = data_bystim.(f_stim).all_trial_trace_noise;
             data_bystim.(f_stim).all_trial_trace_noise{end + 1} = cur_fov_tracenoises;
 
+            % Save all the trial spike amplitudes
+            temp = data_bystim.(f_stim).all_trial_spike_amp;
+            data_bystim.(f_stim).all_trial_spike_amp{end + 1} = cur_fov_spike_amp;
+
+            % Average the spike amplitudes for each neuron
+            temp = data_bystim.(f_stim).neuron_spike_amp;
+            data_bystim.(f_stim).neuron_spike_amp = horzcat_pad(temp, nanmean(cur_fov_spike_amp, 'all'));
 
             % Save all spike idxs
             temp = data_bystim.(f_stim).all_trial_spikeidx;
