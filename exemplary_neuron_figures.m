@@ -79,11 +79,100 @@ trial_num = 1;
 nr_idx = find(contains(data_bystim.f_140.neuron_name, neuron));
 neuron_data = data_bystim.f_140;
 
+%% Code to plot a heatmap with raster plot
+figure('Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
+tiledlayout(3, 1, 'TileSpacing', 'loose', 'Padding', 'loose', 'Units', 'centimeters', 'InnerPosition', [4 5 7 9]);
+timeline = neuron_data.trace_timestamps(:, nr_idx);
+
+%-- Plot example trial
+nexttile;
+raw_tr = neuron_data.all_trial_rawVm{nr_idx}(:, trial_num);
+tr_noise = neuron_data.all_trial_trace_noise{nr_idx}(trial_num);
+plot(timeline, raw_tr./tr_noise, 'k');
+hold on;
+
+spike_idx = neuron_data.all_trial_spikeidx{nr_idx}(:, trial_num);
+%spike_idx(find(spike_idx < front_frame_drop | spike_idx > back_frame_drop)) = [];
+%spike_idx = spike_idx - front_frame_drop + 1;
+%spike_idx = spike_idx + 1;
+spike_idx(isnan(spike_idx)) = [];
+plot(timeline(spike_idx), ones(size(spike_idx)).*(max(raw_tr(spike_idx)./tr_noise) + 1), '.r');
+hold on;
+
+% Plot the stim pulses
+stim_idx = neuron_data.stim_timestamps(:, nr_idx);
+plot(stim_idx, ones(size(stim_idx))*(max(raw_tr(spike_idx)./tr_noise) + 3), '|k');
+hold on;
+plot(timeline, ones(size(timeline))*(max(raw_tr(spike_idx)./tr_noise) + 3), '-k');
+hold on;
+plot([min(timeline) min(timeline)], [-5 0], 'b', 'LineWidth', 2)
+
+xlim([min(timeline) max(timeline)]);
+ax = gca;
+ax.YAxis.Visible = 'off';
+Multi_func.set_default_axis(gca);
+
+%-- Plot the fluorescence heatmap
+nexttile;
+vm_map = [];
+spidx_map = [];
+% Loop through each trial of given neuron
+for i = 1:size(neuron_data.all_trial_rawVm{nr_idx}, 2)
+    vm_map = [vm_map; neuron_data.all_trial_rawVm{nr_idx}(:, i)'];
+    cur_spikeidx = neuron_data.all_trial_spikeidx{nr_idx}(:, i);
+    spidx_map = [spidx_map; cur_spikeidx'];
+end
+imagesc('XData', timeline, 'YData', 1:size(vm_map, 1), 'CData', vm_map);
+colorbar;
+hold on;
+
+xlim([min(timeline) max(timeline)]);
+ylim([0.5 size(vm_map, 1)]);
+
+ax = gca;
+set(ax, 'Color', 'none', 'Box', 'on', 'TickDir', 'out', 'linewidth', 0.2);
+
+%-- Plot the population average trace
+nexttile;
+
+all_traces = neuron_data.all_trial_rawVm{nr_idx};
+snr_traces = all_traces./neuron_data.all_trial_trace_noise{nr_idx};
+
+% Calculate the average and SEM
+avg_trace = nanmean(snr_traces, 2);
+std_trace = nanstd(snr_traces, 0, 2);
+num_trials = size(snr_traces, 2);
+sem_trace = std_trace./sqrt(num_trials);
+
+% Plot neuron's trial SEM
+fill_h = fill([timeline; flip(timeline)], [avg_trace + sem_trace; flipud(avg_trace - sem_trace)], [0.5 0.5 0.5]);
+Multi_func.set_fill_properties(fill_h);
+hold on;
+
+% Plot trial-averaged trace
+plot(timeline, avg_trace, 'k');
+
+hold on;
+
+% Plotting the SNR scale
+plot([min(timeline) min(timeline)], [-5 0], 'b', 'LineWidth', 2)
+
+xlim([min(timeline) max(timeline)]);
+ax = gca;
+ax.YAxis.Visible = 'off';
+Multi_func.set_default_axis(gca);
+
+
+% Save figure
+saveas(gcf, [savefig_path 'Exemplary' f neuron '_heatmap.png']);
+saveas(gcf, [savefig_path 'Exemplary' f neuron '_heatmap.pdf']);
+
 
 %% Code to plot individual trials with raster plot and average
 figure('Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
 tiledlayout(3, 1, 'TileSpacing', 'loose', 'Padding', 'loose', 'Units', 'centimeters', 'InnerPosition', [4 5 8 15]);
 timeline = neuron_data.trace_timestamps(:, nr_idx);
+
 
 % Plot trial-averaged fluorescence
 nexttile;
@@ -97,8 +186,8 @@ num_trials = size(snr_traces, 2);
 sem_trace = std_trace./sqrt(num_trials);
 
 % Plot neuron's trial SEM
-fill_handle = fill([timeline; flip(timeline)], [avg_trace + sem_trace; flipud(avg_trace - sem_trace)], [0.5 0.5 0.5]);
-Multi_func.set_fill_properties(fill_handle);
+fill_h = fill([timeline; flip(timeline)], [avg_trace + sem_trace; flipud(avg_trace - sem_trace)], [0.5 0.5 0.5]);
+Multi_func.set_fill_properties(fill_h);
 hold on;
 
 % Plot trial-averaged trace
@@ -120,7 +209,6 @@ xlim([min(timeline) max(timeline)]);
 ax = gca;
 ax.YAxis.Visible = 'off';
 Multi_func.set_default_axis(gca);
-
 % Plot each individual trial trace
 nexttile;
 trace_map = [];
@@ -142,8 +230,6 @@ for i =1:size(spidx_map, 1)
     plot(timeline(temp_spidx), trace_map(i, temp_spidx), '.r');
     hold on;
 end
-%TODO change this guy
-%rectangle('Position', [min(timeline), -0.5 + trial_num, range(timeline), 1]);
 
 xlim([min(timeline) max(timeline)]);
 ylim([0.5 size(trace_map, 1) + 0.5]);
@@ -151,7 +237,14 @@ ylim([0.5 size(trace_map, 1) + 0.5]);
 ax = gca;
 set(ax, 'Color', 'none', 'Box', 'on', 'TickDir', 'out', 'linewidth', 0.2);
 
-nexttile;
+% Save figure
+saveas(gcf, [savefig_path 'Exemplary' f neuron '_tr_traces_average.png']);
+saveas(gcf, [savefig_path 'Exemplary' f neuron '_tr_traces_average.pdf']);
+
+
+
+%% Code to plot a raster plot
+% Plot the raster of the current neuron
 
 raster_map = NaN(size(spidx_map));
 raster_map(find(~isnan(spidx_map))) = 1;
@@ -169,86 +262,6 @@ xlim([min(timeline) max(timeline)]);
 ylim([0.5 size(trace_map, 1)]);
 ax = gca;
 set(ax, 'Color', 'none', 'Box', 'on', 'TickDir', 'out', 'linewidth', 0.2);
-
-% Save figure
-saveas(gcf, [savefig_path 'Exemplary' f neuron '_tr_traces_average.png']);
-saveas(gcf, [savefig_path 'Exemplary' f neuron '_tr_traces_average.pdf']);
-
-%% Code to plot a heatmap with raster plot
-figure('Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
-tiledlayout(3, 1, 'TileSpacing', 'loose', 'Padding', 'loose', 'Units', 'centimeters', 'InnerPosition', [4 5 8 9]);
-timeline = neuron_data.trace_timestamps(:, nr_idx);
-
-% Plot example trial
-nexttile;
-raw_tr = neuron_data.all_trial_rawVm{nr_idx}(:, trial_num);
-tr_noise = neuron_data.all_trial_trace_noise{nr_idx}(trial_num);
-plot(timeline, raw_tr./tr_noise, 'k');
-hold on;
-
-spike_idx = neuron_data.all_trial_spikeidx{nr_idx}(:, trial_num);
-%spike_idx(find(spike_idx < front_frame_drop | spike_idx > back_frame_drop)) = [];
-%spike_idx = spike_idx - front_frame_drop + 1;
-%spike_idx = spike_idx + 1;
-spike_idx(isnan(spike_idx)) = [];
-plot(timeline(spike_idx), raw_tr(spike_idx)./tr_noise, '.r');
-hold on;
-
-% Plot the stim pulses
-stim_idx = neuron_data.stim_timestamps(:, nr_idx);
-plot(stim_idx, ones(size(stim_idx))*(max(raw_tr(spike_idx)./tr_noise) + 3), '|k');
-hold on;
-plot(timeline, ones(size(timeline))*(max(raw_tr(spike_idx)./tr_noise) + 3), '-k');
-hold on;
-plot([min(timeline) min(timeline)], [-5 0], 'b', 'LineWidth', 2)
-
-xlim([min(timeline) max(timeline)]);
-ax = gca;
-ax.YAxis.Visible = 'off';
-Multi_func.set_default_axis(gca);
-
-% Plot the fluorescence heatmap
-nexttile;
-vm_map = [];
-spidx_map = [];
-% Loop through each trial of given neuron
-for i = 1:size(neuron_data.all_trial_rawVm{nr_idx}, 2)
-    vm_map = [vm_map; neuron_data.all_trial_rawVm{nr_idx}(:, i)'];
-    cur_spikeidx = neuron_data.all_trial_spikeidx{nr_idx}(:, i);
-    spidx_map = [spidx_map; cur_spikeidx'];
-end
-imagesc('XData', timeline, 'YData', 1:size(vm_map, 1), 'CData', vm_map);
-hold on;
-rectangle('Position', [min(timeline), -0.5 + trial_num, range(timeline), 1]);
-
-xlim([min(timeline) max(timeline)]);
-ylim([0.5 size(vm_map, 1)]);
-
-ax = gca;
-set(ax, 'Color', 'none', 'Box', 'on', 'TickDir', 'out', 'linewidth', 0.2);
-
-nexttile;
-
-raster_map = NaN(size(spidx_map));
-raster_map(find(~isnan(spidx_map))) = 1;
-
-raster_map = raster_map.*(1:size(spidx_map, 1))';
-
-% Clean up the nans
-spidx_map(isnan(spidx_map)) = [];
-raster_map(isnan(raster_map)) = [];
-
-% Plot all of the raster points
-plot(timeline(spidx_map), raster_map, '.k');
-
-xlim([min(timeline) max(timeline)]);
-ylim([0.5 size(vm_map, 1)]);
-ax = gca;
-set(ax, 'Color', 'none', 'Box', 'on', 'TickDir', 'out', 'linewidth', 0.2);
-
-% Save figure
-saveas(gcf, [savefig_path 'Exemplary' f neuron '_heatmap.png']);
-saveas(gcf, [savefig_path 'Exemplary' f neuron '_heatmap.pdf']);
 
 %% Get exemplary trace at 140 for V1
 example_matfile = [pv_data_path '611284_V1_rec20210827_FOV1_140_60_.mat'];
