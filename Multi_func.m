@@ -1,4 +1,3 @@
-%fieldnames(region_matfiles)'% This class is used to have the implementation of commonly called routines consolidated into a single file.
 % The functions here are hopefully specific to the PV DBS project, and therefore may look similar to other previously made functions but with slight differences
 classdef Multi_func
     properties (Constant)
@@ -179,6 +178,36 @@ classdef Multi_func
             end
         end
 
+        %Calculates spike phase-locking value
+        function [PLV_output, PLV_output2, mat] = spike_field_ppcDBS_Pierre(wavD, spikes, timshift)
+            if size(wavD,4)>1    
+                [tr chs frs t]= size(wavD);    
+            else    
+                [t frs tr]= size(wavD);    
+            end    
+            mat=[];    
+            for ind=1:tr    
+                if size(wavD,4)>1    
+                     M=exp(1i.*((squeeze(wavD(ind,CH,:,:)))));    
+                else    
+                    M=exp(1i.*((squeeze(wavD(:,:,ind))))); 
+                end    
+                s=find(spikes{ind});s=s-timshift; s(s<=0)=[];    
+                mat=[mat, M(s,:)'];    
+            end    
+                
+            NT= sum(~isnan(mat(1,:)));    
+            Z=abs(nanmean(mat,2));  % MVL    
+            T= Z.^2;    
+            PLV_output= (((1/(NT-1))*((T.*NT-1))));  %adjusted MLV (PPC)    
+            PLV_output2= mat;    
+            
+            if NT<=5    
+                PLV_output=PLV_output.*NaN;    
+                %PLV_output2=PLV_output2.*NaN;
+            end
+        end
+
         % Calculate cwt for input signal and 
         function [wt, f] = get_power_spec(signal, samp_freq)
             freqLimits = [0 150];
@@ -225,7 +254,7 @@ classdef Multi_func
 
         % Plot DBS bar above specified value
         function [result] = plot_dbs_bar(x_pts, y, text_str)
-            offset = 1;
+            offset = 0;
             plot(x_pts, [y + offset, y + offset], '-', 'LineWidth', 2.5, 'Color', Fig_color_props.dbs_color);
             hold on;
             t1 = text(x_pts(1), y + 2*offset, text_str, 'FontSize', 7);
