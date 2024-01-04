@@ -36,6 +36,9 @@ srate_win = 3;
 % Do all region
 all_region = 0;
 
+% Display neuron names next to individual Vms
+display_names = 0;
+
 % Percentage to increase Vm and firing rate
 thres_percent = 0.10;
 
@@ -63,12 +66,17 @@ field1 = field1{1};
 avg_Fs = mean(region_data.(field1).f_40.framerate, 'omitnan');
 timeline = ( (4+(front_frame_drop:back_frame_drop) )./avg_Fs) - 1;
 
-%set figures off
-set(0,'DefaultFigureVisible','off');
-
 spacing = 1.4;
 
-% Show each neuron's trial-averaged Vm
+%% Show each neuron's trial-averaged Vm
+
+% Display name columns or not
+if display_names == 1
+    num_col = 3;
+else
+    num_col = 2;
+end
+
 for f_region = fieldnames(region_data)'    
     f_region = f_region{1};    
     data_bystim = region_data.(f_region);    
@@ -78,7 +86,8 @@ for f_region = fieldnames(region_data)'
         
         f_stim = f_stim{1};
         figure('visible', 'on', 'Renderer', 'Painters', 'Position', [200 200 2000 1000]);    
-        tiledlayout(size(data_bystim.(f_stim).trace_timestamps, 2), 2, 'TileSpacing', 'none', 'Padding', 'compact');    
+        
+        tiledlayout(size(data_bystim.(f_stim).trace_timestamps, 2), num_col, 'TileSpacing', 'none', 'Padding', 'compact');    
 
         
         timeline = nanmean(data_bystim.(f_stim).trace_timestamps, 2); 
@@ -142,6 +151,11 @@ for f_region = fieldnames(region_data)'
             hold on;
             xline(1, '--');
 
+            % Write the FOV name
+            if display_names == 1
+                nexttile;
+                text(0.1, 0.5, data_bystim.(f_stim).neuron_name{nr}(1:end - 4), 'Interpreter', 'none');
+            end
         end
 
         sgtitle([f_region(3:end) '_' f_stim(3:end) ' Vm' ], 'Interpreter', 'non');
@@ -153,7 +167,7 @@ for f_region = fieldnames(region_data)'
     end
 end
 
-% Show all of the neuron's trial-averaged Firing Rate
+%% Show all of the neuron's trial-averaged Firing Rate
 for f_region = fieldnames(region_data)'    
     f_region = f_region{1};    
     data_bystim = region_data.(f_region);    
