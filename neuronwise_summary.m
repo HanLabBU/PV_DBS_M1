@@ -32,7 +32,7 @@ ignore_trial_dict = Multi_func.csv_to_struct([local_root_path 'Pierre Fabris' f 
 all_regions = 0;
 
 % Flag to display each neuron's name or not
-display_names = 1;
+display_names = 0;
 
 %%% END Modification
 
@@ -46,19 +46,19 @@ ses = dir([pv_data_path '*.mat']);
 
 all_matfiles = {ses.name};
 
-% Select matfiles by brain region
+%% Select matfiles by brain region
 [region_matfiles] = Multi_func.find_region(all_matfiles);
 region_data = struct();
 all_Fs = [];
 for f_region = fieldnames(region_matfiles)'
     f_region = f_region{1};
 
-    %% Select matfiles by stim specific conditions for all regions
+    % Select matfiles by stim specific conditions for all regions
     %[matfile_stim] = stim_cond(all_matfiles); 
-    %% Select matfiles by stim condition for given region
+    % Select matfiles by stim condition for given region
     [matfile_stim] = stim_cond(region_matfiles.(f_region).names);
 
-    %% Loop through each field of the struct and concatenate everything together
+    % Loop through each field of the struct and concatenate everything together
     % Store trace aspect data by each individual stimulation condition
     data_bystim = struct();
     % Store all of the calculated sampling frequencies
@@ -192,8 +192,9 @@ end
 % Calculate the sampling frequency from all of the 
 avg_Fs = nanmean(all_Fs);
 
+%TODO plot the individual trials sorted by zero-scored depolarization from baseline
 %TODO fix the raw trace and subthreshold Vm neuron line boundary
-% Plot each Region and each frequency raster, raw Vm, and subthreshold Vm
+%% Plot each Region and each frequency raster, raw Vm, and subthreshold Vm
 for f_region = fieldnames(region_data)'
     f_region = f_region{1};
     data_bystim = region_data.(f_region).data_bystim;
@@ -207,7 +208,7 @@ for f_region = fieldnames(region_data)'
         timeline = nanmean(data_bystim.(f_stim).trace_timestamps, 2)';
 
         % Create a figure that includes: raw, spikes, and SubVm
-        figure('Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
+        figure('Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 40 40]);
         tiledlayout(1, 3, 'TileSpacing', 'none', 'Padding', 'loose', 'Units', 'centimeters', 'InnerPosition', [4 5 16.21 16]);
         
         % Plot the raw traces
@@ -327,7 +328,7 @@ for f_region = fieldnames(region_data)'
 end
 
 %% Specific functions for determining which FOVs to look at
-% Return matfiles by stimulation condition
+% Return matfiles% by stimulation condition
 function [cond_struct] = stim_cond(matfile_names)
     cond_struct = struct();
     
