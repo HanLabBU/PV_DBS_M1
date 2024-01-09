@@ -71,11 +71,13 @@ for f_region = fieldnames(region_matfiles)'
         % Initialize field subthreshold array
         data_bystim.(f_stim) = struct();
         data_bystim.(f_stim).neuron_SubVm = {};
+        data_bystim.(f_stim).neuron_avg_subVm = [];
         data_bystim.(f_stim).neuron_spikeidx = {};
         data_bystim.(f_stim).neuron_rawVm = {};
         data_bystim.(f_stim).stim_timestamps = [];
         data_bystim.(f_stim).trace_timestamps = [];
         data_bystim.(f_stim).neuron_name = {};
+
 
         % Loop through each matfile of the current stimulation condition
         for matfile = matfiles
@@ -160,6 +162,10 @@ for f_region = fieldnames(region_matfiles)'
             end
 
             % Average for each neuron and save the subthreshold Vm
+            temp = data_bystim.(f_stim).neuron_avg_subVm;
+            data_bystim.(f_stim).neuron_avg_subVm = horzcat_pad(temp, nanmean(cur_fov_subVm, 2));
+
+            % Each neuron's average trial
             temp = data_bystim.(f_stim).neuron_SubVm;
             data_bystim.(f_stim).neuron_SubVm{end + 1} = cur_fov_subVm;
 
@@ -190,7 +196,7 @@ if all_regions == 1
 end
 
 % Calculate the sampling frequency from all of the 
-avg_Fs = nanmean(all_Fs);
+avg_Fs = round(nanmean(all_Fs));
 
 %TODO plot the individual trials sorted by zero-scored depolarization from baseline
 %TODO fix the raw trace and subthreshold Vm neuron line boundary
@@ -209,13 +215,19 @@ for f_region = fieldnames(region_data)'
 
         % Create a figure that includes: raw, spikes, and SubVm
         figure('Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 40 40]);
-        tiledlayout(1, 3, 'TileSpacing', 'none', 'Padding', 'loose', 'Units', 'centimeters', 'InnerPosition', [4 5 16.21 16]);
+        tiledlayout(1, 2, 'TileSpacing', 'none', 'Padding', 'loose', 'Units', 'centimeters', 'InnerPosition', [4 5 16.21 16]);
         
         % Plot the raw traces
         nexttile;
+        
+        % Calculate the sort order for Vm based on depolarization during stimulation phase
+        nr_trans_dep = nanmean(data_bystim.(f_stim).neuron_avg_subVm(avg_Fs:2*avg_Fs, :), 1);
+        [~, I] = sort(nr_trans_dep);
+        I = flip(I);
+
         neuron_bound = [0];
         data_map = [];
-        for i = 1:length(data_bystim.(f_stim).neuron_SubVm)
+        for i = I %1:length(data_bystim.(f_stim).neuron_SubVm)
             data_map = [data_map; data_bystim.(f_stim).neuron_rawVm{i}'];
             num_neurons = size(data_bystim.(f_stim).neuron_SubVm{i}, 2);
             neuron_bound(end + 1) = neuron_bound(end) + num_neurons;
@@ -241,29 +253,29 @@ for f_region = fieldnames(region_data)'
         %hold on;
         %xline(0, '--');
 
-        % Plot the Subthreshold Vm
-        nexttile;  
-        neuron_bound = [0];
-        data_map = [];
-        for i = 1:length(data_bystim.(f_stim).neuron_SubVm)
-            data_map = [data_map; data_bystim.(f_stim).neuron_SubVm{i}'];
-            num_neurons = size(data_bystim.(f_stim).neuron_SubVm{i}, 2);
-            neuron_bound(end + 1) = neuron_bound(end) + num_neurons;
-        end
-        imagesc('XData', timeline, 'YData', 1:size(data_map, 1), 'CData', data_map);
-        %colormap(flipud(Multi_func.tang_blue_color));
-        caxis(color_limits);
-        hold on;
-        yline(neuron_bound+ 0.5);
-        Multi_func.set_default_axis(gca);
-        ax = gca;
-        ax.YAxis.Visible = 'off';
-        xlabel('Time from Stim onset(sec)');
-        xlim([-1 2.05]);
-        ylim([0 size(data_map, 1)]);
-        ylabel('Neuron Trials');
-        set(gca, 'YTick', []);
-        title('Subthreshold Vm', 'Interpreter', 'none');
+        % %Plot the Subthreshold Vm
+        %nexttile;  
+        %neuron_bound = [0];
+        %data_map = [];
+        %for i = 1:length(data_bystim.(f_stim).neuron_SubVm)
+        %    data_map = [data_map; data_bystim.(f_stim).neuron_SubVm{i}'];
+        %    num_neurons = size(data_bystim.(f_stim).neuron_SubVm{i}, 2);
+        %    neuron_bound(end + 1) = neuron_bound(end) + num_neurons;
+        %end
+        %imagesc('XData', timeline, 'YData', 1:size(data_map, 1), 'CData', data_map);
+        % %colormap(flipud(Multi_func.tang_blue_color));
+        %caxis(color_limits);
+        %hold on;
+        %yline(neuron_bound+ 0.5);
+        %Multi_func.set_default_axis(gca);
+        %ax = gca;
+        %ax.YAxis.Visible = 'off';
+        %xlabel('Time from Stim onset(sec)');
+        %xlim([-1 2.05]);
+        %ylim([0 size(data_map, 1)]);
+        %ylabel('Neuron Trials');
+        %set(gca, 'YTick', []);
+        %title('Subthreshold Vm', 'Interpreter', 'none');
         
         %DEBUG
         %hold on;
