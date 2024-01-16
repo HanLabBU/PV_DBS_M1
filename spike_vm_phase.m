@@ -58,12 +58,14 @@ field1 = field1(1);
 avg_Fs = mean(region_data.(field1{1}).f_40.framerate, 'omitnan');
 %timeline = ( (4+(front_frame_drop:back_frame_drop) )./avg_Fs) - 1;
 
-set(0,'DefaultFigureVisible','off');
-
 % Look at spike phase Vm at stimulation frequency
 
 %% Plotting spike-Vm phase filtered at stim frequency
-
+stimfreq_phase_stats = struct();
+stats_log = [figure_path 'Phase' f 'Stim_freq_stats'];
+if exist(stats_log), delete(stats_log), end;
+diary(stats_log);
+diary off
 % Loop through all regions
 for f_region = fieldnames(region_data)'
     f_region = f_region{1};
@@ -108,6 +110,12 @@ for f_region = fieldnames(region_data)'
             end
         end
     
+        % Save circular staistics
+        diary on
+        disp(['Stim Frequency Circular Stats' f_region ' ' f_stim]);
+        stimfreq_phase_stats.(f_region).(f_stim).p = circ_wwtest(base_phases(:), stim_phases(:));
+        diary off
+
         % Plot the polar histgrams
         nexttile;
         edges = linspace(0, 2*pi, 24);
@@ -130,7 +138,12 @@ end
 
 
 %% Plotting phase for 2-10Hz filtered
-
+lowfreq_phase_stats = struct();
+region_data.(f_region).(f_stim).LowFreq = struct();
+stats_log = [figure_path 'Phase' f 'Low_freq_stats'];
+if exist(stats_log), delete(stats_log), end;
+diary(stats_log);
+diary off
 % Loop through all regions
 for f_region = fieldnames(region_data)'
     f_region = f_region{1};
@@ -179,8 +192,14 @@ for f_region = fieldnames(region_data)'
                 
             end
         end
-    
-        % TODO need to change the face colors to the standard color acorss all figures
+        
+        % Add theta phases to region_data struct
+        region_data.(f_region).(f_stim).LowFreq.base_phases = base_phases;
+        region_data.(f_region).(f_stim).LowFreq.base_phases = stim_phases;
+
+        % Save circular statistics
+        disp(['Low Frequency Circular Stats' f_region ' ' f_stim]);
+        lowfreq_phase_stats.(f_region).(f_stim).p = circ_wwtest(base_phases(:), stim_phases(:));
 
         % Plot the polar histgrams
         nexttile;
@@ -203,6 +222,10 @@ for f_region = fieldnames(region_data)'
         %saveas(gcf, [figure_path 'Phase/' f_stim '_Spike_Phase_deltaTheta.eps']);
     end
 end
+
+
+%% Create bar plots of the broad-band spike phase PLV
+
 
 
 %DEBUG
