@@ -8,6 +8,9 @@ classdef Multi_func
         % Into the server
         %save_plot = ['~/handata_server/eng_research_handata3/Pierre Fabris/PV Project/Plots/'];
 
+        % Specify the theta range use for filtering stuff
+        theta_range = [2 10];
+
         % Specify the transient and sustained time period
         trans_ped = [0, 100];
         sus_ped = [100, 1000];
@@ -159,19 +162,22 @@ classdef Multi_func
 
         % Filter and perform hilbert transform for range
         function [filt_sig] = filt_range(sig, range, FS)
+            % If range is a gradient, just set to minimum and maximum of gradient
+            if length(range) > 2
+                range = [min(range) max(range)];
+            end
             Fn = FS/2;
-            FB = [0.8 1.2].*range;
-            
+            FB = [0.95 1.05].*range;
+
             [B, A] = butter(2, [min(FB)/Fn max(FB)/Fn]);
             filt_sig = hilbert(filtfilt(B,A,sig));
         end
 
-        % Filter and grab the hilbert transform for at each frequency
-        
-        function  [filt_sig]=filt_data(sig,frs, FS)
+        % Filter and grab the hilbert transform for at each frequency in the specified range
+        function [filt_sig]=filt_data(sig,frs, FS)
             Fn = FS/2;
             for steps=1:length(frs);
-                FB=[ frs(steps)*0.9 frs(steps)*1.1];
+                FB=[ frs(steps)*0.95 frs(steps)*1.05];
                 
                 [B, A] = butter(2, [min(FB)/Fn max(FB)/Fn]);
                 filt_sig(:,steps)= hilbert(filtfilt(B,A,sig));
@@ -192,8 +198,10 @@ classdef Multi_func
                 else    
                     M=exp(1i.*((squeeze(wavD(:,:,ind))))); 
                 end    
-                s=find(spikes{ind});s=s-timshift; s(s<=0)=[];    
-                mat=[mat, M(s,:)'];    
+                s=find(spikes{ind});
+                s=s-timshift; 
+                s(s<=0)=[];    
+                mat=[mat, M(s,:)']; % The normal PLV formula   
             end    
                 
             NT= sum(~isnan(mat(1,:)));    
@@ -202,9 +210,39 @@ classdef Multi_func
             PLV_output= (((1/(NT-1))*((T.*NT-1))));  %adjusted MLV (PPC)    
             PLV_output2= mat;    
             
-            if NT<=5    
+            % Exclusion criteria for how many events were detected
+            if NT<=10    
                 PLV_output=PLV_output.*NaN;    
                 %PLV_output2=PLV_output2.*NaN;
+            end
+        end
+
+        % Calculates the spike-phase locking value from spike to signal
+        function [PLV, PLV2, phase_vecs] = spike_field_PLV(nr_phases, spikes, timeshift, exc_criteria)
+            % Loop through each trial
+            phase_vecs = [];
+            for i=1:size(nr_phases, 3)
+                trial_spikes = spikes(:, i);
+                spike_idx = find(trial_spikes == 1);
+                spike_idx - timeshift;
+                spike_idx(spike_idx <= 0) = [];
+                indi_phase_vecs = exp(1i.*(nr_phases(spike_idx, :, i)));
+                
+                %DEBUG
+                if sum(~isnan(indi_phase_vecs), 'all') == 0
+                    %sum(spikes)
+                    %size(spikes)
+                end
+
+                phase_vecs = [phase_vecs; indi_phase_vecs];
+            end
+            
+            num_spikes = size(phase_vecs, 1);
+            PLV = (1/num_spikes)*(abs(sum(phase_vecs, 1)));
+            PLV2 = (1/((num_spikes - 1))).*((PLV.^2).*num_spikes - 1);
+
+            if num_spikes <= exc_criteria
+                PLV2 = PLV.*NaN;
             end
         end
 
