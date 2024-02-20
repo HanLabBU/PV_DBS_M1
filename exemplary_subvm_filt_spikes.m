@@ -33,9 +33,6 @@ pv_data_path = [server_root_path 'eng_research_handata3' f 'Pierre Fabris' f 'PV
 %savefig_path = [server_root_path 'eng_research_handata3' f 'Pierre Fabris' f 'PV Project' f 'Plots' f];
 savefig_path = Multi_func.save_plot();
 
-% Set figure off currently
-set(0,'DefaultFigureVisible','off');
-
 % Check if the figure path exists
 if ~exist(savefig_path)
     disp('Figure path not found');
@@ -59,20 +56,28 @@ data_bystim = region_data.r_M1;
 
 avg_Fs = mean(region_data.r_M1.f_40.framerate, 'omitnan');
 
+%% Select neuron and trial
 neuron = '617100_M1_rec20211110_FOV3_40_60';
 trial_num = 4;
 neuron_idx = find(contains(data_bystim.f_40.neuron_name, neuron));
 
-figure('visible', 'on', 'Renderer', 'painters');
+%% Plot the Vm with overlay
+figure('Renderer', 'painters', 'Position', [0 0 1000 1000]);
+ax = gca;
+ax.Units = 'centimeters';
+ax.InnerPosition = [2 2 15.37 4.0];
+
 trace_noise = data_bystim.f_40.all_trial_trace_noise{neuron_idx}(trial_num);
 rawvm = data_bystim.f_40.all_trial_rawVm{neuron_idx}(:, trial_num)./trace_noise;
 subvm = data_bystim.f_40.all_trial_SubVm{neuron_idx}(:, trial_num)./trace_noise;
 plot(rawvm, 'k');
 hold on;
-plot(subvm, 'b');
-hold on;
+
+% Remove the unfiltered subVm plot
+%plot(subvm, 'b');
+%hold on;
 spikes = data_bystim.f_40.all_trial_spikeidx{neuron_idx}(:, trial_num);
-plot(spikes, 21*ones(length(spikes)), '.g');
+plot(spikes, 14*ones(length(spikes)), '.g');
 hold on;
 filt_vm = filt_range(subvm, [2 10], avg_Fs);
 plot(filt_vm, 'r');
@@ -90,7 +95,9 @@ set(ht, 'rotation', 90);
 Multi_func.set_default_axis(gca);
 axis off;
 
-saveas(gcf, [savefig_path 'Exemplary' f neuron '_tr_' num2str(trial_num) '.pdf']);
+saveas(gcf, [savefig_path 'Exemplary' f neuron '_tr_' num2str(trial_num) '_subthresh_overlay.pdf']);
+
+%%
 
 % Function to filter out range
 function [filt_sig] = filt_range(sig, range, FS)
