@@ -23,9 +23,17 @@ classdef Multi_func
         sus_color = [51, 51, 153]/255;
         %stim_color = [76, 149, 108]/255; nevermind lol
 
+        % Colors indicating different stimulation periods
         base_color = [57, 77, 161]/255;
         stim_color = [131, 195, 65]/255;
         post_color = [128, 56, 149]/255;
+
+        % Colors indicating different brain regions
+        ca1_color = [0.8500 0.3250 0.0980];
+        m1_color = [0 0.4470 0.7410];
+
+        % Colors indicating pulses
+        pulse_color = [170, 176, 97]./255;
 
         % Colors for heatmaps
         light_gray_color = [linspace(256, 178, 256)', linspace(256, 178, 256)', linspace(256, 178, 256)']./256;
