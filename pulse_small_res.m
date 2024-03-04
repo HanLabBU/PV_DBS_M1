@@ -359,9 +359,9 @@ for f_region = fieldnames(region_data)'
     
     end
     sgtitle([f_region(3:end) ' Sub Vm all pulse average'], 'Interpreter', 'none');
-    saveas(gcf, [figure_path 'Average/' f_region '_Pulse_Avg_Vm.png']);
-    saveas(gcf, [figure_path 'Average/' f_region '_Pulse_Avg_Vm.pdf']);
-    saveas(gcf, [figure_path 'Average/' f_region '_Pulse_Avg_Vm.eps'], 'epsc');
+    saveas(gcf, [figure_path 'Small_Res' f f_region '_Pulse_Avg_Vm.png']);
+    saveas(gcf, [figure_path 'Small_Res' f f_region '_Pulse_Avg_Vm.pdf']);
+    saveas(gcf, [figure_path 'Small_Res' f f_region '_Pulse_Avg_Vm.eps'], 'epsc');
 end
 
 %% Spike rate averaged across all pulses
@@ -544,7 +544,7 @@ for f_stim=stims
             label = 'M1';
         end
 
-        plot(timeline, cur_trig_vm, 'Color', cur_colo, 'LineWidth', 1, 'DisplayName', f_region);
+        plot(timeline, cur_trig_vm, 'Color', cur_color, 'LineWidth', 1, 'DisplayName', f_region);
         hold on;
             
         pulse_times = [0, mean(stim_data.all_pulse_width_time, 2)*1000]
@@ -552,16 +552,15 @@ for f_stim=stims
         xline(pulse_times, 'Color', Multi_func.pulse_color, 'LineWidth', 2);
         hold on;
     end
-    legend('AutoUpdate', 'off', 'Interpreter', 'none', 'Location', 'northoutside');
+    %legend('AutoUpdate', 'off', 'Interpreter', 'none', 'Location', 'northoutside');
     Multi_func.set_default_axis(gca);
     title(f_stim, 'Interpreter', 'none');
     xlabel('time (ms)');
     ylabel('Normalized Vm');
 end
 sgtitle('All Pulse Vm Plot by Region Overlay');
-saveas(gcf, [figure_path 'Small_Res' f '_Region_Overlay_Vm.png']);
-saveas(gcf, [figure_path 'Small_Res' f '_Region_Overlay_Vm.pdf']);
-
+saveas(gcf, [figure_path 'Small_Res' f 'Pulse_Triggered_Region_Overlay_Vm.png']);
+saveas(gcf, [figure_path 'Small_Res' f 'Pulse_Triggered_Region_Overlay_Vm.pdf']);
 
 
 %% Compare time to peak for Vm between CA1 and M1
@@ -621,7 +620,7 @@ for f_stim = stims
 
 end
 
-%% Compare all pulse FR between regions
+%% CA1 vs M1 all pulse firing rate 
 test_regions = {'r_CA1', 'r_M1'};
 stims = fieldnames(region_data.r_M1)';
 figure('Position', [0 0 , 1000, 1000]);
@@ -647,7 +646,15 @@ for f_stim=stims
         fill_h = fill([timeline, flip(timeline)], [cur_trig_fr + sem_trig_fr; flipud(cur_trig_fr - sem_trig_fr)], [0.5 0.5 0.5]);
         Multi_func.set_fill_properties(fill_h);
         hold on;
-        plot(timeline, cur_trig_fr, 'LineWidth', 1, 'DisplayName', f_region);
+
+        if strcmp(f_region, 'r_CA1') == 1
+            cur_color = Multi_func.ca1_color;
+            label = 'CA1';
+        elseif strcmp(f_region, 'r_M1') == 1
+            cur_color = Multi_func.m1_color;
+            label = 'M1';
+        end
+        plot(timeline, cur_trig_fr, 'Color', cur_color, 'LineWidth', 1, 'DisplayName', f_region);
         hold on;
             
         pulse_times = [0, mean(stim_data.all_pulse_width_time, 2)*1000]
@@ -655,15 +662,15 @@ for f_stim=stims
         xline(pulse_times, 'Color', Multi_func.pulse_color, 'LineWidth', 2);
         hold on;
     end
-    legend('AutoUpdate', 'off', 'Interpreter', 'none', 'Location', 'northoutside');
+    %legend('AutoUpdate', 'off', 'Interpreter', 'none', 'Location', 'northoutside');
     Multi_func.set_default_axis(gca);
     title(f_stim, 'Interpreter', 'none');
     xlabel('time (ms)');
     ylabel('Firing Rate (Hz)');
 end
 sgtitle('All Pulse Fr Plot by Region Overlay');
-saveas(gcf, [figure_path 'Small_Res' f '_Region_Overlay_Fr.png']);
-saveas(gcf, [figure_path 'Small_Res' f '_Region_Overlay_Fr.pdf']);
+saveas(gcf, [figure_path 'Small_Res' f 'Pulse_Triggered_Region_Overlay_Fr.png']);
+saveas(gcf, [figure_path 'Small_Res' f 'Pulse_Triggered_Region_Overlay_Fr.pdf']);
 
 %% -- Time to peak Firing Rate between regions and compare statistical test
 stats_log = [figure_path 'Small_Res' f 'FR_pop_pulse_triggered_times'];
@@ -728,6 +735,74 @@ for f_stim = stims
     legend();
     title([num2str(f_stim) ' Firing Rate time to peak histogram'], 'Interpreter', 'none');
 
+end
+
+%% Firing rate regression CA1 vs. M1
+stims = fieldnames(region_data.r_M1)';
+figure('Position', [0 0 , 1000, 1000]);
+%tiledlayout(2, length(stims), 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 4, 8.3, 3.5]);
+tiledlayout(length(stims), 2, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 4, 20, 20]);
+% First loop through stimulations
+for f_stim=stims
+    f_stim = f_stim{1};
+    num_stim = str2num(f_stim(3:end));
+    nexttile;
+    
+    % Grab all pulse firing rate stuff 
+    ca1_pulses_fr = region_data.r_CA1.(f_stim).all_pulse_trig_fr((extra_trace+1):(end - extra_trace), :);
+    m1_pulses_fr = region_data.r_M1.(f_stim).all_pulse_trig_fr((extra_trace+1):(end - extra_trace), :);
+
+    % First test averages
+    ca1_fr_avg = nanmean(ca1_pulses_fr, 2);
+    m1_fr_avg = nanmean(m1_pulses_fr, 2);
+
+    % Plot the scatter of Ca1 FR to M1 FR
+    plot(ca1_fr_avg, m1_fr_avg, '.');
+    hold on;
+    
+    fitresults = polyfit(ca1_fr_avg, m1_fr_avg, 1);
+    x_vals = ca1_fr_avg;
+    y_orig = m1_fr_avg;
+    fit_y = polyval(fitresults, x_vals);
+    plot(x_vals, fit_y, '-');
+    pearson_coeff = corrcoef(y_orig, fit_y);
+    legend(['r= ' num2str(pearson_coeff(1, 2))]);
+
+    xlabel('CA1 Firing rate');
+    ylabel('M1 Firing rate');
+    title([f_stim ' using average pulse'], 'Interpreter', 'none');
+
+    nexttile;
+    
+    % Use the pulse trace width
+    p_trace_width = size(ca1_pulses_fr, 1);
+    
+    ca1_pulses_fr = reshape(ca1_pulses_fr, p_trace_width*num_stim, []);
+    m1_pulses_fr = reshape(m1_pulses_fr, p_trace_width*num_stim, []);
+    ca1_pulse_nr  = reshape(nanmean(ca1_pulses_fr, 2), p_trace_width, []);
+    m1_pulse_nr  = reshape(nanmean(m1_pulses_fr, 2), p_trace_width, []);
+
+    ca1_size = size(ca1_pulse_nr)
+    m1_size = size(m1_pulse_nr)
+
+    % Plot the scatter of Ca1 FR to M1 FR
+    plot(ca1_pulse_nr, m1_pulse_nr, '.');
+    hold on;
+
+    linearize_ca1 = ca1_pulse_nr(:);
+    linearize_m1 = m1_pulse_nr(:);
+
+    fitresults = polyfit(linearize_ca1, linearize_m1, 1);
+    x_vals = linearize_ca1;
+    y_orig = linearize_m1;
+    fit_y = polyval(fitresults, x_vals);
+    plot(x_vals, fit_y, '-');
+    pearson_coeff = corrcoef(y_orig, fit_y)
+    legend(['r= ' num2str(pearson_coeff(1, 2))])
+
+    xlabel('CA1 Firing rate');
+    ylabel('M1 Firing rate');
+    title([f_stim ' using neuronwise average'], 'Interpreter', 'none');
 end
 
 %%---- Cross-correlation of the final all pulse Vm plot!! ----
@@ -969,8 +1044,8 @@ for f_region = fieldnames(region_data)'
         title(f_stim(3:end), 'Interpreter', 'none');
     end
     sgtitle([f_region(3:end) ' Average subthreshold Vm'], 'Interpreter', 'none');
-    saveas(gcf, [figure_path 'Average/' f_region '_First_Pulse_Vm.png']);
-    saveas(gcf, [figure_path 'Average/' f_region '_First_Pulse_Vm.pdf']);
+    saveas(gcf, [figure_path 'Small_Res' f f_region '_First_Pulse_Vm.png']);
+    saveas(gcf, [figure_path 'Small_Res' f f_region '_First_Pulse_Vm.pdf']);
 end
 
 %% CA1 vs M1 first few pulses Vm overlay
