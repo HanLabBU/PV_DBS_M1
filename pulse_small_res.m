@@ -195,13 +195,13 @@ for f_stim=stims
     x = gca; x = x.XAxis;
     Multi_func.set_spacing_axis(x, 50, 1);
     Multi_func.set_default_axis(gca);
-    ylabel('Firing Rate(Hz)');
+    ylabel('Firing Rate (Hz)');
     xlabel('Time from onset(ms)');
     title(f_stim(3:end), 'Interpreter', 'none');
 end
 sgtitle('Onset Fr Plot by Region Overlay');
-saveas(gcf, [figure_path 'Small_Res' f 'Onset_Region_Overlay_Fr.png']);
-saveas(gcf, [figure_path 'Small_Res' f 'Onset_Region_Overlay_Fr.pdf']);
+saveas(gcf, [figure_path 'Small_Res' f 'Onset_Overlay_Fr.png']);
+saveas(gcf, [figure_path 'Small_Res' f 'Onset_Overlay_Fr.pdf']);
 
 %% Sub Vm pulse-triggered averaged across all pulses
 vm_trig_avg_time = struct();
@@ -251,7 +251,10 @@ for f_region = fieldnames(region_data)'
                 end_trace_idx = follow_trace_idx(1) + trace_width + extra_trace;
 
                 % "Baseline" subtract from the first few trace points
-                Vm_pulse_width = norm_vms(start_trace_idx:end_trace_idx, nr) - nanmean(norm_vms(start_trace_idx:start_trace_idx + extra_trace, nr));
+                %Vm_pulse_width = norm_vms(start_trace_idx:end_trace_idx, nr) - nanmean(norm_vms(start_trace_idx:start_trace_idx + extra_trace, nr));
+
+                % Subtract from the pulse onset
+                Vm_pulse_width = norm_vms(start_trace_idx:end_trace_idx, nr) - norm_vms(start_trace_idx + extra_trace, nr);
 
                 % Store all of the Vm pulses
                 all_pulse_vm = horzcat_pad(all_pulse_vm, Vm_pulse_width);
@@ -326,6 +329,9 @@ for f_region = fieldnames(region_data)'
             disp(['Peak Vm all pulse at ' num2str(timeline(peak_idx(1))) 'ms']);
             fprintf('\n\n');
             diary off;
+
+            % Save the peak time for the region and stimulation
+            region_data.(f_region).(f_stim).all_pulse_vm_pk_time = timeline(peak_idx(1));
         end
 
         % Plot the percentiles as a different colored shading
@@ -404,8 +410,12 @@ for f_region = fieldnames(region_data)'
                 %end_trace_idx = find(pulse_time + nr_avg_pulse_width_time >= data_bystim.(f_stim).trace_timestamps(:, nr));
                 %end_trace_idx = end_trace_idx(end);
                 
-                fr_pulse_width = data_bystim.(f_stim).neuron_spikecounts_raster(start_trace_idx:end_trace_idx, nr)*nr_rate;
+                % No baseline subtraction
+                %fr_pulse_width = data_bystim.(f_stim).neuron_spikecounts_raster(start_trace_idx:end_trace_idx, nr)*nr_rate;
                 
+                % Pulse onset subtraction
+                fr_pulse_width = data_bystim.(f_stim).neuron_spikecounts_raster(start_trace_idx:end_trace_idx, nr)*nr_rate - data_bystim.(f_stim).neuron_spikecounts_raster(follow_trace_idx(1), nr)*nr_rate;
+
                 FR_avg = horzcat_pad(FR_avg, fr_pulse_width);
                 all_pulse_fr = horzcat_pad(all_pulse_fr, fr_pulse_width);
             end
@@ -479,6 +489,8 @@ for f_region = fieldnames(region_data)'
             disp(['Peak FR all pulse at ' num2str(timeline(peak_idx(1))) 'ms']);
             fprintf('\n\n');
             diary off;
+
+            region_data.(f_region).(f_stim).all_pulse_trig_fr_pk_time = timeline(peak_idx(1));
         end
 
         % Plot the DBS stimulation time pulses
@@ -556,15 +568,112 @@ for f_stim=stims
     Multi_func.set_default_axis(gca);
     title(f_stim, 'Interpreter', 'none');
     xlabel('time (ms)');
-    ylabel('Normalized Vm');
+    ylabel('Normalized Vm Change');
 end
 sgtitle('All Pulse Vm Plot by Region Overlay');
 saveas(gcf, [figure_path 'Small_Res' f 'Pulse_Triggered_Region_Overlay_Vm.png']);
 saveas(gcf, [figure_path 'Small_Res' f 'Pulse_Triggered_Region_Overlay_Vm.pdf']);
 
+%% Compare the heights of each Vm fluctuation based on the time of peak M1
+stats_log = [figure_path 'Small_Res' f 'Pulse_triggered_Vm_heights_from_peak_time'];
+if exist(stats_log), delete(sprintf('%s', stats_log)), end;
+diary(stats_log);
+diary off
+figure('Position', [0 0 , 1000, 1000]);
+%tiledlayout(1, length(stims), 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 4, 8.3, 3.5]);
+tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 4, 20, 20]);
+stims = fieldnames(region_data.r_M1)';
+for f_stim = stims
+    f_stim = f_stim{1};
+    m1_pulses_vm = region_data.r_M1.(f_stim).all_pulse_trig_Vm;
+    ca1_pulses_vm = region_data.r_CA1.(f_stim).all_pulse_trig_Vm;
+    timeline = [[0:size(m1_pulses_vm, 1) - 1] - extra_trace]*1000./avg_Fs;
 
-%% Compare time to peak for Vm between CA1 and M1
-stats_log = [figure_path 'Small_Res' f 'Vm_pop_pulse_triggered_times'];
+    pk_t_comp = region_data.r_M1.(f_stim).all_pulse_vm_pk_time;
+    pk_idx = find(timeline == pk_t_comp);
+    
+    % Plot the violin of all the M1 height at time of peak
+    m1_vm_heights = m1_pulses_vm(pk_idx, :);
+    ca1_vm_heights = ca1_pulses_vm(pk_idx, :);
+    nexttile;
+
+    % Setup variables for violinplots
+    data = [m1_vm_heights, ca1_vm_heights];
+    labels = [repmat({'M1'}, 1, length(m1_vm_heights)), repmat({'CA1'}, 1, length(ca1_vm_heights))];
+    ViolinOpts = Multi_func.get_default_violin();
+    violins = violinplot(data, labels, 'GroupOrder', {'M1', 'CA1'}, ViolinOpts);
+
+    %violins(1).ViolinColor = {'k'};
+    %violins(2).ViolinColor = {'g'};
+    violins(1).ViolinColor = {Multi_func.m1_color};
+    violins(2).ViolinColor = {Multi_func.ca1_color};
+
+    % Perform the statisical for significant difference
+    diary on;
+    disp(['Pulse Vm heights at peak for ' num2str(f_stim)]);
+    [p, h, stats] = ranksum(m1_vm_heights, ca1_vm_heights);
+    disp(['CA1 heights ' num2str(nanmean(ca1_vm_heights))]);
+    disp(['M1 heights ' num2str(nanmean(m1_vm_heights))]);
+    fprintf('\n\n');
+    diary off;
+    legend(['p= ' num2str(p)]);    
+
+    title([f_stim(3:end) ' M1 and CA1 Vm hieghts comparison'], 'Interpreter', 'none');
+end
+saveas(gcf, [figure_path 'Small_Res' f 'Violin_Vm_Heights_ca1_vs_m1.png']);
+saveas(gcf, [figure_path 'Small_Res' f 'Violin_Vm_Heights_ca1_vs_m1.pdf']);
+
+%% Compare the heights of each firing rate fluctuation based on the time of peak M1
+stats_log = [figure_path 'Small_Res' f 'Pulse_triggered_Fr_heights_from_peak_time'];
+if exist(stats_log), delete(sprintf('%s', stats_log)), end;
+diary(stats_log);
+diary off
+figure('Position', [0 0 , 1000, 1000]);
+%tiledlayout(1, length(stims), 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 4, 8.3, 3.5]);
+tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 4, 20, 20]);
+stims = fieldnames(region_data.r_M1)';
+for f_stim = stims
+    f_stim = f_stim{1};
+    m1_pulses_fr = region_data.r_M1.(f_stim).all_pulse_trig_fr;
+    ca1_pulses_fr = region_data.r_CA1.(f_stim).all_pulse_trig_fr;
+    timeline = [[0:size(m1_pulses_fr, 1) - 1] - extra_trace]*1000./avg_Fs;
+
+    pk_t_comp = region_data.r_M1.(f_stim).all_pulse_trig_fr_pk_time;
+    pk_idx = find(timeline == pk_t_comp);
+    
+    % Plot the violin of all the M1 height at time of peak
+    m1_fr_heights = m1_pulses_fr(pk_idx, :);
+    ca1_fr_heights = ca1_pulses_fr(pk_idx, :);
+    nexttile;
+
+    % Setup variables for violinplots
+    data = [m1_fr_heights, ca1_fr_heights];
+    labels = [repmat({'M1'}, 1, length(m1_fr_heights)), repmat({'CA1'}, 1, length(ca1_fr_heights))];
+    ViolinOpts = Multi_func.get_default_violin();
+    violins = violinplot(data, labels, 'GroupOrder', {'M1', 'CA1'}, ViolinOpts);
+
+    %violins(1).ViolinColor = {'k'};
+    %violins(2).ViolinColor = {'g'};
+    violins(1).ViolinColor = {Multi_func.m1_color};
+    violins(2).ViolinColor = {Multi_func.ca1_color};
+
+    % Perform the statisical for significant difference
+    diary on;
+    disp(['Pulse Fr heights at peak for ' num2str(f_stim)]);
+    [p, h, stats] = ranksum(m1_fr_heights, ca1_fr_heights);
+    disp(['CA1 heights ' num2str(nanmean(ca1_fr_heights))]);
+    disp(['M1 heights ' num2str(nanmean(m1_fr_heights))]);
+    fprintf('\n\n');
+    diary off;
+    legend(['p= ' num2str(p)]);    
+
+    title([f_stim(3:end) ' M1 and CA1 Fr hieghts comparison'], 'Interpreter', 'none');
+end
+saveas(gcf, [figure_path 'Small_Res' f 'Violin_Fr_Heights_ca1_vs_m1.png']);
+saveas(gcf, [figure_path 'Small_Res' f 'Violin_Fr_Heights_ca1_vs_m1.pdf']);
+
+%% Time to peak Vm between CA1 and M1
+stats_log = [figure_path 'Small_Res' f 'Vm_pop_pulse_triggered_ca1_vs_m1_times'];
 if exist(stats_log), delete(sprintf('%s', stats_log)), end;
 diary(stats_log);
 diary off;
@@ -603,10 +712,15 @@ for f_stim = stims
     diary on;
     disp(['Time to peak stats ' f_stim]);
     [p, h, stats] = ranksum(m1_pk_time, ca1_pk_time)
-
+    num_ca1_pk_times = length(ca1_pk_time);
+    num_m1_pk_times = length(m1_pk_time);
+    disp(['CA1 num pulses ' num2str(num_ca1_pk_times)]);
     disp(['CA1 mean:' num2str(nanmean(ca1_pk_time))]);
+    disp(['CA1 sem: ' num2str(nanstd(ca1_pk_time)/sqrt(num_ca1_pk_times))]);
     disp(['CA1 std:' num2str(nanstd(ca1_pk_time))]);
+    disp(['M1 num pulses ' num2str(num_m1_pk_times)]);
     disp(['M1 mean:' num2str(nanmean(m1_pk_time))]);
+    disp(['M1 sem: ' num2str(nanstd(m1_pk_time)/sqrt(num_m1_pk_times))]);
     disp(['M1 std:' num2str(nanstd(m1_pk_time))]);
     fprintf('\n\n');
     diary off;
@@ -617,8 +731,9 @@ for f_stim = stims
     histogram(m1_pk_time, 100, 'DisplayName', 'M1');
     legend();
     title([num2str(f_stim) ' Vm time to peak histogram'], 'Interpreter', 'none');
-
 end
+saveas(gcf, [figure_path 'Small_Res' f 'Histogram_Pulse_Triggered_Peak_Time_Vm_CA1_vs_M1.pdf']);
+saveas(gcf, [figure_path 'Small_Res' f 'Histogram_Pulse_Triggered_Peak_Time_Vm_CA1_vs_M1.png']);
 
 %% CA1 vs M1 all pulse firing rate 
 test_regions = {'r_CA1', 'r_M1'};
@@ -666,14 +781,14 @@ for f_stim=stims
     Multi_func.set_default_axis(gca);
     title(f_stim, 'Interpreter', 'none');
     xlabel('time (ms)');
-    ylabel('Firing Rate (Hz)');
+    ylabel('Firing Rate Change (Hz)');
 end
 sgtitle('All Pulse Fr Plot by Region Overlay');
 saveas(gcf, [figure_path 'Small_Res' f 'Pulse_Triggered_Region_Overlay_Fr.png']);
 saveas(gcf, [figure_path 'Small_Res' f 'Pulse_Triggered_Region_Overlay_Fr.pdf']);
 
-%% -- Time to peak Firing Rate between regions and compare statistical test
-stats_log = [figure_path 'Small_Res' f 'FR_pop_pulse_triggered_times'];
+%% -- Time to peak pulse triggered Firing Rate between regions and compare statistical test
+stats_log = [figure_path 'Small_Res' f 'FR_pop_pulse_triggered_ca1_vs_m1_times'];
 if exist(stats_log), delete(sprintf('%s', stats_log)), end;
 diary(stats_log);
 diary off
@@ -718,10 +833,15 @@ for f_stim = stims
     diary on;
     disp(['Time to peak ' f_stim]);
     [p, h, stats] = ranksum(m1_pk_time, ca1_pk_time)
-
+    num_ca1_pk_times = length(ca1_pk_time);
+    num_m1_pk_times = length(m1_pk_time);
+    disp(['CA1 num pulses ' num2str(num_ca1_pk_times)]);
     disp(['CA1 mean:' num2str(nanmean(ca1_pk_time))]);
+    disp(['CA1 sem: ' num2str(nanstd(ca1_pk_time)/sqrt(num_ca1_pk_times))]);
     disp(['CA1 std:' num2str(nanstd(ca1_pk_time))]);
+    disp(['M1 num pulses ' num2str(num_m1_pk_times)]);
     disp(['M1 mean:' num2str(nanmean(m1_pk_time))]);
+    disp(['M1 sem: ' num2str(nanstd(m1_pk_time)/sqrt(num_m1_pk_times))]);
     disp(['M1 std:' num2str(nanstd(m1_pk_time))]);
     fprintf('\n\n');
     diary off;
@@ -734,8 +854,9 @@ for f_stim = stims
     histogram(m1_pk_time, 100, 'DisplayName', 'M1');
     legend();
     title([num2str(f_stim) ' Firing Rate time to peak histogram'], 'Interpreter', 'none');
-
 end
+saveas(gcf, [figure_path 'Small_Res' f 'Histogram_Pulse_Triggered_Peak_Time_Firing_Rate_CA1_vs_M1.pdf']);
+saveas(gcf, [figure_path 'Small_Res' f 'Histogram_Pulse_Triggered_Peak_Time_Firing_Rate_CA1_vs_M1.png']);
 
 %% Firing rate regression CA1 vs. M1
 stims = fieldnames(region_data.r_M1)';
@@ -802,8 +923,80 @@ for f_stim=stims
 
     xlabel('CA1 Firing rate');
     ylabel('M1 Firing rate');
-    title([f_stim ' using neuronwise average'], 'Interpreter', 'none');
+    title([f_stim ' regressed over individual pulses and neuronwise average'], 'Interpreter', 'none');
 end
+saveas(gcf, [figure_path 'Small_Res' f 'Regress_Region_Pulse_Triggered_Fr.png']);
+saveas(gcf, [figure_path 'Small_Res' f 'Regress_Region_Pulse_Triggered_Fr.pdf']);
+
+%% Vm regression CA1 vs. M1
+stims = fieldnames(region_data.r_M1)';
+figure('Position', [0 0 , 1000, 1000]);
+%tiledlayout(2, length(stims), 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 4, 8.3, 3.5]);
+tiledlayout(length(stims), 2, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 4, 20, 20]);
+% First loop through stimulations
+for f_stim=stims
+    f_stim = f_stim{1};
+    num_stim = str2num(f_stim(3:end));
+    nexttile;
+    
+    % Grab all pulse firing rate stuff 
+    ca1_pulses_vm = region_data.r_CA1.(f_stim).all_pulse_trig_Vm((extra_trace+1):(end - extra_trace), :);
+    m1_pulses_vm = region_data.r_M1.(f_stim).all_pulse_trig_Vm((extra_trace+1):(end - extra_trace), :);
+
+    % First test averages
+    ca1_vm_avg = nanmean(ca1_pulses_vm, 2);
+    m1_vm_avg = nanmean(m1_pulses_vm, 2);
+
+    % Plot the scatter of Ca1 FR to M1 FR
+    plot(ca1_vm_avg, m1_vm_avg, '.');
+    hold on;
+    
+    fitresults = polyfit(ca1_vm_avg, m1_vm_avg, 1);
+    x_vals = ca1_vm_avg;
+    y_orig = m1_vm_avg;
+    fit_y = polyval(fitresults, x_vals);
+    plot(x_vals, fit_y, '-');
+    pearson_coeff = corrcoef(y_orig, fit_y);
+    legend(['r= ' num2str(pearson_coeff(1, 2))]);
+
+    xlabel('CA1 Vm');
+    ylabel('M1 Vm');
+    title([f_stim ' using average pulse'], 'Interpreter', 'none');
+
+    nexttile;
+    
+    % Use the pulse trace width
+    p_trace_width = size(ca1_pulses_vm, 1);
+    
+    ca1_pulses_vm = reshape(ca1_pulses_vm, p_trace_width*num_stim, []);
+    m1_pulses_vm = reshape(m1_pulses_vm, p_trace_width*num_stim, []);
+    ca1_pulse_nr  = reshape(nanmean(ca1_pulses_vm, 2), p_trace_width, []);
+    m1_pulse_nr  = reshape(nanmean(m1_pulses_vm, 2), p_trace_width, []);
+
+    ca1_size = size(ca1_pulse_nr)
+    m1_size = size(m1_pulse_nr)
+
+    % Plot the scatter of Ca1 Vm to M1 Vm
+    plot(ca1_pulse_nr, m1_pulse_nr, '.');
+    hold on;
+
+    linearize_ca1 = ca1_pulse_nr(:);
+    linearize_m1 = m1_pulse_nr(:);
+
+    fitresults = polyfit(linearize_ca1, linearize_m1, 1);
+    x_vals = linearize_ca1;
+    y_orig = linearize_m1;
+    fit_y = polyval(fitresults, x_vals);
+    plot(x_vals, fit_y, '-');
+    pearson_coeff = corrcoef(y_orig, fit_y)
+    legend(['r= ' num2str(pearson_coeff(1, 2))])
+
+    xlabel('CA1 Vm');
+    ylabel('M1 Vm');
+    title([f_stim ' regressed over individual pulses and neuronwise average'], 'Interpreter', 'none');
+end
+saveas(gcf, [figure_path 'Small_Res' f 'Regress_Region_Pulse_Triggered_Vm.png']);
+saveas(gcf, [figure_path 'Small_Res' f 'Regress_Region_Pulse_Triggered_Vm.pdf']);
 
 %%---- Cross-correlation of the final all pulse Vm plot!! ----
 figure('Position', [0 0 , 1000, 1000]);
@@ -834,83 +1027,82 @@ for f_stim=stims
 end
 sgtitle('Time laggs cross-correlation');
 
-% Perform lag cross-correlation across all pairs
-figure('Position', [300 300, 1000, 1000]);
-%tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 4, 3.5, 5]);
-tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 4, 15, 20]);
-% First loop through stimulations
-for f_stim=stims
-    f_stim = f_stim{1};
-    nexttile;
-    % Chopping off the extra points flanking the window
-    ca1_all_pulse_vm = region_data.r_CA1.(f_stim).all_pulse_trig_Vm(extra_trace + 1:end - extra_trace, :);
-    ca1_pulse_vm = nanmean(ca1_all_pulse_vm, 2);
-        
-    m1_all_pulse_vm = region_data.r_M1.(f_stim).all_pulse_trig_Vm(extra_trace + 1:end - extra_trace, :);
-    m1_pulse_vm = nanmean(m1_all_pulse_vm, 2);
-
-    all_cc = [];
-    all_lags = [];
-
-    %TODO I should create the repeated arrays so that I can just do arrayfun(I) with xcorr at the end
-    % This maxes out array size
-    tic
-    %Start CA1 pulses loop
-    for ca1_i=1:size(ca1_all_pulse_vm, 2)
-        %M1 pulses loop
-        for m1_i=1:size(m1_all_pulse_vm, 2)
-            [c, lags] = xcorr(ca1_all_pulse_vm(:, ca1_i), m1_all_pulse_vm(:, m1_i));
-            all_cc = horzcat_pad(all_cc, c(:));
-            all_lags = horzcat_pad(all_lags, lags(:));
-        end
-    end
-    toc
-    
-
-    [c, lags] = xcorr(ca1_pulse_vm, m1_pulse_vm);
-    lags = (lags/avg_Fs)*1000; % Convert lags to ms
-    plot(lags, c);
-    hold on;
-    [~, peak_idx] = findpeaks(c);
-    labels = cellstr(strsplit(num2str(lags(peak_idx)), ' '));
-    xline(lags(peak_idx), '--',  labels,'LabelOrientation', 'horizontal');
-    xlabel('time lag (ms)');
-    ylabel('Correlation');
-
-    title(f_stim, 'Interpreter', 'none');
-end
-sgtitle('Time laggs cross-correlation');
-
+%-- Perform lag cross-correlation across all pairs
+%figure('Position', [300 300, 1000, 1000]);
+%%tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 4, 3.5, 5]);
+%tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 4, 15, 20]);
+%% First loop through stimulations
+%for f_stim=stims
+%    f_stim = f_stim{1};
+%    nexttile;
+%    % Chopping off the extra points flanking the window
+%    ca1_all_pulse_vm = region_data.r_CA1.(f_stim).all_pulse_trig_Vm(extra_trace + 1:end - extra_trace, :);
+%    ca1_pulse_vm = nanmean(ca1_all_pulse_vm, 2);
+%        
+%    m1_all_pulse_vm = region_data.r_M1.(f_stim).all_pulse_trig_Vm(extra_trace + 1:end - extra_trace, :);
+%    m1_pulse_vm = nanmean(m1_all_pulse_vm, 2);
+%
+%    all_cc = [];
+%    all_lags = [];
+%
+%    %Suggestion, I should create the repeated arrays so that I can just do arrayfun(I) with xcorr at the end
+%    % This maxes out array size
+%    tic
+%    %Start CA1 pulses loop
+%    for ca1_i=1:size(ca1_all_pulse_vm, 2)
+%        %M1 pulses loop
+%        for m1_i=1:size(m1_all_pulse_vm, 2)
+%            [c, lags] = xcorr(ca1_all_pulse_vm(:, ca1_i), m1_all_pulse_vm(:, m1_i));
+%            all_cc = horzcat_pad(all_cc, c(:));
+%            all_lags = horzcat_pad(all_lags, lags(:));
+%        end
+%    end
+%    toc
+%    
+%    [c, lags] = xcorr(ca1_pulse_vm, m1_pulse_vm);
+%    lags = (lags/avg_Fs)*1000; % Convert lags to ms
+%    plot(lags, c);
+%    hold on;
+%    [~, peak_idx] = findpeaks(c);
+%    labels = cellstr(strsplit(num2str(lags(peak_idx)), ' '));
+%    xline(lags(peak_idx), '--',  labels,'LabelOrientation', 'horizontal');
+%    xlabel('time lag (ms)');
+%    ylabel('Correlation');
+%
+%    title(f_stim, 'Interpreter', 'none');
+%end
+%sgtitle('Time laggs cross-correlation all pairs');
+% -- End of cross-correlation for all pairs
 
 %% Clustering method for comparing significance between the regions
-%TODO maybe do my own kind of clustering and then compare those results to permuted cluster
+%Suggestion, maybe do my own kind of clustering and then compare those results to permuted cluster
 
 % Or just do summed t between observed and permutated distribution
 
 % Using the t-statistic did not seem to work
 % Clustered permutation test
-num_shuf = 50; %TODO change this to like a thousand
-data1 = region_data.r_CA1.f_40.all_pulse_trig_Vm(extra_trace:end - extra_trace, :);
-data2 = region_data.r_M1.f_40.all_pulse_trig_Vm(extra_trace:end - extra_trace, :);
-alpha = 0.5;
-
-t_vals = [];
-% Iterate over time points
-for time_idx = 1:size(data1, 1)
-
-    % Perform two-sample t-test
-    [~, ~, ~, stats] = ttest2(data1(time_idx, :), data1(time_idx, :))
-    
-    % Store the t-values for each time point
-    t_vals(time_idx) = stats.tstat;
-end
-clusters = bwlabel(t_vals > 0.5);
-
-%DEBUG
-figure();
-plot(clusters)
-
-cluster_stats = accumarray(clusters, t_vals, [], @sum);
+%num_shuf = 50; %Suggestion, change this to like a thousand
+%data1 = region_data.r_CA1.f_40.all_pulse_trig_Vm(extra_trace:end - extra_trace, :);
+%data2 = region_data.r_M1.f_40.all_pulse_trig_Vm(extra_trace:end - extra_trace, :);
+%alpha = 0.5;
+%
+%t_vals = [];
+%% Iterate over time points
+%for time_idx = 1:size(data1, 1)
+%
+%    % Perform two-sample t-test
+%    [~, ~, ~, stats] = ttest2(data1(time_idx, :), data1(time_idx, :))
+%    
+%    % Store the t-values for each time point
+%    t_vals(time_idx) = stats.tstat;
+%end
+%clusters = bwlabel(t_vals > 0.5);
+%
+%%DEBUG
+%figure();
+%plot(clusters)
+%
+%cluster_stats = accumarray(clusters, t_vals, [], @sum);
 
 
 %% Spike rate showing display all pulses
@@ -1107,6 +1299,173 @@ sgtitle([f_region(3:end) ' Onset Vm Subthreshold Region Compare'], 'Interpreter'
 saveas(gcf, [figure_path 'Small_Res' f 'Onset_Overlay_Vm.png']);
 saveas(gcf, [figure_path 'Small_Res' f 'Onset_Overlay_Vm.pdf']);
 
+%% Time to peak Vm onset between regions and statistical test
+stats_log = [figure_path 'Small_Res' f 'Vm_pop_onset_ca1_vs_m1_times'];
+if exist(stats_log), delete(sprintf('%s', stats_log)), end;
+diary(stats_log);
+diary off;
+test_regions = {'r_CA1', 'r_M1'};
+stims = fieldnames(region_data.r_M1)';
+figure('Position', [140 150 , 1000, 1000]);
+%tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 4, 9.38, 4.94]);
+tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 4, 15, 20]);
+for f_stim = stims
+    f_stim = f_stim{1};
+    
+    % Store the time to peak values for both regions
+    ca1_pk_time = [];
+    m1_pk_time = [];
+    ca1_vm = [];
+    m1_vm = [];
+    
+    % Grab just the first 100 ms onset trace times
+    timeline = nanmean(stim_data.trace_timestamps, 2)*1000;
+    onset_idx = find(timeline >=0 & timeline <= 100); % Only grab the first 100 ms
+    timeline = timeline(onset_idx);
+    ca1_vm = region_data.r_CA1.(f_stim).neuron_Vm(onset_idx, :)./region_data.r_CA1.(f_stim).neuron_spike_amp;
+    m1_vm = region_data.r_M1.(f_stim).neuron_Vm(onset_idx, :)./region_data.r_M1.(f_stim).neuron_spike_amp;
+    
+    for i=1:size(ca1_vm, 2)
+        peak_idx = find(ca1_vm(:, i) == max(ca1_vm(:, i)));
+        if length(peak_idx) > 1
+            peak_idx = peak_idx(1);
+        end
+        if timeline(peak_idx) == 0
+            continue;
+        end
+        ca1_pk_time(end + 1) = timeline(peak_idx);
+    end
+
+    for i=1:size(m1_vm, 2)
+        peak_idx = find(m1_vm(:, i) == max(m1_vm(:, i)));
+        if length(peak_idx) > 1
+            peak_idx = peak_idx(1);
+        end
+        if timeline(peak_idx) == 0
+            continue;
+        end
+        m1_pk_time(end + 1) = timeline(peak_idx);
+    end
+
+    diary on;
+    disp(['Time to peak ' f_stim]);
+    [p, h, stats] = ranksum(m1_pk_time, ca1_pk_time)
+    num_ca1_pk_times = length(ca1_pk_time);
+    num_m1_pk_times = length(m1_pk_time);
+    disp(['CA1 num traces ' num2str(num_ca1_pk_times)]);
+    disp(['CA1 mean:' num2str(nanmean(ca1_pk_time))]);
+    disp(['CA1 sem: ' num2str(nanstd(ca1_pk_time)/sqrt(num_ca1_pk_times))]);
+    disp(['CA1 std:' num2str(nanstd(ca1_pk_time))]);
+    disp(['M1 num traces ' num2str(num_m1_pk_times)]);
+    disp(['M1 mean:' num2str(nanmean(m1_pk_time))]);
+    disp(['M1 sem: ' num2str(nanstd(m1_pk_time)/sqrt(num_m1_pk_times))]);
+    disp(['M1 std:' num2str(nanstd(m1_pk_time))]);
+    fprintf('\n\n');
+    diary off;
+        
+    nexttile;
+    data = [m1_pk_time, ca1_pk_time];
+    labels = [repmat({'M1'}, 1, length(m1_pk_time)), repmat({'CA1'}, 1, length(ca1_pk_time))];
+    ViolinOpts = Multi_func.get_default_violin();
+    violins = violinplot(data, labels, 'GroupOrder', {'M1', 'CA1'}, ViolinOpts);
+
+    %violins(1).ViolinColor = {'k'};
+    %violins(2).ViolinColor = {'g'};
+    violins(1).ViolinColor = {Multi_func.m1_color};
+    violins(2).ViolinColor = {Multi_func.ca1_color};
+
+    % Originally were histograms
+    %histogram(ca1_pk_time, 100, 'DisplayName', 'CA1'); 
+    %hold on;
+    %histogram(m1_pk_time, 100, 'DisplayName', 'M1');
+    title([num2str(f_stim) ' Vm onset time to peak violins'], 'Interpreter', 'none');
+end
+saveas(gcf, [figure_path 'Small_Res' f 'Violin_Onset_Peak_Time_Vm_CA1_vs_M1.pdf']);
+saveas(gcf, [figure_path 'Small_Res' f 'Violin_Onset_Peak_Time_Vm_CA1_vs_M1.png']);
+
+%% Time to peak firing rate between regions
+stats_log = [figure_path 'Small_Res' f 'Fr_pop_onset_ca1_vs_m1_times'];
+if exist(stats_log), delete(sprintf('%s', stats_log)), end;
+diary(stats_log);
+diary off;
+test_regions = {'r_CA1', 'r_M1'};
+stims = fieldnames(region_data.r_M1)';
+figure('Position', [140 150 , 1000, 1000]);
+%tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 4, 9.38, 4.94]);
+tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 4, 15, 20]);
+for f_stim = stims
+    f_stim = f_stim{1};
+    
+    % Store the time to peak values for both regions
+    ca1_pk_time = [];
+    m1_pk_time = [];
+    ca1_fr = [];
+    m1_fr = [];
+    
+    % Grab just the first 100 ms onset trace times
+    timeline = nanmean(stim_data.trace_timestamps, 2)*1000;
+    onset_idx = find(timeline >=0 & timeline <= 100); % Only grab the first 100 ms
+    timeline = timeline(onset_idx);
+    ca1_fr = region_data.r_CA1.(f_stim).neuron_srate_3(onset_idx, :)./region_data.r_CA1.(f_stim).neuron_spike_amp;
+    m1_fr = region_data.r_M1.(f_stim).neuron_srate_3(onset_idx, :)./region_data.r_M1.(f_stim).neuron_spike_amp;
+    
+    for i=1:size(ca1_fr, 2)
+        peak_idx = find(ca1_fr(:, i) == max(ca1_fr(:, i)));
+        if length(peak_idx) > 1
+            peak_idx = peak_idx(1);
+        end
+        if timeline(peak_idx) == 0
+            continue;
+        end
+        ca1_pk_time(end + 1) = timeline(peak_idx);
+    end
+
+    for i=1:size(m1_fr, 2)
+        peak_idx = find(m1_fr(:, i) == max(m1_fr(:, i)));
+        if length(peak_idx) > 1
+            peak_idx = peak_idx(1);
+        end
+        if timeline(peak_idx) == 0
+            continue;
+        end
+        m1_pk_time(end + 1) = timeline(peak_idx);
+    end
+
+    diary on;
+    disp(['Time to peak ' f_stim]);
+    [p, h, stats] = ranksum(m1_pk_time, ca1_pk_time)
+    num_ca1_pk_times = length(ca1_pk_time);
+    num_m1_pk_times = length(m1_pk_time);
+    disp(['CA1 num traces ' num2str(num_ca1_pk_times)]);
+    disp(['CA1 mean:' num2str(nanmean(ca1_pk_time))]);
+    disp(['CA1 sem: ' num2str(nanstd(ca1_pk_time)/sqrt(num_ca1_pk_times))]);
+    disp(['CA1 std:' num2str(nanstd(ca1_pk_time))]);
+    disp(['M1 num traces ' num2str(num_m1_pk_times)]);
+    disp(['M1 mean:' num2str(nanmean(m1_pk_time))]);
+    disp(['M1 sem: ' num2str(nanstd(m1_pk_time)/sqrt(num_m1_pk_times))]);
+    disp(['M1 std:' num2str(nanstd(m1_pk_time))]);
+    fprintf('\n\n');
+    diary off;
+        
+    nexttile;
+    data = [m1_pk_time, ca1_pk_time];
+    labels = [repmat({'M1'}, 1, length(m1_pk_time)), repmat({'CA1'}, 1, length(ca1_pk_time))];
+    ViolinOpts = Multi_func.get_default_violin();
+    violins = violinplot(data, labels, 'GroupOrder', {'M1', 'CA1'}, ViolinOpts);
+
+    %violins(1).ViolinColor = {'k'};
+    %violins(2).ViolinColor = {'g'};
+    violins(1).ViolinColor = {Multi_func.m1_color};
+    violins(2).ViolinColor = {Multi_func.ca1_color};
+
+    % Originally were histograms
+    %histogram(ca1_pk_time, 100, 'DisplayName', 'CA1'); 
+    %hold on;
+    %histogram(m1_pk_time, 100, 'DisplayName', 'M1');
+    title([num2str(f_stim) ' Vm onset time to peak violins'], 'Interpreter', 'none');
+end
+saveas(gcf, [figure_path 'Small_Res' f 'Violin_Onset_Peak_Time_FR_CA1_vs_M1.pdf']);
+saveas(gcf, [figure_path 'Small_Res' f 'Violin_Onset_Peak_Time_FR_CA1_vs_M1.png']);
 %% Specific functions for determining which FOVs to look at
 % Return matfiles by stimulation condition
 function [cond_struct] = stim_cond(matfile_names)
