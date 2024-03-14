@@ -68,7 +68,7 @@ avg_Fs = mean(region_data.(field1{1}).f_40.framerate, 'omitnan');
 
 %% Loop through and calculate dbs-Vm PLV values for all region and conditions
 freqs = [1:200];
-for f_region = {'r_M1'}%fieldnames(region_data)'
+for f_region = fieldnames(region_data)'
     f_region = f_region{1};
     data_bystim = region_data.(f_region);
     stims = fieldnames(data_bystim);
@@ -120,12 +120,12 @@ for f_region = {'r_M1'}%fieldnames(region_data)'
             base_rasters(base_idx) = dbs_rasters(base_idx);
             stim_rasters(stim_idx) = dbs_rasters(stim_idx);
             
-            [PLV, PLV2, norm_vecs] = Multi_func.spike_field_PLV(vm_phases{nr}, base_rasters, 7, 10);             
+            [PLV, PLV2, norm_vecs] = Multi_func.spike_field_PLV(vm_phases{nr}, base_rasters, 0, 10);             
             base_plvs(nr, :) = PLV;
             base_plvs_adjusted(nr, :) = PLV2;
             base_phase_vectors = [base_phase_vectors; norm_vecs];
 
-            [PLV, PLV2, norm_vecs] = Multi_func.spike_field_PLV(vm_phases{nr}, stim_rasters, 7, 10);           
+            [PLV, PLV2, norm_vecs] = Multi_func.spike_field_PLV(vm_phases{nr}, stim_rasters, 0, 10);           
             stim_plvs(nr, :) = PLV;
             stim_plvs_adjusted(nr, :) = PLV2;
             stim_phase_vectors = [stim_phase_vectors; norm_vecs];
@@ -143,7 +143,8 @@ for f_region = {'r_M1'}%fieldnames(region_data)'
 end
 
 %% Loop and plot all of the dbs-vm stuff
-for f_region = {'r_M1'}%fieldnames(region_data)'
+freqs = [1:200];
+for f_region = fieldnames(region_data)'
     f_region = f_region{1};
     data_bystim = region_data.(f_region);
     stims = fieldnames(data_bystim);
@@ -186,7 +187,7 @@ for f_region = {'r_M1'}%fieldnames(region_data)'
         
         ax = gca;
         set(ax,'Xscale','log');
-        legend({'base', 'stim'});
+        legend({'base', 'stim'}, 'Location', 'west');
         ax.Units = 'centimeters';
         ax.InnerPosition = [2 2 3.91 3.24];
 
@@ -207,4 +208,44 @@ for f_region = {'r_M1'}%fieldnames(region_data)'
         %    title(stim_data.neuron_name{nr}, 'Interpreter', 'none');
         %end 
     end
+end
+
+%% Combine the DBS-PLV for both CA1 and M1 stim data
+test_regions = {'r_CA1', 'r_M1'};
+stims = fieldnames(region_data.r_M1)';
+freqs = [1:200];
+for f_stim=stims'
+    f_stim = f_stim{1};
+    
+    figure();
+
+    for f_region = test_regions
+        f_region = f_region{1};
+        stim_data = region_data.(f_region).(f_stim);
+        
+        stim_plvs_mean = nanmean(stim_data.stim_dbsvm_plvs_adj, 1);
+        stim_plvs_std = nanstd(stim_data.stim_dbsvm_plvs_adj, 1);
+        num_stim_plvs = size(stim_data.stim_dbsvm_plvs_adj, 1);
+        stim_plvs_sem = stim_plvs_std./sqrt(num_stim_plvs);
+        
+        fill_h = fill([freqs, flip(freqs)], [[stim_plvs_mean + stim_plvs_sem], flip(stim_plvs_mean - stim_plvs_sem)], [0.5 0.5 0.5]);
+        Multi_func.set_fill_properties(fill_h);
+        Multi_func.set_default_axis(gca);
+        hold on;
+
+        if strcmp(f_region, 'r_CA1') == 1
+            cur_color = Multi_func.ca1_color;
+            label = 'CA1';
+        elseif strcmp(f_region, 'r_M1') == 1
+            cur_color = Multi_func.m1_color;
+            label = 'M1';
+        end
+        plot(freqs, stim_plvs_mean, 'color', cur_color, 'DisplayName', label);
+        hold on;
+
+    end
+    legend();  
+    ax = gca;
+    set(ax,'Xscale','log');
+    title([f_region(3:end) ' ' f_stim(3:end)], 'Interpreter', 'none');
 end

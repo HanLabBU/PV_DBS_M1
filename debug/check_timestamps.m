@@ -4,7 +4,7 @@ close all;
 
 % read in all timestamp matfiles
 
-set(0,'DefaultFigureVisible','off');
+set(0,'DefaultFigureVisible','on');
 
 ses = dir(['*.mat']);
 all_matfiles = {ses.name};
@@ -35,7 +35,7 @@ for i = 1:length(all_matfiles)
     title('Camera trial recording start');
 
     % Rise times
-    %plot(data.all_cam_start_times, repmat(1, 1, length(data.all_cam_start_times)), '|', 'LineWidth', 2);
+    plot(data.all_cam_start_times, repmat(1, 1, length(data.all_cam_start_times)), '|', 'LineWidth', 2);
     
     % Plotting camera frame time
     ax2 = nexttile;
@@ -68,7 +68,7 @@ for i = 1:length(all_matfiles)
     title('Stimulation time');
 
     % Rise times
-    %plot(data.all_stim_times, repmat(1, 1, length(data.all_stim_times)), '|', 'LineWidth', 2);
+    plot(data.all_stim_times, repmat(1, 1, length(data.all_stim_times)), '|', 'LineWidth', 2);
     linkaxes([ax1, ax2, ax3], 'x');
     sgtitle(matfile, 'Interpreter', 'none');
 

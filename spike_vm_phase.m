@@ -78,8 +78,8 @@ for f_region = fieldnames(region_data)'
         f_stim = f_stim{1};
         stim_num = str2num(f_stim(3:end));
         
-        figure('Renderer', 'Painters', 'Position', [200 200 2000 700]);
-        tiledlayout(1, 2, 'TileSpacing', 'compact', 'Padding', 'compact');
+        figure('Renderer', 'Painters', 'Position', [200 200 2000 700])
+        tiledlayout(1, 2, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 4, 9.38, 4.94]);
     
         base_phases = [];
         stim_phases = [];
@@ -103,7 +103,7 @@ for f_region = fieldnames(region_data)'
                 % Get stimulation spikes
                 stim_spikeidx = intersect(cur_tr_spikeidx, stim_idx);
                 
-                % Grab the phases of each period
+                % Grab the phases of each trial period
                 base_phases = [base_phases, angle(hilb_nr(stim_num, base_spikeidx, tr))];
                 stim_phases = [stim_phases, angle(hilb_nr(stim_num, stim_spikeidx, tr))];
                 
@@ -112,19 +112,22 @@ for f_region = fieldnames(region_data)'
     
         % Save circular staistics
         diary on
-        disp(['Stim Frequency Circular Stats' f_region ' ' f_stim]);
+        fprintf('\n\n');
+        disp(['Stim Frequency Phase Circular Stats' f_region ' ' f_stim]);
         stimfreq_phase_stats.(f_region).(f_stim).p = circ_wwtest(base_phases(:), stim_phases(:));
         diary off
 
         % Plot the polar histgrams
         nexttile;
         edges = linspace(0, 2*pi, 24);
-        polarhistogram(base_phases, edges, 'Normalization', 'probability', 'FaceColor', Multi_func.base_color, 'FaceAlpha', 0.3);
+        %polarhistogram(base_phases, edges, 'Normalization', 'probability', 'FaceColor', Multi_func.base_color, 'FaceAlpha', 0.3);
+        polarhistogram(base_phases, edges, 'Normalization', 'probability', 'DisplayStyle', 'stairs');
         title('Base');
         set(gca, 'Color', 'none');
 
         nexttile;
-        polarhistogram(stim_phases, edges, 'Normalization', 'probability', 'FaceColor', Multi_func.stim_color, 'FaceAlpha', 0.3);
+        %polarhistogram(stim_phases, edges, 'Normalization', 'probability', 'FaceColor', Multi_func.stim_color, 'FaceAlpha', 0.3);
+        polarhistogram(stim_phases, edges, 'Normalization', 'probability', 'DisplayStyle', 'stairs');
         title('Stim');
     
         set(gca, 'Color', 'none');
@@ -157,7 +160,7 @@ for f_region = fieldnames(region_data)'
         f_stim = f_stim{1};
 
         % Specify low frequency range to filter
-        low_range = [2, 10]; % Delta/Theta frequency
+        low_range = Multi_func.theta_range; % Should be the same as in Multi Func[2, 10]; % Delta/Theta frequency
         
         figure('visible', 'on', 'Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
         tiledlayout(1, 2, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 20, 11.50, 6.20]);
@@ -198,8 +201,10 @@ for f_region = fieldnames(region_data)'
         region_data.(f_region).(f_stim).LowFreq.base_phases = stim_phases;
 
         % Save circular statistics
-        disp(['Low Frequency Circular Stats' f_region ' ' f_stim]);
-        lowfreq_phase_stats.(f_region).(f_stim).p = circ_wwtest(base_phases(:), stim_phases(:));
+        diary on;
+        disp(['Low Frequency Phase Circular Stats' f_region ' ' f_stim]);
+        lowfreq_phase_stats.(f_region).(f_stim).p = circ_wwtest(base_phases(:), stim_phases(:))
+        diary off;
 
         % Plot the polar histgrams
         nexttile;

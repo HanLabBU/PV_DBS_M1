@@ -33,9 +33,6 @@ srate_win = 100;
 % Parameter to determine whether to combine all regions as one data
 all_regions = 0;
 
-%set figures off
-set(0,'DefaultFigureVisible','off');
-
 % Define transient and sustained periods
 trans_ped = [0, 150];
 sus_ped = [150, 1000];
@@ -173,7 +170,8 @@ end
 %end
 
 % Read in the saved pv data and perform analysis
-save_all_data_file = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Interm_Data' f 'pv_data_ex200.mat'];
+%save_all_data_file = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Interm_Data' f 'pv_data_ex200.mat'];
+save_all_data_file = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Interm_Data' f 'ca1_data.mat'];
 %Load the data
 load(save_all_data_file);
 
@@ -192,7 +190,7 @@ field1 = fieldnames(region_data);
 field1 = field1{1};
 avg_Fs = mean(region_data.(field1).f_40.framerate, 'omitnan');
 
-% Subthreshold time series spectra with (x - A)/(A + B) normalization for each neuron and 
+%% Subthreshold time series spectra with (x - A)/(A + B) normalization for each neuron and 
 for f_region = fieldnames(region_data)'
     f_region = f_region{1};
     data_bystim = region_data.(f_region);
@@ -255,14 +253,12 @@ for f_region = fieldnames(region_data)'
     
     saveas(gcf, [figure_path 'Spectra/' f_region '_A_B_Normalization_Time_Spectra.png']);
     saveas(gcf, [figure_path 'Spectra/' f_region '_A_B_Normalization_Time_Spectra.pdf']);
+    savefig(gcf, [figure_path 'Spectra/' f_region '_A_B_Normalization_Time_Spectra.fig']);
     %saveas(gcf, [figure_path 'Spectra/' f_region '_A_B_Normalization_Time_Spectra.eps'], 'epsc');
     %savefig(gcf, [figure_path 'Spectra/' f_region '_A_B_Normalization_Time_Spectra.fig']);
 end
 
-%DEBUG
-return;
-
-% Subthreshold time series spectra with (x - A)/(A + B) normalization for each neuron and 
+%% Subthreshold time series spectra with (x - A)/(A + B) normalization for each neuron and 
 % zoom in on the 50 Hz
 for f_region = fieldnames(region_data)'
     f_region = f_region{1};
@@ -390,6 +386,7 @@ for f_region = fieldnames(region_data)'
 
     saveas(gcf, [figure_path 'Spectra/' f_region '_zscore_time_Spectra.png']);
     saveas(gcf, [figure_path 'Spectra/' f_region '_zscore_time_Spectra.pdf']);
+    savefig(gcf, [figure_path 'Spectra/' f_region '_zscore_time_Spectra.fig']);
     saveas(gcf, [figure_path 'Spectra/' f_region '_zscore_time_Spectra.eps'], 'epsc');
 end
 

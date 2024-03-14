@@ -56,6 +56,7 @@ data_bystim = region_data.r_M1;
 
 avg_Fs = mean(region_data.r_M1.f_40.framerate, 'omitnan');
 
+%% Plotting example 40 Hz neuron
 %% Select neuron and trial
 neuron = '617100_M1_rec20211110_FOV3_40_60';
 trial_num = 4;
@@ -65,53 +66,109 @@ neuron_idx = find(contains(data_bystim.f_40.neuron_name, neuron));
 figure('Renderer', 'painters', 'Position', [0 0 1000 1000]);
 ax = gca;
 ax.Units = 'centimeters';
-ax.InnerPosition = [2 2 15.37 4.0];
+ax.InnerPosition = [2 2 7.75 2.29];
 
 trace_noise = data_bystim.f_40.all_trial_trace_noise{neuron_idx}(trial_num);
 rawvm = data_bystim.f_40.all_trial_rawVm{neuron_idx}(:, trial_num)./trace_noise;
 subvm = data_bystim.f_40.all_trial_SubVm{neuron_idx}(:, trial_num)./trace_noise;
-plot(rawvm, 'k');
+timeline = data_bystim.f_40.trace_timestamps(:, neuron_idx);
+plot(timeline, rawvm, 'k');
 hold on;
 
-% Remove the unfiltered subVm plot
+%Plotting unfiltered subVm plot
 %plot(subvm, 'b');
 %hold on;
-spikes = data_bystim.f_40.all_trial_spikeidx{neuron_idx}(:, trial_num);
-plot(spikes, 14*ones(length(spikes)), '.g');
+spike_idx = data_bystim.f_40.all_trial_spikeidx{neuron_idx}(:, trial_num);
+spike_idx(isnan(spike_idx)) = [];
+plot(timeline(spike_idx), 14*ones(length(spike_idx)), '.b');
 hold on;
-filt_vm = filt_range(subvm, [2 10], avg_Fs);
-plot(filt_vm, 'r');
+filt_vm = Multi_func.filt_range(subvm, [2 10], avg_Fs);
+plot(timeline, filt_vm, 'r');
 hold on;
-time_idx = [0 round(avg_Fs)/4];
-plot(time_idx, [-10, -10], 'k', 'LineWidth', 4);
+
+% Plotting stimulation ticks
+stim_y = 18;
+stim_idx = data_bystim.f_40.stim_timestamps(:, neuron_idx);
+plot(stim_idx, stim_y*ones(size(stim_idx)), '|k');
 hold on;
-text(time_idx(1), -12, [num2str(range(time_idx)/round(avg_Fs)) 'S']);
+plot(timeline, stim_y*ones(size(timeline)), '-k');
+hold on;
+
+% Plotting the old timescale
+%time_idx = [0 round(avg_Fs)/4];
+%plot(time_idx, [-10, -10], 'k', 'LineWidth', 4);
+%hold on;
+%text(time_idx(1), -12, [num2str(range(time_idx)/round(avg_Fs)) 'S']);
 hold on;
 snr_scale = 5;
-plot([-1, -1], [0 snr_scale], 'k', 'LineWidth', 4);
+plot([-.8, -.8], [0 snr_scale], 'k', 'LineWidth', 4);
 hold on;
-ht = text(- 5, 0, ['SBR ' num2str(snr_scale)]);
+ht = text(-.85, 0, ['SBR ' num2str(snr_scale)]);
 set(ht, 'rotation', 90);
 Multi_func.set_default_axis(gca);
-axis off;
+ax = gca;
+ax.YAxis.Visible = 'off';
+xlabel('time (ms)');
+xlim([-0.85 2.05]);
+saveas(gcf, [savefig_path 'Exemplary' f neuron '_tr_' num2str(trial_num) '_subthresh_overlay.pdf']);
 
+
+%% Plotting example 140 Hz neuron
+%% Select neuron and trial
+neuron = '617100_M1_rec20211110_FOV4_140_60';
+trial_num = 3;
+%neuron = '31556noeartag_M1_rec20221206_FOV1_140';
+%trial_num = 1;
+neuron_idx = find(contains(data_bystim.f_140.neuron_name, neuron));
+
+%% Plot the Vm with overlay
+figure('Renderer', 'painters', 'Position', [0 0 1000 1000]);
+ax = gca;
+ax.Units = 'centimeters';
+ax.InnerPosition = [2 2 7.75 2.29];
+
+trace_noise = data_bystim.f_140.all_trial_trace_noise{neuron_idx}(trial_num);
+rawvm = data_bystim.f_140.all_trial_rawVm{neuron_idx}(:, trial_num)./trace_noise;
+subvm = data_bystim.f_140.all_trial_SubVm{neuron_idx}(:, trial_num)./trace_noise;
+timeline = data_bystim.f_140.trace_timestamps(:, neuron_idx);
+plot(timeline, rawvm, 'k');
+hold on;
+
+%Plotting unfiltered subVm plot
+%plot(subvm, 'b');
+%hold on;
+spike_idx = data_bystim.f_140.all_trial_spikeidx{neuron_idx}(:, trial_num);
+spike_idx(isnan(spike_idx)) = [];
+plot(timeline(spike_idx), 14*ones(length(spike_idx)), '.b');
+hold on;
+filt_vm = Multi_func.filt_range(subvm, [2 10], avg_Fs);
+plot(timeline, filt_vm, 'r');
+hold on;
+
+% Plotting stimulation ticks
+stim_y = 18;
+stim_idx = data_bystim.f_140.stim_timestamps(:, neuron_idx);
+plot(stim_idx, stim_y*ones(size(stim_idx)), '|k');
+hold on;
+plot(timeline, stim_y*ones(size(timeline)), '-k');
+hold on;
+
+% Plotting the old timescale
+%time_idx = [0 round(avg_Fs)/4];
+%plot(time_idx, [-10, -10], 'k', 'LineWidth', 4);
+%hold on;
+%text(time_idx(1), -12, [num2str(range(time_idx)/round(avg_Fs)) 'S']);
+hold on;
+snr_scale = 5;
+plot([-.8, -.8], [0 snr_scale], 'k', 'LineWidth', 4);
+hold on;
+ht = text(-.85, 0, ['SBR ' num2str(snr_scale)]);
+set(ht, 'rotation', 90);
+Multi_func.set_default_axis(gca);
+ax = gca;
+ax.YAxis.Visible = 'off';
+xlabel('time (ms)');
+xlim([-0.85 2.05]);
 saveas(gcf, [savefig_path 'Exemplary' f neuron '_tr_' num2str(trial_num) '_subthresh_overlay.pdf']);
 
 %%
-
-% Function to filter out range
-function [filt_sig] = filt_range(sig, range, FS)
-    Fn = FS/2;
-    FB = [0.8 1.2].*range;
-    
-    [B, A] = butter(2, [min(FB)/Fn max(FB)/Fn]);
-    filt_sig = filtfilt(B,A,sig);
-end
-
-function [filt_sig] = hilb_filt_range(sig, range, FS)
-    Fn = FS/2;
-    FB = [0.8 1.2].*range;
-    
-    [B, A] = butter(2, [min(FB)/Fn max(FB)/Fn]);
-    filt_sig = hilbert(filtfilt(B,A,sig));
-end

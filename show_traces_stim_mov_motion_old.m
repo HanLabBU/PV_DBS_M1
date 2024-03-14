@@ -20,7 +20,7 @@ server_root_path = '~/handata_server/eng_research_handata3/';
 %data_path = [server_rootpath 'Pierre Fabris' f 'PV DBS neocortex' f 'PV_Data' f];
 
 % Data share on server
-data_path = [server_root_path 'Pierre Fabris' f 'PV Project' f 'PV_Data' f];
+data_path = [server_root_path 'Pierre Fabris' f 'PV Project' f 'PV_Data' f 'new_data' f];
 % Data on local computer
 %data_path = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'PV_Data' f];
 
@@ -35,7 +35,16 @@ ignore_trial_dict = Multi_func.csv_to_struct([local_root_path 'Pierre Fabris' f 
 
 
 %------------- END modification
+exclude_200ms = 1;
 
+% Parameters for frames to chop off
+if ~exclude_200ms
+    front_frame_drop = 15;
+else 
+    front_frame_drop = 15 + round((828*.200));
+end
+
+back_frame_drop = 2496;
 
 % Get all FOV matfiles
 matfile_names = dir([data_path '*.mat']);

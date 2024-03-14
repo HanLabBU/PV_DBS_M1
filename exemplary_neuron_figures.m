@@ -61,6 +61,12 @@ trial_num = 3;
 nr_idx = find(contains(data_bystim.f_140.neuron_name, neuron));
 neuron_data = data_bystim.f_140;
 
+%% Infor for a 140Hz neuron hyperpolarized
+neuron = '31556noeartag_M1_rec20221206_FOV1_140';
+trial_num = 1;
+nr_idx = find(contains(data_bystim.f_140.neuron_name, neuron));
+neuron_data = data_bystim.f_140;
+
 %% Info for a 40Hz example without delta
 neuron = '50373_M1_rec20230801_FOV2_40_200';
 trial_num = 8;
@@ -73,15 +79,9 @@ trial_num = 4;
 nr_idx = find(contains(data_bystim.f_40.neuron_name, neuron));
 neuron_data = data_bystim.f_40;
 
-%% Infor for a 140Hz neuron hyperpolarized
-neuron = '31556noeartag_M1_rec20221206_FOV1_140';
-trial_num = 1;
-nr_idx = find(contains(data_bystim.f_140.neuron_name, neuron));
-neuron_data = data_bystim.f_140;
-
-%% Code to plot a heatmap with raster plot
+%% Plot lined example trial, all trial heatmaps, and trial-averaged
 figure('Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
-tiledlayout(3, 1, 'TileSpacing', 'loose', 'Padding', 'loose', 'Units', 'centimeters', 'InnerPosition', [4 5 7 9]);
+tiledlayout(3, 1, 'TileSpacing', 'tight', 'Padding', 'tight', 'Units', 'centimeters', 'InnerPosition', [4 5 7 7.88]);
 timeline = neuron_data.trace_timestamps(:, nr_idx);
 
 %-- Plot example trial
@@ -105,6 +105,7 @@ plot(stim_idx, ones(size(stim_idx))*(max(raw_tr(spike_idx)./tr_noise) + 3), '|k'
 hold on;
 plot(timeline, ones(size(timeline))*(max(raw_tr(spike_idx)./tr_noise) + 3), '-k');
 hold on;
+
 plot([min(timeline) min(timeline)], [-5 0], 'b', 'LineWidth', 2)
 
 xlim([min(timeline) max(timeline)]);
@@ -118,12 +119,17 @@ vm_map = [];
 spidx_map = [];
 % Loop through each trial of given neuron
 for i = 1:size(neuron_data.all_trial_rawVm{nr_idx}, 2)
-    vm_map = [vm_map; neuron_data.all_trial_rawVm{nr_idx}(:, i)'];
+    trace_noise = neuron_data.all_trial_trace_noise{nr_idx}(i);
+
+    % Add the trace with SBR as value
+    vm_map = [vm_map; neuron_data.all_trial_rawVm{nr_idx}(:, i)'./trace_noise];
     cur_spikeidx = neuron_data.all_trial_spikeidx{nr_idx}(:, i);
     spidx_map = [spidx_map; cur_spikeidx'];
 end
 imagesc('XData', timeline, 'YData', 1:size(vm_map, 1), 'CData', vm_map);
-colorbar;
+ylabel('Trial #');
+cb  = colorbar;
+cb.Label.String = 'SBR';
 hold on;
 
 xlim([min(timeline) max(timeline)]);
@@ -158,6 +164,7 @@ hold on;
 plot([min(timeline) min(timeline)], [-5 0], 'b', 'LineWidth', 2)
 
 xlim([min(timeline) max(timeline)]);
+xlabel('Time from onset (s)');
 ax = gca;
 ax.YAxis.Visible = 'off';
 Multi_func.set_default_axis(gca);

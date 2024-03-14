@@ -17,7 +17,7 @@ server_root_path = '~/handata_server/eng_research_handata3/';
 % Data on handata3 folder
 pv_data_path = [server_root_path 'Pierre Fabris' f 'PV Project' f 'PV_Data' f];
 
-figure_path = [server_root_path 'Pierre Fabris' f 'PV Project' f 'Plots' f];
+figure_path = Multi_func.save_plot;
 
 % CSV file to determine which trials to ignore
 ignore_trial_dict = Multi_func.csv_to_struct([local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f ...
@@ -59,7 +59,7 @@ for f_region = {'r_M1'} %fieldnames(region_matfiles)'
     %% Select matfiles by stim specific conditions for all regions
     %[matfile_stim] = stim_cond(all_matfiles); 
     %% Select matfiles by stim condition for given region
-    [matfile_stim] = stim_cond(region_matfiles.(f_region).names);
+    [matfile_stim] = Multi_func.stim_cond(region_matfiles.(f_region).names);
 
     %% Loop through each field of the struct and concatenate everything together
     % Store trace aspect data by each individual stimulation condition
@@ -80,7 +80,7 @@ for f_region = {'r_M1'} %fieldnames(region_matfiles)'
         data_bystim.(f_stim).trace_timestamps = [];
 
         % Loop through each matfile of the current stimulation condition
-        for matfile = matfiles(19) % DEBUG just trying the one neuron first
+        for matfile = matfiles([18, 19]) % use 18, 19, 22, or  % DEBUG just trying the one neuron first
             % Read in the mat file of the current condition
             data = load([pv_data_path matfile{1}]);
             trial_idxs = find(~cellfun(@isempty, data.align.trial));
@@ -133,12 +133,12 @@ for f_region = {'r_M1'} %fieldnames(region_matfiles)'
                     cur_fov_trace_time = horzcat_pad(cur_fov_trace_time, trial_data.camera_frame_time(front_frame_drop:back_frame_drop) - stim_start);
                     
                     % Save the phases for all trials
-                    [wt, f] = get_power_spec(detrend_subVm', mean(cur_fov_Fs, 'omitnan'));                   
+                    [wt, freq] = Multi_func.get_power_spec(detrend_subVm', mean(cur_fov_Fs, 'omitnan'));                   
                     cur_fov_fourcoeff(:, :, end + 1) = wt;
                     
                     % Save the hilbert transform signal
 
-                    [filt_sig] = filt_data(detrend_subVm', [1:1:150] , mean(cur_fov_Fs, 'omitnan'));
+                    [filt_sig] = Multi_func.filt_data(detrend_subVm', [1:1:150] , mean(cur_fov_Fs, 'omitnan'));
                     cur_fov_filtsig(:, :, end + 1) = filt_sig;
 
                 end % End looping through each neuron
@@ -151,7 +151,7 @@ for f_region = {'r_M1'} %fieldnames(region_matfiles)'
 
             % Plot the subthreshold heatmap, and then the coherence
             figure('visible', 'on', 'Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 20.59 27.94]);
-            tiledlayout(2, 1, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 20, 7.0658, 6.36]);
+            tiledlayout(2, 1, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 20, 5.0, 6.0]);
             ax1 = nexttile;
             surface(nanmean(cur_fov_trace_time, 2), 1:size(cur_fov_subVm, 2), cur_fov_subVm', 'CDataMapping', 'scaled', 'FaceColor', 'texturemap', 'edgecolor', 'none');
             %colormap(ax1, Multi_func.green_warm_cold_color);
@@ -162,7 +162,7 @@ for f_region = {'r_M1'} %fieldnames(region_matfiles)'
             a.Label.String = 'Vm';
             xlabel('Time from onset(s)');
             ylabel('Trial #');
-            xlim([-1, 2.05]);
+            xlim([-0.8, 2.05]);
             title('Sub Vm');
             
             ax2 = nexttile;
@@ -173,9 +173,9 @@ for f_region = {'r_M1'} %fieldnames(region_matfiles)'
             %itc_map = exp(1i.*angle(cur_fov_fourcoeff));
             %itc_map = abs(mean(itc_map, 3, 'omitnan'));
 
-            surface(nanmean(cur_fov_trace_time, 2), f, itc_map, 'CDataMapping', 'scaled', 'FaceColor', 'texturemap', 'edgecolor', 'none' );
+            surface(nanmean(cur_fov_trace_time, 2), freq, itc_map, 'CDataMapping', 'scaled', 'FaceColor', 'texturemap', 'edgecolor', 'none' );
             colormap(ax2, Multi_func.warm_cold_color);
-            xlim([-1, 2.05]);
+            xlim([-0.8, 2.05]);
             xlabel('Time from onset(s)');
             ylabel('Frequency (Hz)');
             ylim([0 20]);
@@ -203,8 +203,8 @@ for f_region = {'r_M1'} %fieldnames(region_matfiles)'
             %Multi_func.set_default_axis(gca);
             %title('ITC from Hilbert');
             sgtitle(matfile, 'Interpreter', 'none');
-            saveas(gcf, [figure_path 'ITC/40Hz_exemplary_ITC.pdf']);
-            saveas(gcf, [figure_path 'ITC/40Hz_exemplary_ITC.png']);
+            saveas(gcf, [figure_path 'ITC' f matfile{1} '_ITC.pdf']);
+            saveas(gcf, [figure_path 'ITC' f matfile{1} '_ITC.png']);
 
             % Look at rose plot for 2.2 sec time point, 1817 idx
             %data_line = cur_fov_fourcoeff(35, 1817, :);
@@ -222,11 +222,11 @@ for f_region = {'r_M1'} %fieldnames(region_matfiles)'
             data_bystim.(f_stim).trace_timestamps = horzcat_pad(temp, nanmean(cur_fov_trace_time, 2));
             
             % Calculate and save frequency data
-            [wt, f] = get_power_spec(nanmean(cur_fov_subVm, 2)', nanmean(cur_fov_Fs));
+            [wt, freq] = Multi_func.get_power_spec(nanmean(cur_fov_subVm, 2)', nanmean(cur_fov_Fs));
             temp = data_bystim.(f_stim).neuron_spec_power;
             data_bystim.(f_stim).neuron_spec_power = cat(3, temp, wt);
             temp = data_bystim.(f_stim).neuron_spec_freq;   
-            data_bystim.(f_stim).neuron_spec_freq = cat(3, temp, f);
+            data_bystim.(f_stim).neuron_spec_freq = cat(3, temp, freq);
 
         end % End looping through FOVs of a condition
     end
@@ -244,45 +244,3 @@ end
 %field1 = fieldnames(region_data);
 %field1 = field1{1};
 %avg_Fs = mean(region_data.(field1).f_40.framerate, 'omitnan');
-
-% Filter data with hilbert transform
-function  [filt_sig]=filt_data(sig,frs, FS)
-    Fn = FS/2;
-
-    for steps=1:length(frs);
-        FB=[ frs(steps)*0.8 frs(steps)*1.2];
-        [B, A] = butter(2, [min(FB)/Fn max(FB)/Fn]);
-        filt_sig(steps, :)= hilbert(filtfilt(B,A,sig));
-    end
-end
-
-
-%% Functin to calculate the power spectra
-% Calculate cwt for input signal and 
-function [wt, f] = get_power_spec(signal, samp_freq)
-    freqLimits = [0 150];
-    fb = cwtfilterbank(SignalLength=length(signal),...
-                       SamplingFrequency=samp_freq,...
-                       FrequencyLimits=freqLimits);
-    [wt, f] = cwt(signal, FilterBank=fb);
-end
-
-%% Specific functions for determining which FOVs to look at
-% Return matfiles by stimulation condition
-function [cond_struct] = stim_cond(matfile_names)
-    cond_struct = struct();
-    
-    % Loop through each matfilename and group by stimulation conditions
-    for i=1:length(matfile_names)
-            file_parts = split(matfile_names{i}, '_');
-            stim = file_parts{5};
-            
-            % Create stimulation field if it does not exist
-            if ~isfield(cond_struct, ['f_' stim])
-                cond_struct.(['f_' stim]).names = {};
-            end
-
-            cond_struct.(['f_' stim]).names{end+1} = matfile_names{i};
-    end
-end
-

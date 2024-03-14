@@ -21,7 +21,7 @@ back_frame_drop = 2496;
 % Data on handata3 folder
 pv_data_path = [server_root_path 'Pierre Fabris' f 'PV Project' f 'PV_Data' f];
 
-figure_path = [server_root_path 'Pierre Fabris' f 'PV Project' f 'Plots' f];
+figure_path = Multi_func.save_plot;
 
 % CSV file to determine which trials to ignore
 ignore_trial_dict = Multi_func.csv_to_struct([local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f ...
@@ -29,8 +29,6 @@ ignore_trial_dict = Multi_func.csv_to_struct([local_root_path 'Pierre Fabris' f 
 
 % Parameter to determine whether to combine all regions as one data
 all_regions = 0;
-
-set(0,'DefaultFigureVisible','off');
 
 %%% END Modification
 
@@ -215,7 +213,7 @@ end
 %    region_data.(f_region).data_bystim = data_bystim;
 %end
 
-% Read in the saved pv data and perform analysis
+%% Read in the saved pv data and perform analysis
 save_all_data_file = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Interm_Data' f 'pv_data.mat'];
 %Load the data
 load(save_all_data_file);
@@ -227,7 +225,7 @@ end
 
 disp('Finished Loading');
 
-% Set to look for 
+%% Calculate all of the ITCs for 40Hz M1 region neurons, and sort by the post ITRC  
 f_region = 'r_M1';
 f_stim = 'f_40';
 timeline = nanmean(region_data.(f_region).(f_stim).trace_timestamps, 2);
@@ -236,7 +234,7 @@ data_bystim = region_data.(f_region);
 itc_neuron = [];
 post_ran_idx = find(timeline >= 1 & timeline <= 1.5);
 base_idx = find(timeline < 0);
-freq_idx = 4:12; % Check the theta band %TODO maybe change to 2:12? Need to determine a good theta range
+freq_idx = Multi_func.theta_range(1):Multi_func.theta_range(2); 
 
 % Store each neuron's base and post stimulation ITC for comparison
 nr_base_itc = [];
@@ -256,11 +254,14 @@ for neuron = 1:length(data_bystim.(f_stim).neuron_hilbfilt)
     neuron_trial_map{end + 1} = data_bystim.(f_stim).all_trial_rawVm{neuron};
 end
 
+% Sort neurons based on the ITC value after stimulation period
 [~, sort_i] = sort(nr_post_itc);
 sort_i = flip(sort_i);
 sorted_trials = neuron_trial_map(sort_i);
 nr_base_itc = nr_base_itc(sort_i);
 nr_post_itc = nr_post_itc(sort_i);
+
+%%
 
 neuron_bound = [0];
 %Loop through the trials to create the bounds
@@ -286,11 +287,15 @@ title('Sorted Trial Map');
 Multi_func.set_default_axis(gca);
 xlim([-1, 2.5]);
 
-% Plot violins to compare the base vs post stim ITC values for all neurons
+%% Plot violins to compare the base vs post stim ITC values for all neurons
 figure('Renderer', 'Painters', 'Position', [200 200 700 700]);
 data = [nr_base_itc, nr_post_itc];
 labels = [repmat({'Base'}, 1, length(nr_base_itc)), repmat({'Post'}, 1, length(nr_post_itc))];
-violins = violinplot(data, labels, 'GroupOrder', {'Base', 'Post'});
+ViolinOpts = Multi_func.get_default_violin();
+violins = violinplot(data, labels, 'GroupOrder', {'Base', 'Post'}, ViolinOpts);
+violins(1).ViolinColor = {Multi_func.base_color};
+violins(2).ViolinColor = {Multi_func.post_color};
+
 hold on;
 % Conditionally color lines between violinplots
 for i=1:length(nr_base_itc)
@@ -308,12 +313,17 @@ for i=1:length(nr_base_itc)
     plot([1 2], [nr_base_itc(i), nr_post_itc(i)], '-', 'Color', color);
     hold on;
 end
+ax = gca;
+ax.Units = 'Centimeters';
+ax.InnerPosition = [5 5 4.0 6.43];
 Multi_func.set_default_axis(gca);
 ylabel('ITC Value');
 title('All 40Hz Neurons ITC Base vs Stim comparison');
-saveas(gcf, [figure_path 'ITC/40Hz_base_vs_stim.png']);
 
-% Perform statistical test
+saveas(gcf, [figure_path 'ITC' f '40Hz_base_vs_stim.pdf']);
+saveas(gcf, [figure_path 'ITC' f '40Hz_base_vs_stim.png']);
+
+%% Perform statistical test
 [p, h, stats] = signrank(nr_base_itc, nr_post_itc)
 signrank_itc_base_post_stats = struct();
 signrank_itc_base_post_stats.p = p
@@ -427,6 +437,87 @@ title('Trials that showed criteria');
 Multi_func.set_default_axis(gca);
 xlim([-1, 2.5]);
 
+%% Calculate all of the ITCs for 140Hz M1 region neurons, and sort by the post ITRC  
+f_region = 'r_M1';
+f_stim = 'f_140';
+timeline = nanmean(region_data.(f_region).(f_stim).trace_timestamps, 2);
+data_bystim = region_data.(f_region);
+% Save the index of the neurons with the ITC phenomena
+itc_neuron = [];
+post_ran_idx = find(timeline >= 1 & timeline <= 1.5);
+base_idx = find(timeline < 0);
+freq_idx = Multi_func.theta_range(1):Multi_func.theta_range(2); 
+
+% Store each neuron's base and post stimulation ITC for comparison
+nr_base_itc = [];
+nr_post_itc = [];
+
+neuron_trial_map = {};
+% Sort all of the neurons based on the post ITC value
+for neuron = 1:length(data_bystim.(f_stim).neuron_hilbfilt)
+    cur_fourcoeff = data_bystim.(f_stim).neuron_hilbfilt{neuron};
+    itc_map = abs(mean(cur_fourcoeff./abs(cur_fourcoeff), 3, 'omitnan'));
+ 
+    % Append neuron's ITC values to population wide
+    nr_base_itc(end + 1) = mean( itc_map(freq_idx, base_idx), 'all');
+    nr_post_itc(end + 1) = mean( itc_map(freq_idx, post_ran_idx), 'all');
+    
+    % Get the trial's Vm for current neuron
+    neuron_trial_map{end + 1} = data_bystim.(f_stim).all_trial_rawVm{neuron};
+end
+
+% Sort neurons based on the ITC value after stimulation period
+[~, sort_i] = sort(nr_post_itc);
+sort_i = flip(sort_i);
+sorted_trials = neuron_trial_map(sort_i);
+nr_base_itc = nr_base_itc(sort_i);
+nr_post_itc = nr_post_itc(sort_i);
+
+
+%% Plot violins to compare the base vs post stim ITC values for all neurons
+figure('Renderer', 'Painters', 'Position', [200 200 700 700]);
+data = [nr_base_itc, nr_post_itc];
+labels = [repmat({'Base'}, 1, length(nr_base_itc)), repmat({'Post'}, 1, length(nr_post_itc))];
+ViolinOpts = Multi_func.get_default_violin();
+violins = violinplot(data, labels, 'GroupOrder', {'Base', 'Post'}, ViolinOpts);
+violins(1).ViolinColor = {Multi_func.base_color};
+violins(2).ViolinColor = {Multi_func.post_color};
+
+hold on;
+% Conditionally color lines between violinplots
+for i=1:length(nr_base_itc)
+    color = [0 0 0 0.4];
+
+    % Neuron increased their ITC (considered ITC neuron)
+    if nr_post_itc(i) > nr_base_itc(i)*1.20
+        color = [[30, 2, 237]/255, 0.4];
+        
+    % Neuron had a decrease in their ITC
+    elseif nr_post_itc(i) < nr_base_itc(i)*0.8
+        color = [[235, 5, 28]/255, 0.4];
+    end
+
+    plot([1 2], [nr_base_itc(i), nr_post_itc(i)], '-', 'Color', color);
+    hold on;
+end
+ax = gca;
+ax.Units = 'Centimeters';
+ax.InnerPosition = [5 5 4.0 6.43];
+Multi_func.set_default_axis(gca);
+ylabel('ITC Value');
+title('All 140Hz Neurons ITC Base vs Stim comparison');
+
+saveas(gcf, [figure_path 'ITC' f '140Hz_base_vs_stim.pdf']);
+saveas(gcf, [figure_path 'ITC' f '140Hz_base_vs_stim.png']);
+
+%% Perform statistical test
+[p, h, stats] = signrank(nr_base_itc, nr_post_itc)
+signrank_itc_base_post_stats = struct();
+signrank_itc_base_post_stats.p = p
+signrank_itc_base_post_stats.h = h;
+signrank_itc_base_post_stats.stats = stats;
+
+%%
 % 
 %% Each region ITC
 %for f_region = fieldnames(region_data)'

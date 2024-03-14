@@ -37,7 +37,7 @@ display_names = 0;
 %%% END Modification
 
 % Check that the server path exists
-if ~isfolder(local_root_path)
+if ~isfolder(server_root_path)
     disp('Server rootpath does not exist!!!');
     return;
 end
@@ -215,7 +215,7 @@ for f_region = fieldnames(region_data)'
 
         % Create a figure that includes: raw, spikes, and SubVm
         figure('Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 40 40]);
-        tiledlayout(1, 2, 'TileSpacing', 'none', 'Padding', 'loose', 'Units', 'centimeters', 'InnerPosition', [4 5 16.21 16]);
+        tiledlayout(1, 2, 'TileSpacing', 'none', 'Padding', 'loose', 'Units', 'centimeters', 'InnerPosition', [4 5 8 8]);
         
         % Plot the raw traces
         nexttile;
@@ -285,7 +285,7 @@ for f_region = fieldnames(region_data)'
         nexttile;  
         neuron_bound = [0];
         index = 1;
-        for fov = 1:length(data_bystim.(f_stim).neuron_spikeidx)
+        for fov = I %1:length(data_bystim.(f_stim).neuron_spikeidx)
             cur_color = [rand, rand, rand]*0.7;
             cur_fov = data_bystim.(f_stim).neuron_spikeidx{fov};
             for tr = 1:size(cur_fov, 2)

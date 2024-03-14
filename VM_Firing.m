@@ -1,3 +1,4 @@
+clear all;
 close all;
 f = filesep;
 
@@ -40,7 +41,7 @@ all_regions = 0;
 %% END Modification
 
 %% Check that the server path exists
-if ~isfolder(local_root_path)
+if ~isfolder(server_root_path)
     disp('Server rootpath does not exist!!!');
     return;
 end
@@ -49,7 +50,8 @@ end
 if ~exclude_200ms
     save_all_data_file = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Interm_Data' f 'pv_data.mat'];
 else
-    save_all_data_file = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Interm_Data' f 'pv_data_ex200.mat'];
+    %save_all_data_file = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Interm_Data' f 'pv_data_ex200.mat'];
+    save_all_data_file = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Interm_Data' f 'ca1_data.mat'];
 end
 %Load the data
 load(save_all_data_file);
@@ -194,7 +196,7 @@ end
 % Struct to identify each group of data
 sub_vm_stat_data = struct();
 % Make Violin plots on Subthreshold Vm for transient and sustained
-for f_region = {'r_M1'} %fieldnames(region_data)'
+for f_region = fieldnames(region_data)'
     f_region = f_region{1};
     data_bystim = region_data.(f_region);
     stims = fieldnames(data_bystim);
@@ -277,8 +279,7 @@ for f_region = {'r_M1'} %fieldnames(region_data)'
     %saveas(gcf, [figure_path 'Average/' f_region '_population_comp_Vm_violin.eps'], 'epsc');
 end
 
-%%
-% Make Violin plots on Subthreshold Vm for stimulation period
+%% Make Violin plots on Subthreshold Vm for stimulation period
 for f_region = fieldnames(region_data)'
     f_region = f_region{1};
     data_bystim = region_data.(f_region);
@@ -495,7 +496,7 @@ for f_region = fieldnames(region_data)'
         hold on;
         
         % Plot the DBS stimulation time pulses
-        stim_time = nanmean(data_bystim.(f_stim).stim_timestamps, 2);
+        stim_time = nanmedian(data_bystim.(f_stim).stim_timestamps, 2);
         xline(stim_time, 'Color', [170, 176, 97]./255, 'LineWidth', 0.5);
         hold on;
 
@@ -522,6 +523,7 @@ for f_region = fieldnames(region_data)'
         title(f_stim(3:end), 'Interpreter', 'none');
     end
     sgtitle([f_region(3:end) ' Average subthreshold Vm Showing all pulses'], 'Interpreter', 'none');
+   
     saveas(gcf, [figure_path 'Average/' f_region '_Display_All_Pulse_Vm.png']);
     saveas(gcf, [figure_path 'Average/' f_region '_Display_All_Pulse_Vm.pdf']);
     %saveas(gcf, [figure_path 'Average/' f_region '_Display_All_Pulse_Vm.eps'], 'epsc');

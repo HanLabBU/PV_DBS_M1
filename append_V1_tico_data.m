@@ -1,24 +1,25 @@
-% Save all analysis data to a matfile that can be easily read for analysis
 clear all;
 close all;
+clc;
 
 f = filesep;
 
 % Linux server
 local_root_path = '~/Projects/';
 % Handata Server on Linux
-server_root_path = '~/handata_server/eng_research_handata3/';
+server_root_path = '~/handata_server/';
 % Windows server
 %local_root_path = 'Z:\';
 
 % List path where all of the matfiles are stored
-%pv_data_path = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'PV_Data' f];
+%data_path = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'PV_Data' f];
 % Data on local linux machine
-%pv_data_path = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'PV_Data' f];
+%data_path = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'PV_Data' f];
 % Data on handata3 folder
-pv_data_path = [server_root_path 'Pierre Fabris' f 'PV Project' f 'PV_Data' f];
+%data_path = [server_root_path 'EricLowet' f 'DBS' f 'github' f 'DBS_volt_data_github'];
+data_path = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'CA1_Data' f];
 
-exclude_200ms = 1;
+exclude_200ms = 0;
 
 % Parameters for frames to chop off
 if ~exclude_200ms
@@ -28,6 +29,11 @@ else
 end
 back_frame_drop = 2496;
 
+% Path for this data matfile
+%save_all_data_file = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Interm_Data' f 'ca1_data.mat'];
+
+% Append data to the interm data matfile
+save_all_data_file = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Interm_Data' f 'pv_data_ex200.mat'];
 
 %Variables to differentiate between the larger and finer resolution of spike rate
 %TODO may need to change variable names and add finer resolutions
@@ -44,48 +50,39 @@ sus_ped = Multi_func.sus_ped;
 stim_ped = Multi_func.stim_ped;
 offset_trans_ped = Multi_func.offset_trans_ped;
 
-% Data path for all of the intermediate anaylsis data
-if ~exclude_200ms
-    save_all_data_file = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Interm_Data' f 'pv_data.mat'];
-else
-    save_all_data_file = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Interm_Data' f 'pv_data_ex200.mat'];
-end
-
-% CSV file to determine which trials to ignore
-ignore_trial_dict = Multi_func.csv_to_struct([local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f ...
-                                       'Stim Recordings' f 'Data_Config' f 'byvis_ignore.csv']);
-
 % Check that the server path exists
-if ~isfolder(local_root_path) || ~isfolder(pv_data_path)
+if ~isfolder(local_root_path) || ~isfolder(data_path)
     disp('Server rootpath does not exist!!!');
     return;
 end
 
-ses = dir([pv_data_path '*.mat']);
-all_matfiles = {ses.name};
+ses = dir([data_path '*mat']);
+matfiles = {ses.name};
+
+% Loop through different stimulation conditions
+regions = {'r_CA1'};
+stim_conditions = {'f_140', 'f_40'};
 
 % Select matfiles by brain region
-[region_matfiles] = Multi_func.find_region(all_matfiles);
 region_data = struct();
 all_Fs = [];
-for f_region = fieldnames(region_matfiles)'
+%%
+for f_region = regions'
     f_region = f_region{1};
 
-    %% Select matfiles by stim specific conditions for all regions
-    %[matfile_stim] = stim_cond(all_matfiles); 
-    %% Select matfiles by stim condition for given region
-    [matfile_stim] = Multi_func.stim_cond(region_matfiles.(f_region).names);
+    % Select matfiles by stim specific conditions for all regions
+    [matfile_stim] = stim_cond(matfiles); 
+    % Select matfiles by stim condition for given region
 
-    %% Loop through each field of the struct and concatenate everything together
+    % Loop through each field of the struct and concatenate everything together
     % Store trace aspect data by each individual stimulation condition
     data_bystim = struct();
     % Store all of the calculated sampling frequencies
 
     % Loop through each stimulation condition
-    for f_stim = fieldnames(matfile_stim)'
+    for f_stim = fieldnames(matfile_stim)' %stim_conditions
         f_stim = f_stim{1};
-        matfiles = matfile_stim.(f_stim).names;    
-    
+
         % Initialize field subthreshold array
         data_bystim.(f_stim) = struct();
 
@@ -130,10 +127,17 @@ for f_region = fieldnames(region_matfiles)'
         data_bystim.(f_stim).trial_num = [];
 
         % Loop through each matfile of the current stimulation condition
-        for matfile = matfiles
-            matfile = matfile{1};
+        for matf= matfile_stim.(f_stim).names
+            cur_mat = matf{1}
             % Read in the mat file of the current condition
-            data = load([pv_data_path matfile]);
+            data = load([data_path cur_mat]);
+
+            % double check that data has aligned stuff
+
+            if ~isfield(data, 'align')
+                continue;
+            end
+
             trial_idxs = find(~cellfun(@isempty, data.align.trial));
             trial_data = data.align.trial{trial_idxs(1)};    
             
@@ -171,11 +175,12 @@ for f_region = fieldnames(region_matfiles)'
             cur_fov_hilbfilt = [];
 
             % Loop through each ROI
-            for roi_idx=1:size(trial_data.detrend_traces, 2)
+            for roi_idx=1 % :size(trial_data.detrend_traces, 2)
                 %Determine whether this roi is to be ignored for this particular trial
-                ri = strsplit(matfile, '_');
+                ri = strsplit(cur_mat, '_');
+                
                 try
-                    trial_ignr_list = ignore_trial_dict.(['mouse_' ri{1}]).(['rec_' erase(ri{3}, 'rec')]).(ri{4}).(['f_' ri{5}]).(['ROI' num2str(roi_idx)]);
+                    trial_ignr_list = ignore_trial_dict.(['mouse_' ri{1}]).(['rec_' erase(ri{2}, 'rec')]).(ri{3}).(['f_' ri{4}]).(['ROI' num2str(roi_idx)]);
                 catch
                     trial_ignr_list = [];
                 end
@@ -194,6 +199,11 @@ for f_region = fieldnames(region_matfiles)'
                     trial_data = data.align.trial{tr_idx};
                     raw_trial_data = data.raw.trial{tr_idx};
 
+                    % Skip if there are not any spikes
+                    if isempty(trial_data.spike_info)
+                        continue;
+                    end
+
                     % Store the camera framerate
                     all_Fs(end+1) = trial_data.camera_framerate;
                     cur_fov_Fs(end + 1) = trial_data.camera_framerate;
@@ -201,13 +211,13 @@ for f_region = fieldnames(region_matfiles)'
                     % Store all of the timestamp info
                     stim_start = raw_trial_data.raw_stimulation_time(1);
                     cur_trace_time = trial_data.camera_frame_time(front_frame_drop:back_frame_drop) - stim_start;
-                    cur_stim_time = raw_trial_data.raw_stimulation_time(1:str2num(ri{5})) - stim_start;
+                    cur_stim_time = raw_trial_data.raw_stimulation_time(1:str2num(ri{4})) - stim_start;
                     cur_fov_stim_time = horzcat_pad(cur_fov_stim_time, cur_stim_time);
                     cur_fov_trace_time = horzcat_pad(cur_fov_trace_time, cur_trace_time);
 
                     % Grab the subthreshold Vm
                     % Chop the respective frames
-                    cur_trace_ws = trial_data.spike_info375.trace_ws(roi_idx, front_frame_drop:back_frame_drop);
+                    cur_trace_ws = trial_data.spike_info.trace_ws(roi_idx, front_frame_drop:back_frame_drop);
                     [baseline, coeff] = Multi_func.exp_fit_Fx(cur_trace_ws', round(trial_data.camera_framerate));
                     detrend_subVm = cur_trace_ws - baseline;
                     cur_fov_subVm = horzcat_pad(cur_fov_subVm, detrend_subVm');
@@ -217,7 +227,7 @@ for f_region = fieldnames(region_matfiles)'
                     cur_fov_hilbfilt(:, :, end + 1) = filt_sig;
 
                     % Grab the spike idxs
-                    cur_spike_idx = trial_data.spike_info375.spike_idx{1};
+                    cur_spike_idx = trial_data.spike_info.spike_idx{1};
                     cur_spike_idx(find(cur_spike_idx < front_frame_drop | cur_spike_idx > back_frame_drop)) = NaN;
                     cur_spike_idx = cur_spike_idx - front_frame_drop + 1;
                     % Add if spikes were detected
@@ -232,14 +242,14 @@ for f_region = fieldnames(region_matfiles)'
                     detrend_Vm = cur_raw_trace - baseline';
                     cur_fov_rawtraces = horzcat_pad(cur_fov_rawtraces, detrend_Vm);
 
-                    cur_trace_noise = trial_data.spike_info375.trace_noise;
+                    cur_trace_noise = trial_data.spike_info.trace_noise;
                     cur_fov_tracenoises = horzcat_pad(cur_fov_tracenoises, cur_trace_noise);
 
-                    cur_spike_amp = trial_data.spike_info375.spike_amplitude{1};
+                    cur_spike_amp = trial_data.spike_info.spike_amplitude{1};
                     cur_fov_spike_amp = horzcat_pad(cur_fov_spike_amp, cur_spike_amp');
 
                     % Calculate spikerate with a window size of 100
-                    cur_raster = trial_data.spike_info375.roaster(roi_idx, front_frame_drop:back_frame_drop);
+                    cur_raster = trial_data.spike_info.roaster(roi_idx, front_frame_drop:back_frame_drop);
                     cur_spikerate = cur_raster.*trial_data.camera_framerate;
 
                     % Uses center window moving average with halved window on the ends
@@ -258,7 +268,7 @@ for f_region = fieldnames(region_matfiles)'
                     
                     
                     % Calculate spikerate with a window size of 50
-                    cur_raster = trial_data.spike_info375.roaster(roi_idx, front_frame_drop:back_frame_drop);
+                    cur_raster = trial_data.spike_info.roaster(roi_idx, front_frame_drop:back_frame_drop);
                     cur_spikerate = cur_raster.*trial_data.camera_framerate;
 
                     % Uses center window moving average with halved window on the ends
@@ -278,7 +288,7 @@ for f_region = fieldnames(region_matfiles)'
 
 
                     % Calculate spikerate with window size of 20
-                    cur_raster = trial_data.spike_info375.roaster(roi_idx, front_frame_drop:back_frame_drop);
+                    cur_raster = trial_data.spike_info.roaster(roi_idx, front_frame_drop:back_frame_drop);
                     cur_spikerate = cur_raster.*trial_data.camera_framerate;
 
                     %Use preceding window points to average and asign to the last point
@@ -294,7 +304,7 @@ for f_region = fieldnames(region_matfiles)'
 
 
                     % Calculate spikerate with a window size of 10
-                    cur_raster = trial_data.spike_info375.roaster(roi_idx, front_frame_drop:back_frame_drop);
+                    cur_raster = trial_data.spike_info.roaster(roi_idx, front_frame_drop:back_frame_drop);
                     cur_spikerate = cur_raster.*trial_data.camera_framerate;
 
                     %Use preceding window points to average and asign to the last point
@@ -311,7 +321,7 @@ for f_region = fieldnames(region_matfiles)'
                     
 
                     % Calculate spikerate with a window size of 3
-                    cur_raster = trial_data.spike_info375.roaster(roi_idx, front_frame_drop:back_frame_drop);
+                    cur_raster = trial_data.spike_info.roaster(roi_idx, front_frame_drop:back_frame_drop);
                     cur_spikerate = cur_raster.*trial_data.camera_framerate;
 
                     %Use preceding window points to average and asign to the last point
@@ -360,7 +370,7 @@ for f_region = fieldnames(region_matfiles)'
             end
 
             %Add neuron name
-            data_bystim.(f_stim).neuron_name{end + 1} = matfile;
+            data_bystim.(f_stim).neuron_name{end + 1} = cur_mat;
                 
             % Add neuron trial number
             data_bystim.(f_stim).trial_num(end + 1) = size(cur_fov_subVm, 2);
@@ -460,8 +470,46 @@ for f_region = fieldnames(region_matfiles)'
     region_data.(f_region) = data_bystim;
 end
 
+%% Save CA1 data to matfile
+
+%TODO append this to the interm pv datapath to include CA1 region
 % Check first if the matfile exists
+if isfile(save_all_data_file)
+    data = load(save_all_data_file);
+    
+    %Save all of the region data from the data file to this structure
+    region_data.r_M1 = data.region_data.r_M1;
+    region_data.r_V1 = data.region_data.r_V1;
+    save([save_all_data_file], 'region_data', '-v7.3');
+else
+    save_all_data_file = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Interm_Data' f 'ca1_data.mat'];
+end
 save([save_all_data_file], 'region_data', '-v7.3');
+
+%%
+
+% Return matfiles by stimulation condition
+function [cond_struct] = stim_cond(matfile_names)
+    cond_struct = struct();
+    
+    % Loop through each matfilename and group by stimulation conditions
+    for i=1:length(matfile_names)
+        file_parts = split(matfile_names{i}, '_');
+            
+        if length(file_parts) < 4
+            continue;
+        end
+
+        stim = file_parts{4};
+        
+        % Create stimulation field if it does not exist
+        if ~isfield(cond_struct, ['f_' stim])
+            cond_struct.(['f_' stim]).names = {};
+        end
+
+        cond_struct.(['f_' stim]).names{end+1} = matfile_names{i};
+    end
+end
 
 % Calculate cwt for input signal and 
 function [wt, f] = get_power_spec(signal, samp_freq)

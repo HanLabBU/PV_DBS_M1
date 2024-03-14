@@ -61,13 +61,12 @@ if all_regions == 1
     region_data = Multi_func.combine_regions(region_data);
 end
 
-field1 = fieldnames(region_data);
-field1 = field1(1);
+field1 = {'r_M1'};
 avg_Fs = mean(region_data.(field1{1}).f_40.framerate, 'omitnan');
 
 %% Loop through and calculate spike-Vm PLV values for all region and conditions
 freqs = [1:200];
-for f_region = {'r_M1'}%fieldnames(region_data)'
+for f_region = fieldnames(region_data)'
     f_region = f_region{1};
     data_bystim = region_data.(f_region);
     stims = fieldnames(data_bystim);
@@ -80,11 +79,13 @@ for f_region = {'r_M1'}%fieldnames(region_data)'
         % Loop through each neuron
         base_plvs = [];
         stim_plvs = [];
+        base_phase_vectors = [];
+        stim_phase_vectors = [];
         base_plvs_adjusted = [];
         stim_plvs_adjusted = [];
         
         tic;
-        parfor nr = 1:length(stim_data.all_trial_SubVm)
+        parfor (nr = 1:length(stim_data.all_trial_SubVm), 12)
             filt_trial = @(trial) (angle(Multi_func.filt_data(trial, freqs, avg_Fs)));
             
             applyFunToColi = @(func, mat) (@(col) func(mat(:, col)));
@@ -107,28 +108,30 @@ for f_region = {'r_M1'}%fieldnames(region_data)'
             base_rasters(base_idx) = spike_rasters(base_idx);
             stim_rasters(stim_idx) = spike_rasters(stim_idx);
             
-            [PLV, PLV2] = Multi_func.spike_field_PLV(vm_phases{nr}, base_rasters, 7);             
+            [PLV, PLV2, norm_vecs] = Multi_func.spike_field_PLV(vm_phases{nr}, base_rasters, 7, 10);             
             base_plvs(nr, :) = PLV;
             base_plvs_adjusted(nr, :) = PLV2;
+            base_phase_vectors = [base_phase_vectors; norm_vecs];
 
-
-            [PLV, PLV2] = Multi_func.spike_field_PLV(vm_phases{nr}, stim_rasters, 7);             
+            [PLV, PLV2, norm_vecs] = Multi_func.spike_field_PLV(vm_phases{nr}, stim_rasters, 7, 10);           
             stim_plvs(nr, :) = PLV;
             stim_plvs_adjusted(nr, :) = PLV2;
+            stim_phase_vectors = [stim_phase_vectors; norm_vecs];
         end
 
         % Save the variables to structs
         region_data.(f_region).(f_stim).base_spikevm_plvs_adj = base_plvs_adjusted;
         region_data.(f_region).(f_stim).stim_spikevm_plvs_adj = stim_plvs_adjusted;
-        
         region_data.(f_region).(f_stim).base_spikevm_plvs = base_plvs;
         region_data.(f_region).(f_stim).stim_spikevm_plvs = stim_plvs;
+        region_data.(f_region).(f_stim).base_spikevm_phase_vecs = base_phase_vectors;
+        region_data.(f_region).(f_stim).stim_spikevm_phase_vecs = stim_phase_vectors;
         toc
     end
 end
 
 %% Loop and plot all of the spike-vm stuff
-for f_region = {'r_M1'}%fieldnames(region_data)'
+for f_region = fieldnames(region_data)'
     f_region = f_region{1};
     data_bystim = region_data.(f_region);
     stims = fieldnames(data_bystim);
@@ -137,17 +140,55 @@ for f_region = {'r_M1'}%fieldnames(region_data)'
     for f_stim=stims'
         f_stim = f_stim{1};
         stim_data = data_bystim.(f_stim);
-        
-        figure;
-        plot(freqs, nanmean(stim_data.base_spikevm_plvs_adj, 1));
-        hold on;
-        plot(freqs, nanmean(stim_data.stim_spikevm_plvs_adj, 1));
 
+        % Setup figure with set dimensions
+        figure('Renderer', 'painters', 'Position', [5, 5, 1000, 1000]);
+
+        ax = gca;
+        ax.Units = 'centimeters';
+        ax.InnerPosition = [2 2 5 4.0];
+        
+        % Plot base data with error bars
+        base_plvs_mean = nanmean(stim_data.base_spikevm_plvs_adj, 1);
+        base_plvs_std = nanstd(stim_data.base_spikevm_plvs_adj, 1);
+        num_base_plvs = size(stim_data.base_spikevm_plvs_adj, 1);
+        base_plvs_sem = base_plvs_std./sqrt(num_base_plvs);
+ 
+        fill_h = fill([freqs, flip(freqs)], [[base_plvs_mean + base_plvs_sem], flip(base_plvs_mean - base_plvs_sem)], [0.5 0.5 0.5]);
+        Multi_func.set_fill_properties(fill_h);
+        hold on;
+        plot(freqs, base_plvs_mean, 'color', Multi_func.base_color);
+        hold on;
+        fill_h = fill([freqs, flip(freqs)], [[base_plvs_mean + base_plvs_sem], flip(base_plvs_mean - base_plvs_sem)], [0.5 0.5 0.5]);
+        Multi_func.set_fill_properties(fill_h);
+        hold on;
+
+        % Plot stim data with error bars
+        stim_plvs_mean = nanmean(stim_data.stim_spikevm_plvs_adj, 1);
+        stim_plvs_std = nanstd(stim_data.stim_spikevm_plvs_adj, 1);
+        num_stim_plvs = size(stim_data.stim_spikevm_plvs_adj, 1);
+        stim_plvs_sem = stim_plvs_std./sqrt(num_stim_plvs);
+        
+        fill_h = fill([freqs, flip(freqs)], [[stim_plvs_mean + stim_plvs_sem], flip(stim_plvs_mean - stim_plvs_sem)], [0.5 0.5 0.5]);
+        Multi_func.set_fill_properties(fill_h);
+        Multi_func.set_default_axis(gca);
+        hold on;
+        plot(freqs, stim_plvs_mean, 'color', Multi_func.stim_color);
+        hold on;
+        
+        set(gca,'Xscale','log');
         legend({'base', 'stim'});
         ylim([-0.07 0.5]);
-        %xlim([2, 10]);
         title([f_region(3:end) ' ' f_stim(3:end)], 'Interpreter', 'none');
-
+        saveas(gcf, [figure_path 'PLV' f 'PLV_spike_vm_' f_region '_' f_stim '.png']);
+        saveas(gcf, [figure_path 'PLV' f 'PLV_spike_vm_' f_region '_' f_stim '.pdf']);
+        
+        % Zoom in on the theta range and plot that
+        xlim([2, 10]);
+        
+        saveas(gcf, [figure_path 'PLV' f 'Theta_PLV_spike_vm_' f_region '_' f_stim '.png']);
+        saveas(gcf, [figure_path 'PLV' f 'Theta_PLV_spike_vm_' f_region '_' f_stim '.pdf']);
+        
         % Grab single cell
         %num_neurons = size(stim_data.base_plvs_adjusted, 1);
         %tiledlayout(num_neurons, 1);
@@ -177,26 +218,29 @@ for f_region = {'r_M1'}%fieldnames(region_data)'
         % Loop through each neuron
         stim_plvs = [];
         stim_plvs_adjusted = [];
+        stim_phase_vecs = [];
         
+        disp(f_stim);
         tic;
-        for nr = 1%:length(stim_data.all_trial_SubVm)
+        for (nr = 1:length(stim_data.all_trial_SubVm))
             % Creates a dbs signal just using a one at pulse times
-            %dbs_signal = zeros(size(stim_data.trace_timestamps(:, nr)));
-            %pulse_time = stim_data.stim_timestamps(:, nr);
-            %dbs_start = stim_data.stim_timestamps(1, nr) - stim_data.trace_timestamps(1, nr);
-            %stim_idx =  ceil(((dbs_start + pulse_time)*avg_Fs) + 1); 
-            %dbs_signal(stim_idx) = 1;
-            %dbs_signal = repmat(dbs_signal, 1, size(stim_data.all_trial_SubVm{nr}, 2));
-            pulse_time = stim_data.stim_timestamps(:, nr);
-            period = 2*pi/(mean(diff(pulse_time)));
             dbs_signal = zeros(size(stim_data.trace_timestamps(:, nr)));
-            time = stim_data.trace_timestamps(:, nr);
-            stim_idx = find(time >= Multi_func.stim_ped(1)/1000 & time <= Multi_func.stim_ped(2)/1000);
-            % Still of a bit, but the 
-            dbs_signal(stim_idx) = cos(period*time(stim_idx));
+            pulse_time = stim_data.stim_timestamps(:, nr);
+            dbs_start = stim_data.stim_timestamps(1, nr) - stim_data.trace_timestamps(1, nr);
+            stim_idx =  ceil(((dbs_start + pulse_time)*avg_Fs) + 1); 
+            dbs_signal(stim_idx) = 1;
+            dbs_signal = zscore(dbs_signal);
+            dbs_signal = repmat(dbs_signal, 1, size(stim_data.all_trial_SubVm{nr}, 2));
             
-            %DEBUG
-            pause;
+            %pulse_time = stim_data.stim_timestamps(:, nr);
+            %period = 2*pi/(mean(diff(pulse_time)));
+            %dbs_signal = zeros(size(stim_data.trace_timestamps(:, nr)));
+            %time = stim_data.trace_timestamps(:, nr);
+            %stim_idx = find(time >= Multi_func.stim_ped(1)/1000 & time <= Multi_func.stim_ped(2)/1000);
+            %dbs_signal(stim_idx) = cos(period*time(stim_idx));
+            %dbs_signal = zscore(dbs_signal);
+            %dbs_signal = repmat(dbs_signal, 1, size(stim_data.all_trial_SubVm{nr}, 2));
+
 
             filt_trial = @(trial) (angle(Multi_func.filt_data(trial, freqs, avg_Fs)));
             
@@ -210,22 +254,36 @@ for f_region = {'r_M1'}%fieldnames(region_data)'
         
             time = stim_data.trace_timestamps(:, nr);
             time = repmat(time, 1, size(dbs_phases{nr}, 3));
-
-            base_idx = find(time < Multi_func.base_ped(2)/1000);
             stim_idx = find(time >= Multi_func.stim_ped(1)/1000 & time <= Multi_func.stim_ped(2)/1000);
-            
+
             spike_rasters = stim_data.all_trial_spike_rasters{nr};
             stim_rasters = zeros(size(spike_rasters));
             stim_rasters(stim_idx) = spike_rasters(stim_idx);
 
-            [PLV, PLV2] = Multi_func.spike_field_PLV(dbs_phases{nr}, stim_rasters, 7);             
+            [PLV, PLV2, norm_vecs] = Multi_func.spike_field_PLV(dbs_phases{nr}, stim_rasters, 7, 10);             
+
             stim_plvs(nr, :) = PLV;
             stim_plvs_adjusted(nr, :) = PLV2;
+            stim_phase_vecs = [stim_phase_vecs; norm_vecs];
+
+            %DEBUG
+            %figure;
+            %plot(PLV2);
+            %title(f_stim, 'Interpreter', 'none');
+
+            %DEBUG
+            %figure;
+            %spike_idx = find(stim_rasters(:, 1) == 1);
+            %plot(spike_idx, stim_rasters(spike_idx, 1), '|');
+            %hold on;
+            %plot(dbs_signal(:, 1));
+            %title(f_stim, 'Interpreter', 'none');
         end
 
         % Save the variables to structs
         region_data.(f_region).(f_stim).stim_spikedbs_plvs_adj = stim_plvs_adjusted;
         region_data.(f_region).(f_stim).stim_spikedbs_plvs = stim_plvs;
+        region_data.(f_region).(f_stim).stim_spikedbs_phase_vecs = stim_phase_vecs;
         toc
     end
 end
@@ -242,13 +300,149 @@ for f_region = {'r_M1'}%fieldnames(region_data)'
         stim_data = data_bystim.(f_stim);
         
         figure;
-        plot(freqs, nanmean(stim_data.stim_spikedbs_plvs_adj, 1));
-        hold on;
+        plvs_mean = nanmean(stim_data.stim_spikedbs_plvs_adj, 1);
+        plvs_std = nanstd(stim_data.stim_spikedbs_plvs_adj, 1);
+        num_plvs = size(stim_data.stim_spikedbs_plvs_adj, 1);
+        plvs_sem = plvs_std./sqrt(num_plvs);
+        
         yline(0);
+        hold on;
+        fill_h = fill([freqs, flip(freqs)], [[plvs_mean + plvs_sem], flip(plvs_mean - plvs_sem)], [0.5 0.5 0.5]);
+        hold on;
+        plot(freqs, plvs_mean, 'color', Multi_func.stim_color);
+        Multi_func.set_fill_properties(fill_h);
+        Multi_func.set_default_axis(gca);
 
-        legend({'base', 'stim'});
+        legend({'stim'});
+        set(gca,'Xscale','log');
+
         %ylim([-0.07 0.5]);
         %xlim([2, 10]);
+        title([f_region(3:end) ' ' f_stim(3:end)], 'Interpreter', 'none');
+        saveas(gcf, [figure_path 'PLV' f 'PLV_DBSStim_' f_region '_' f_stim '.png']);
+        saveas(gcf, [figure_path 'PLV' f 'PLV_DBSStim_' f_region '_' f_stim '.pdf']);
+        
+
+
+        % Plot all of the PLVs
+        figure;
+        plot(freqs, stim_data.stim_spikedbs_plvs_adj);
+        title([f_region(3:end) ' ' f_stim(3:end)], 'Interpreter', 'none');
+        num_neurons = sum(~isnan(stim_data.stim_spikedbs_plvs_adj(:, 1)));
+        legend(num2str(num_neurons));
+
+
+        % Plot the spike population wide PLV
+        figure;
+        num_spikes = size(stim_data.stim_spikedbs_phase_vecs, 1);
+        PLV = (1/num_spikes)*abs(sum(stim_data.stim_spikedbs_phase_vecs, 1));
+        PLV_adj = (1/((num_spikes - 1))).*((PLV.^2).*num_spikes - 1); 
+        plot(freqs, PLV_adj);
+        ylim([-0.1 0.8]);
+        title([f_region(3:end) ' ' f_stim(3:end) ' from pop spikes'], 'Interpreter', 'none');
+        legend(num2str(num_spikes));
+
+        % Grab single cell
+        %num_neurons = size(stim_data.stim_spikedbs_plvs_adj, 1);
+        %for nr = 1:num_neurons
+        %    figure;
+        %    plot(stim_data.stim_spikedbs_plvs_adj(nr, :)', 'g');
+        %    title(stim_data.neuron_name{nr}, 'Interpreter', 'none');
+        %end 
+    end
+end
+
+
+%% Loop through and calculate THETA spike-Vm PLV values for all region and conditions
+freqs = [2, 10];
+for f_region = {'r_M1'}%fieldnames(region_data)'
+    f_region = f_region{1};
+    data_bystim = region_data.(f_region);
+    stims = fieldnames(data_bystim);
+    
+    % Loop through stim conditions
+    for f_stim=stims'
+        f_stim = f_stim{1};
+        stim_data = data_bystim.(f_stim);
+        
+        % Loop through each neuron
+        base_plvs = [];
+        stim_plvs = [];
+        base_plvs_adjusted = [];
+        stim_plvs_adjusted = [];
+        base_theta_phase_vectors = [];
+        stim_theta_phase_vectors = [];
+        
+        tic;
+        parfor (nr = 1:length(stim_data.all_trial_SubVm), 0)
+            filt_trial = @(trial) (angle(Multi_func.filt_range(trial, freqs, avg_Fs)));
+            
+            applyFunToColi = @(func, mat) (@(col) func(mat(:, col)));
+            partial_apply = applyFunToColi(filt_trial, stim_data.all_trial_SubVm{nr});
+            
+            vm_phases{nr} = arrayfun(partial_apply, [1:size(stim_data.all_trial_SubVm{nr}, 2)]' , 'UniformOutput', false); 
+            % 
+            vm_phases{nr} = cat(3, vm_phases{nr}{:});
+        
+            time = stim_data.trace_timestamps(:, nr);
+            time = repmat(time, 1, size(vm_phases{nr}, 3));
+
+            base_idx = find(time < Multi_func.base_ped(2)/1000);
+            stim_idx = find(time >= Multi_func.stim_ped(1)/1000 & time <= Multi_func.stim_ped(2)/1000);
+            
+            spike_rasters = stim_data.all_trial_spike_rasters{nr};
+            base_rasters = zeros(size(spike_rasters));
+            stim_rasters = zeros(size(spike_rasters));
+            
+            base_rasters(base_idx) = spike_rasters(base_idx);
+            stim_rasters(stim_idx) = spike_rasters(stim_idx);
+            
+            [PLV, PLV2, norm_vecs] = Multi_func.spike_field_PLV(vm_phases{nr}, base_rasters, 7, 10);             
+            base_plvs(nr, :) = PLV;
+            base_plvs_adjusted(nr, :) = PLV2;
+            base_theta_phase_vectors = [base_theta_phase_vectors; norm_vecs];
+
+            [PLV, PLV2, norm_vecs] = Multi_func.spike_field_PLV(vm_phases{nr}, stim_rasters, 7, 10);           
+            stim_plvs(nr, :) = PLV;
+            stim_plvs_adjusted(nr, :) = PLV2;
+            stim_theta_phase_vectors = [stim_theta_phase_vectors; norm_vecs];
+        end
+
+        % Save the variables to structs
+        region_data.(f_region).(f_stim).base_spikevm_theta_plvs_adj = base_plvs_adjusted;
+        region_data.(f_region).(f_stim).stim_spikevm_theta_plvs_adj = stim_plvs_adjusted;
+
+        region_data.(f_region).(f_stim).base_spikevm_theta_plvs = base_plvs;
+        region_data.(f_region).(f_stim).stim_spikevm_theta_plvs = stim_plvs;
+        region_data.(f_region).(f_stim).base_spikevm_theta_phase_vecs = base_theta_phase_vectors;
+        region_data.(f_region).(f_stim).stim_spikevm_theta_phase_vecs = stim_theta_phase_vectors;
+        toc
+    end
+end
+
+
+%% Loop and plot all of the THETA spike-vm stuff (non-bootstrapped)
+for f_region = {'r_M1'}%fieldnames(region_data)'
+    f_region = f_region{1};
+    data_bystim = region_data.(f_region);
+    stims = fieldnames(data_bystim);
+    
+    % Loop through stim conditions
+    for f_stim=stims'
+        f_stim = f_stim{1};
+        stim_data = data_bystim.(f_stim);
+        
+        figure;
+        num_base = length(stim_data.base_spikevm_theta_plvs_adj)
+        num_stim = length(stim_data.stim_spikevm_theta_plvs_adj)
+        data = [stim_data.base_spikevm_theta_plvs_adj; stim_data.stim_spikevm_theta_plvs_adj];
+        labels = [repmat({'Base'}, num_base, 1); repmat({'Stim'}, num_stim, 1)];
+        
+        ViolinOpts = Multi_func.get_default_violin();
+        violins = violinplot(data, labels, 'GroupOrder', {'Base', 'Stim'}, ViolinOpts);
+
+        violins(1).ViolinColor = {Multi_func.base_color};
+        violins(2).ViolinColor = {Multi_func.stim_color};
         title([f_region(3:end) ' ' f_stim(3:end)], 'Interpreter', 'none');
 
         % Grab single cell
@@ -264,6 +458,208 @@ for f_region = {'r_M1'}%fieldnames(region_data)'
         %end 
     end
 end
+
+%% Bootstrapping all of the spike-Vm PLVs across all frequencies
+% Try the boostrapping method here
+num_iter = 100; % Number of estimates for boostrapping
+nspikes = 10; % This parameter indicates how many spikes to pool for a phase locking sample
+num_w = 12;
+
+freqs = [1:200];
+
+% Loop through each region
+for f_region = {'r_M1'}%fieldnames(region_data)'
+    f_region = f_region{1};
+    data_bystim = region_data.(f_region);
+    stims = fieldnames(data_bystim);
+    
+    % Loop through stim conditions
+    for f_stim=stims'
+        f_stim = f_stim{1};
+        stim_data = data_bystim.(f_stim);
+
+        boot_base_plvs = [];
+        boot_stim_plvs = [];
+        
+        %First test for 140Hz
+        orig_base_plvs = stim_data.base_spikevm_phase_vecs;
+        orig_stim_plvs = stim_data.stim_spikevm_phase_vecs;
+        for freq = 1:length(freqs)
+            % Check to make sure the window is less than the total number of spikes
+            num_spikes = size(orig_base_plvs, 1);
+            parfor (id=1:num_iter, num_w)
+                spike_shuf_idx = randperm(num_spikes);
+                spikes_select = spike_shuf_idx(1:nspikes);
+                all_freq_plvs = abs(nanmean(orig_base_plvs(spikes_select, :), 1) );
+                boot_base_plvs(id, freq) = nanmean(all_freq_plvs(freq));
+            end
+        end
+        
+        for freq = 1:length(freqs)
+            % Check to make sure the window is less than the total number of spikes
+            num_spikes = size(orig_stim_plvs, 1);
+            parfor (id=1:num_iter, num_w)
+                spike_shuf_idx = randperm(num_spikes);
+                spikes_select = spike_shuf_idx(1:nspikes);
+                all_freq_plvs = abs(nanmean(orig_stim_plvs(spikes_select, :), 1) );
+                boot_stim_plvs(id, freq) = nanmean(all_freq_plvs(freq));
+            end
+        end
+        region_data.(f_region).(f_stim).boot_stim_spikevm_plvs = boot_stim_plvs;
+        region_data.(f_region).(f_stim).boot_base_spikevm_plvs = boot_base_plvs;
+    end
+end
+
+%% Bootstrapping broadband THETA spike-Vm PLVs 
+% Try the boostrapping method here
+num_iter = 100; % Number of estimates for boostrapping
+nspikes = 10; % This parameter indicates how many spikes to pool for a phase locking sample
+num_w = 12;
+
+% Loop through each region
+for f_region = {'r_M1'}%fieldnames(region_data)'
+    f_region = f_region{1};
+    data_bystim = region_data.(f_region);
+    stims = fieldnames(data_bystim);
+    
+    % Loop through stim conditions
+    for f_stim=stims'
+        f_stim = f_stim{1};
+        stim_data = data_bystim.(f_stim);
+
+        boot_base_plvs = [];
+        boot_stim_plvs = [];
+        
+        %First test for 140Hz
+        orig_base_plvs = stim_data.base_spikevm_theta_phase_vecs;
+        orig_stim_plvs = stim_data.stim_spikevm_theta_phase_vecs;
+
+        num_spikes = size(orig_base_plvs, 1);
+        parfor (id=1:num_iter, num_w)
+            spike_shuf_idx = randperm(num_spikes);
+            spikes_select = spike_shuf_idx(1:nspikes);
+            all_freq_plvs = abs(nanmean(orig_base_plvs(spikes_select, :), 1) );
+            boot_base_plvs(id) = nanmean(all_freq_plvs);
+        end
+        
+        % Check to make sure the window is less than the total number of spikes
+        num_spikes = size(orig_stim_plvs, 1);
+        parfor (id=1:num_iter, num_w)
+            spike_shuf_idx = randperm(num_spikes);
+            spikes_select = spike_shuf_idx(1:nspikes);
+            all_freq_plvs = abs(nanmean(orig_stim_plvs(spikes_select, :), 1) );
+            boot_stim_plvs(id) = nanmean(all_freq_plvs);
+        end
+
+        region_data.(f_region).(f_stim).boot_stim_theta_spikevm_plvs = boot_stim_plvs;
+        region_data.(f_region).(f_stim).boot_base_theta_spikevm_plvs = boot_base_plvs;
+    end
+end
+
+%% Bootstrapping all of the spike-dbs PLVs across all frequencies
+% Try the boostrapping method here
+num_iter = 100; % Number of estimates for boostrapping
+nspikes = 10; % This parameter indicates how many spikes to pool for a phase locking sample
+num_w = 12;
+
+freqs = [1:200];
+
+% Loop through each region
+for f_region = {'r_M1'}%fieldnames(region_data)'
+    f_region = f_region{1};
+    data_bystim = region_data.(f_region);
+    stims = fieldnames(data_bystim);
+    
+    % Loop through stim conditions
+    for f_stim=stims'
+        f_stim = f_stim{1};
+        stim_data = data_bystim.(f_stim);
+
+        boot_stim_plvs = [];
+        
+        orig_stim_plvs = stim_data.stim_spikedbs_phase_vecs;
+        
+        for freq = 1:length(freqs)
+            % Check to make sure the window is less than the total number of spikes
+            num_spikes = size(orig_stim_plvs, 1);
+            parfor (id=1:num_iter, num_w)
+                spike_shuf_idx = randperm(num_spikes);
+                spikes_select = spike_shuf_idx(1:nspikes);
+                all_freq_plvs = abs(nanmean(orig_stim_plvs(spikes_select, :), 1) );
+                boot_stim_plvs(id, freq) = nanmean(all_freq_plvs(freq));
+            end
+        end
+        region_data.(f_region).(f_stim).boot_stim_spikedbs_plvs = boot_stim_plvs;
+    end
+end
+
+%% Plot THETA quantifications from narrow band frequencies
+stats_log = [figure_path 'PLV' f 'Theta_spike_vm_violin_stats'];
+if exist(stats_log), delete(sprintf('%s', stats_log)), end;
+diary(stats_log);
+diary off;
+
+theta_freqs = [2:10];
+% Loop through each region
+for f_region = {'r_M1'}%fieldnames(region_data)'
+    f_region = f_region{1};
+    data_bystim = region_data.(f_region);
+    stims = fieldnames(data_bystim);
+    
+    % Loop through stim conditions
+    for f_stim=stims'
+        f_stim = f_stim{1};
+        stim_data = data_bystim.(f_stim);
+
+        % Violin plots for the average theta
+        boot_base_theta_plvs = nanmean(stim_data.boot_base_spikevm_plvs(:, theta_freqs), 2);
+        boot_stim_theta_plvs = nanmean(stim_data.boot_stim_spikevm_plvs(:, theta_freqs), 2);
+
+        figure;
+        num_base = length(boot_base_theta_plvs)
+        num_stim = length(boot_stim_theta_plvs)
+        data = [boot_base_theta_plvs; boot_stim_theta_plvs];
+        labels = [repmat({'Base'}, num_base, 1); repmat({'Stim'}, num_stim, 1)];
+        
+        ViolinOpts = Multi_func.get_default_violin();
+        violins = violinplot(data, labels, 'GroupOrder', {'Base', 'Stim'}, ViolinOpts);
+
+        violins(1).ViolinColor = {Multi_func.base_color};
+        violins(2).ViolinColor = {Multi_func.stim_color};
+        Multi_func.set_default_axis(gca);
+        title(['Theta spike-Vm PLVs ' f_region(3:end) ' ' f_stim(3:end)], 'Interpreter', 'none');
+        saveas(gcf, [figure_path 'PLV' f 'Theta_spike_vm_boot_violin ' f_region(3:end) ' ' f_stim(3:end) '.pdf']);
+        saveas(gcf, [figure_path 'PLV' f 'Theta_spike_vm_boot_violin ' f_region(3:end) ' ' f_stim(3:end) '.png']);
+
+        diary on;
+        disp(['Theta spike-Vm PLVs ' f_region(3:end) ' ' f_stim(3:end)]);
+        [p, h, stats] = signtest(boot_base_theta_plvs, boot_stim_theta_plvs)
+        diary off;
+    end
+end
+
+%% DEBUG compare boostrapped with original data
+figure;
+plot(region_data.(f_region).(f_stim).base_spikevm_plvs_adj');
+title('Original Base Data');
+
+figure;
+plot(boot_base_plvs');
+title('Boot base Data');
+
+figure;
+plot(region_data.(f_region).(f_stim).stim_spikevm_plvs_adj');
+title('Original Stim Data');
+
+figure;
+plot(boot_stim_plvs');
+title('Boot Stim Data');
+
+
+figure; 
+plot(nanmean(boot_stim_plvs, 1), 'g');
+hold on;
+plot(nanmean(boot_base_plvs, 1), 'b');
 
 %% Tried to vectorize with funciton handles to make PLV calculation easier
 %
