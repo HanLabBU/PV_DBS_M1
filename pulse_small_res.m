@@ -144,13 +144,13 @@ for f_region = fieldnames(region_data)'
         title(f_stim(3:end), 'Interpreter', 'none');
     end
     sgtitle([f_region(3:end) ' Population Spike rate with first pulse'], 'Interpreter', 'none');
-    saveas(gcf, [figure_path 'Average/' f_region '_First_Pulse_FR.png']);
-    saveas(gcf, [figure_path 'Average/' f_region '_First_Pulse_FR.pdf']);
-    saveas(gcf, [figure_path 'Average/' f_region '_First_Pulse_FR.eps'], 'epsc');
+    saveas(gcf, [figure_path 'Small_Res' f f_region '_First_Pulse_FR.png']);
+    saveas(gcf, [figure_path 'Small_Res' f f_region '_First_Pulse_FR.pdf']);
+    saveas(gcf, [figure_path 'Small_Res' f f_region '_First_Pulse_FR.eps'], 'epsc');
 end
 
 %% CA1 vs M1 first few pulses Firing Rate overlay
-test_regions = {'r_CA1', 'r_M1'};
+test_regions = fieldnames(region_data)' %{'r_CA1', 'r_M1'};
 stims = fieldnames(region_data.r_M1)';
 figure('Position', [0 0 , 1000, 1000]);
 tiledlayout(1, length(stims), 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 4, 8.3, 3.5]);
@@ -175,6 +175,7 @@ for f_stim=stims
         Multi_func.set_fill_properties(fill_h);
         hold on;
         
+        %TODO add V1 colors
         if strcmp(f_region, 'r_CA1') == 1
             cur_color = Multi_func.ca1_color;
             label = 'CA1';
@@ -1203,7 +1204,7 @@ for f_region = fieldnames(region_data)'
         std_baseline = std(base_Vm, 0, 'omitnan'); 
         sig_idx = find(cur_Vm > (2*std_baseline + mean(base_Vm, 'omitnan')));
             
-        sig_idx(timeline(sig_idx) < 0) = [];
+        sig_idx((timeline(sig_idx) < 0) | (timeline(sig_idx) > 100)) = [];
 
         % Calculate a good height for marking significance
         thres = 0.2;
