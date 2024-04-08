@@ -30,7 +30,6 @@ back_frame_drop = 2496;
 
 
 %Variables to differentiate between the larger and finer resolution of spike rate
-%TODO may need to change variable names and add finer resolutions
 srate_win_100 = 100;
 srate_win_50 = 50;
 srate_win_20 = 20;
@@ -209,13 +208,28 @@ for f_region = fieldnames(region_matfiles)'
                     else
                         cur_trace_time = trial_data.camera_frame_time(front_frame_drop:back_frame_drop) - stim_start;
                     end
+
+                    % Perform sanity check for number of timestamps collected
+                    if abs(str2num(ri{5}) - length(raw_trial_data.raw_stimulation_time)) > 10
+                        disp(['Length of stim timestamps' length(raw_trial_data.raw_stimulation_time)]);
+                        disp(['Labeled stim freq ' str2num(ri{5})]);
+                        pause();
+                    end
+
                     cur_stim_time = raw_trial_data.raw_stimulation_time(1:str2num(ri{5})) - stim_start;
                     cur_roi_stim_time = horzcat_pad(cur_roi_stim_time, cur_stim_time);
                     cur_roi_trace_time = horzcat_pad(cur_roi_trace_time, cur_trace_time(:));
 
                     % Grab the subthreshold Vm
-                    % Chop the respective frames
-                    cur_trace_ws = trial_data.spike_info375.trace_ws(roi_idx, front_frame_drop:back_frame_drop);
+                    % 'trace_ws' uses the orignal trace and replaces the spikes with the neighboring interpolation
+                    cur_trace_ws = trial_data.spike_info375.trace_ws(roi_idx, :);
+                    
+                    if isfield(trial_data, 'interp_time')
+                        % Interpolating the subthreshold trace 
+                        cur_trace_ws = interp1(trial_data.camera_frame_time, cur_trace_ws, trial_data.interp_time);
+                    end
+                    cur_trace_ws = cur_trace_ws(front_frame_drop:back_frame_drop);
+
                     [baseline, coeff] = Multi_func.exp_fit_Fx(cur_trace_ws', round(trial_data.camera_framerate));
                     detrend_subVm = cur_trace_ws - baseline;
                     cur_roi_subVm = horzcat_pad(cur_roi_subVm, detrend_subVm');
@@ -225,7 +239,19 @@ for f_region = fieldnames(region_matfiles)'
                     cur_roi_hilbfilt(:, :, end + 1) = filt_sig;
 
                     % Grab the spike idxs
+                    %TODO need to adjust for the interpolated traces
                     cur_spike_idx = trial_data.spike_info375.spike_idx{roi_idx};
+                    cur_raster = trial_data.spike_info375.roaster(roi_idx, :);
+                    if isfield(trial_data, 'interp_time')
+                        % adjust when using the spike raster
+                        raster_interp = interp1(trial_data.camera_frame_time, cur_raster, trial_data.interp_time);
+                        [~, cur_spike_idx] = findpeaks(raster_interp);
+                        cur_raster = zeros(size(trial_data.interp_time));
+                        cur_raster(cur_spike_idx) = 1;
+
+                    end
+                    cur_raster = cur_raster(front_frame_drop:back_frame_drop);
+            
                     cur_spike_idx(find(cur_spike_idx < front_frame_drop | cur_spike_idx > back_frame_drop)) = NaN;
                     cur_spike_idx = cur_spike_idx - front_frame_drop + 1;
                     % Add if spikes were detected
@@ -246,6 +272,15 @@ for f_region = fieldnames(region_matfiles)'
                     detrend_Vm = cur_raw_trace - baseline';
                     cur_roi_rawtraces = horzcat_pad(cur_roi_rawtraces, detrend_Vm);
                     
+                    %if isfield(trial_data, 'interp_time')
+                    %    figure;
+                    %    plot(cur_raster);
+                    %    figure;
+                    %    plot(detrend_Vm, '-b');
+                    %    hold on;
+                    %    plot(cur_raster.*detrend_Vm', '.r');
+                    %    pause();
+                    %end
                     
                     cur_trace_noise = trial_data.spike_info375.trace_noise(roi_idx);
                     cur_roi_tracenoises = horzcat_pad(cur_roi_tracenoises, cur_trace_noise);
@@ -254,7 +289,6 @@ for f_region = fieldnames(region_matfiles)'
                     cur_roi_spike_amp = horzcat_pad(cur_roi_spike_amp, cur_spike_amp');
 
                     % Calculate spikerate with a window size of 100
-                    cur_raster = trial_data.spike_info375.roaster(roi_idx, front_frame_drop:back_frame_drop);
                     cur_spikerate = cur_raster.*trial_data.camera_framerate;
 
                     % Uses center window moving average with halved window on the ends
@@ -268,12 +302,11 @@ for f_region = fieldnames(region_matfiles)'
                     
                     % Baseline subtract the mean 
                     baseline_idx = find(cur_trace_time < cur_stim_time(1));
-                    cur_spikerate = cur_spikerate - mean(cur_spikerate(baseline_idx), 'omitnan');
+                    cur_spikerate = cur_spikerate - mean(cur_spikerate(baseline_idx));
                     cur_roi_srate_100 = horzcat_pad(cur_roi_srate_100, cur_spikerate');            
                     
                     
                     % Calculate spikerate with a window size of 50
-                    cur_raster = trial_data.spike_info375.roaster(roi_idx, front_frame_drop:back_frame_drop);
                     cur_spikerate = cur_raster.*trial_data.camera_framerate;
 
                     % Uses center window moving average with halved window on the ends
@@ -287,11 +320,10 @@ for f_region = fieldnames(region_matfiles)'
                     
                     % Baseline subtract the mean 
                     baseline_idx = find(cur_trace_time < cur_stim_time(1));
-                    cur_spikerate = cur_spikerate - mean(cur_spikerate(baseline_idx), 'omitnan');
+                    cur_spikerate = cur_spikerate - mean(cur_spikerate(baseline_idx));
                     cur_roi_srate_50 = horzcat_pad(cur_roi_srate_50, cur_spikerate');            
         
                     % Calculate spikerate with window size of 20
-                    cur_raster = trial_data.spike_info375.roaster(roi_idx, front_frame_drop:back_frame_drop);
                     cur_spikerate = cur_raster.*trial_data.camera_framerate;
 
                     %Use preceding window points to average and asign to the last point
@@ -302,11 +334,10 @@ for f_region = fieldnames(region_matfiles)'
 
                     % Baseline subtract the mean 
                     baseline_idx = find(cur_trace_time < cur_stim_time(1));
-                    cur_spikerate = cur_spikerate - mean(cur_spikerate(baseline_idx), 'omitnan');
+                    cur_spikerate = cur_spikerate - mean(cur_spikerate(baseline_idx));
                     cur_roi_srate_20 = horzcat_pad(cur_roi_srate_20, cur_spikerate');            
 
                     % Calculate spikerate with a window size of 10
-                    cur_raster = trial_data.spike_info375.roaster(roi_idx, front_frame_drop:back_frame_drop);
                     cur_spikerate = cur_raster.*trial_data.camera_framerate;
 
                     %Use preceding window points to average and asign to the last point
@@ -317,11 +348,10 @@ for f_region = fieldnames(region_matfiles)'
 
                     % Baseline subtract the mean 
                     baseline_idx = find(cur_trace_time < cur_stim_time(1));
-                    cur_spikerate = cur_spikerate - mean(cur_spikerate(baseline_idx), 'omitnan');
+                    cur_spikerate = cur_spikerate - mean(cur_spikerate(baseline_idx));
                     cur_roi_srate_10 = horzcat_pad(cur_roi_srate_10, cur_spikerate');            
 
                     % Calculate spikerate with a window size of 3
-                    cur_raster = trial_data.spike_info375.roaster(roi_idx, front_frame_drop:back_frame_drop);
                     cur_spikerate = cur_raster.*trial_data.camera_framerate;
 
                     %Use preceding window points to average and asign to the last point
@@ -332,7 +362,7 @@ for f_region = fieldnames(region_matfiles)'
 
                     % Baseline subtract the mean 
                     baseline_idx = find(cur_trace_time < cur_stim_time(1));
-                    cur_spikerate = cur_spikerate - mean(cur_spikerate(baseline_idx), 'omitnan');
+                    cur_spikerate = cur_spikerate - mean(cur_spikerate(baseline_idx));
                     cur_roi_srate_3 = horzcat_pad(cur_roi_srate_3, cur_spikerate');            
 
 
@@ -345,10 +375,10 @@ for f_region = fieldnames(region_matfiles)'
                     sus_idx = find(cur_trace_time > sus_ped(1)./1000 & cur_trace_time <= cur_stim_time(end));
                     stim_idx = find(cur_trace_time > stim_ped(1)./1000 & cur_trace_time <= stim_ped(2)./1000);
 
-                    cur_roi_base_Vm = horzcat_pad(cur_roi_base_Vm, mean(detrend_subVm(base_idx)', 'omitnan'));
-                    cur_roi_trans_Vm = horzcat_pad(cur_roi_trans_Vm, mean(detrend_subVm(trans_idx)', 'omitnan'));
-                    cur_roi_sus_Vm = horzcat_pad(cur_roi_sus_Vm, mean(detrend_subVm(sus_idx)', 'omitnan'));
-                    cur_roi_stim_Vm = horzcat_pad(cur_roi_stim_Vm, mean(detrend_subVm(stim_idx)', 'omitnan'));
+                    cur_roi_base_Vm = horzcat_pad(cur_roi_base_Vm, mean(detrend_subVm(base_idx)'));
+                    cur_roi_trans_Vm = horzcat_pad(cur_roi_trans_Vm, mean(detrend_subVm(trans_idx)'));
+                    cur_roi_sus_Vm = horzcat_pad(cur_roi_sus_Vm, mean(detrend_subVm(sus_idx)'));
+                    cur_roi_stim_Vm = horzcat_pad(cur_roi_stim_Vm, mean(detrend_subVm(stim_idx)'));
 
                     cur_roi_base_FR = horzcat_pad(cur_roi_base_FR, sum(cur_raster(base_idx))');
                     cur_roi_trans_FR = horzcat_pad(cur_roi_trans_FR, sum(cur_raster(trans_idx))./(diff(trans_ped)./1000)');
@@ -378,7 +408,7 @@ for f_region = fieldnames(region_matfiles)'
 
                 % Save each neuron's average sub vm
                 temp = data_bystim.(f_stim).neuron_Vm;
-                data_bystim.(f_stim).neuron_Vm = horzcat_pad(temp, mean(cur_roi_subVm, 2, 'omitnan'));
+                data_bystim.(f_stim).neuron_Vm = horzcat_pad(temp, mean(cur_roi_subVm, 2));
                 
                 % Store average spike rate for each neuron
                 temp = data_bystim.(f_stim).neuron_srate_100;
@@ -431,31 +461,31 @@ for f_region = fieldnames(region_matfiles)'
                 data_bystim.(f_stim).trace_timestamps = horzcat_pad(temp, nanmean(cur_roi_trace_time, 2));
                 
                 % Save framerate
-                data_bystim.(f_stim).framerate(end + 1) = mean(cur_roi_Fs, 'omitnan');
+                data_bystim.(f_stim).framerate(end + 1) = mean(cur_roi_Fs);
                     
                 % Save all of the transient and sustained information
                 temp = data_bystim.(f_stim).neuron_trans_Vm;
-                data_bystim.(f_stim).neuron_trans_Vm = horzcat_pad(temp, mean(cur_roi_trans_Vm, 'omitnan') - mean(cur_roi_base_Vm, 'omitnan'));
+                data_bystim.(f_stim).neuron_trans_Vm = horzcat_pad(temp, mean(cur_roi_trans_Vm) - mean(cur_roi_base_Vm));
                 temp = data_bystim.(f_stim).neuron_sus_Vm;
-                data_bystim.(f_stim).neuron_sus_Vm = horzcat_pad(temp, mean(cur_roi_sus_Vm, 'omitnan') - mean(cur_roi_base_Vm, 'omitnan'));
+                data_bystim.(f_stim).neuron_sus_Vm = horzcat_pad(temp, mean(cur_roi_sus_Vm) - mean(cur_roi_base_Vm));
                 temp = data_bystim.(f_stim).neuron_stim_Vm;
-                data_bystim.(f_stim).neuron_stim_Vm = horzcat_pad(temp, mean(cur_roi_stim_Vm, 'omitnan') - mean(cur_roi_base_Vm, 'omitnan'));
+                data_bystim.(f_stim).neuron_stim_Vm = horzcat_pad(temp, mean(cur_roi_stim_Vm) - mean(cur_roi_base_Vm));
                 
                 temp = data_bystim.(f_stim).neuron_trans_FR;
-                data_bystim.(f_stim).neuron_trans_FR = horzcat_pad(temp, mean(cur_roi_trans_FR, 'omitnan') - mean(cur_roi_base_FR, 'omitnan'));
+                data_bystim.(f_stim).neuron_trans_FR = horzcat_pad(temp, mean(cur_roi_trans_FR) - mean(cur_roi_base_FR));
                 temp = data_bystim.(f_stim).neuron_sus_FR;
-                data_bystim.(f_stim).neuron_sus_FR = horzcat_pad(temp, mean(cur_roi_sus_FR, 'omitnan') - mean(cur_roi_base_FR, 'omitnan'));
+                data_bystim.(f_stim).neuron_sus_FR = horzcat_pad(temp, mean(cur_roi_sus_FR) - mean(cur_roi_base_FR));
                 temp = data_bystim.(f_stim).neuron_stim_FR;
-                data_bystim.(f_stim).neuron_stim_FR = horzcat_pad(temp, mean(cur_roi_stim_FR, 'omitnan') - mean(cur_roi_base_FR, 'omitnan'));
+                data_bystim.(f_stim).neuron_stim_FR = horzcat_pad(temp, mean(cur_roi_stim_FR) - mean(cur_roi_base_FR));
 
                 % Calculate and save frequency data
                 % Old way of just using the neuron average Vm to start the Spectra calculation
                 %[wt, f] = get_power_spec(nanmean(cur_roi_subVm, 2)', nanmean(cur_roi_Fs));
 
                 temp = data_bystim.(f_stim).neuron_spec_power;
-                data_bystim.(f_stim).neuron_spec_power = cat(3, temp, mean(cur_roi_wt, 3, 'omitnan'));
+                data_bystim.(f_stim).neuron_spec_power = cat(3, temp, mean(cur_roi_wt, 3));
                 temp = data_bystim.(f_stim).neuron_spec_freq;   
-                data_bystim.(f_stim).neuron_spec_freq = cat(3, temp, mean(cur_roi_f, 3, 'omitnan'));
+                data_bystim.(f_stim).neuron_spec_freq = cat(3, temp, mean(cur_roi_f, 3));
 
                 % Save the hilbert frequency data
                 cur_roi_hilbfilt(:, :, 1) = []; % Remove empty first element
