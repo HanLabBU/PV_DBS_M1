@@ -258,7 +258,7 @@ for f_region = fieldnames(region_matfiles)'
                     if length(cur_spike_idx)  == 0
                         cur_spike_idx = [NaN];
                     end
-                    cur_roi_spikeidx = horzcat_pad(cur_roi_spikeidx, cur_spike_idx);
+                    cur_roi_spikeidx = horzcat_pad(cur_roi_spikeidx, cur_spike_idx(:));
                     
                     % Grab the raw traces
                     % Check if there is an interpolated trace (indicates a TICO recording)
