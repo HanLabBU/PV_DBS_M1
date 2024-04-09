@@ -255,12 +255,17 @@ for f_region = fieldnames(region_data)'
                 % "Baseline" subtract from the first few trace points
                 %Vm_pulse_width = norm_vms(start_trace_idx:end_trace_idx, nr) - nanmean(norm_vms(start_trace_idx:start_trace_idx + extra_trace, nr));
 
-                % Subtract from the pulse onset
-                Vm_pulse_width = norm_vms(start_trace_idx:end_trace_idx, nr) - norm_vms(start_trace_idx + extra_trace, nr);
+                % store the pulse width
+                Vm_pulse_width = norm_vms(start_trace_idx:end_trace_idx, nr);
 
-                % Store all of the Vm pulses per neuron
+                % Store all of the Vm pulses per neuron preserving relative stimulation period shapes
                 all_pulse_vm_by_neuron{nr} = horzcat_pad(all_pulse_vm_by_neuron{nr}, Vm_pulse_width');
-                % Store all of the Vm pulses in one array
+
+                % Subtract from the pulse onset
+                Vm_pulse_width = norm_vms(start_trace_idx:end_trace_idx, nr) ...
+                    - norm_vms(start_trace_idx + extra_trace, nr);
+
+                % Store all of the onset subtracted Vm pulses in one array
                 all_pulse_vm = horzcat_pad(all_pulse_vm, Vm_pulse_width);
             end
         end
@@ -318,7 +323,9 @@ for f_region = fieldnames(region_data)'
                 rand_nr = randi([1, length(all_pulse_vm_by_neuron)]);
                 % Grab a window sample that fully fits within the stimulation period
                 rand_win_start = randi([1, length(all_pulse_vm_by_neuron{rand_nr}) - wind_size]);
-                iter_wind = horzcat_pad(iter_wind, all_pulse_vm_by_neuron{rand_nr}(rand_win_start:rand_win_start+wind_size - 1)');
+                iter_wind = horzcat_pad(iter_wind, ...
+                    all_pulse_vm_by_neuron{rand_nr}(rand_win_start:rand_win_start+wind_size - 1)' ...
+                    - all_pulse_vm_by_neuron{rand_nr}(rand_win_start + extra_trace));
             end
 
             end_iter = toc;
@@ -434,14 +441,13 @@ for f_region = fieldnames(region_data)'
                 %end_trace_idx = find(pulse_time + nr_avg_pulse_width_time >= data_bystim.(f_stim).trace_timestamps(:, nr));
                 %end_trace_idx = end_trace_idx(end);
                 
-                % No baseline subtraction
-                %fr_pulse_width = data_bystim.(f_stim).neuron_spikecounts_raster(start_trace_idx:end_trace_idx, nr)*nr_rate;
+                % Grab window with no baseline subtraction
+                fr_pulse_width = data_bystim.(f_stim).neuron_spikecounts_raster(start_trace_idx:end_trace_idx, nr)*nr_rate;
+                all_pulse_fr_by_neuron{nr} = horzcat_pad(all_pulse_fr_by_neuron{nr}, fr_pulse_width');
                 
                 % Pulse onset subtraction
-                fr_pulse_width = data_bystim.(f_stim).neuron_spikecounts_raster(start_trace_idx:end_trace_idx, nr)*nr_rate - data_bystim.(f_stim).neuron_spikecounts_raster(follow_trace_idx(1), nr)*nr_rate;
+                fr_pulse_width = fr_pulse_width - data_bystim.(f_stim).neuron_spikecounts_raster(follow_trace_idx(1), nr)*nr_rate;
 
-                FR_avg = horzcat_pad(FR_avg, fr_pulse_width);
-                all_pulse_fr_by_neuron{nr} = horzcat_pad(all_pulse_fr_by_neuron{nr}, fr_pulse_width');
                 all_pulse_fr = horzcat_pad(all_pulse_fr, fr_pulse_width);
             end
         end
@@ -449,13 +455,13 @@ for f_region = fieldnames(region_data)'
         % Save the all pulse stuff to region data
         region_data.(f_region).(f_stim).all_pulse_trig_fr = all_pulse_fr;
 
-        cur_srate = mean(FR_avg, 2, 'omitnan');
-        std_srate = std(FR_avg, 0, 2, 'omitnan');
-        num_pulses = size(FR_avg, 2);
+        cur_srate = mean(all_pulse_fr, 2, 'omitnan');
+        std_srate = std(all_pulse_fr, 0, 2, 'omitnan');
+        num_pulses = size(all_pulse_fr, 2);
         %num_points = size(data_bystim.(f_stim).neuron_srate_20, 1);
         sem_srate = std_srate./sqrt(num_pulses);
         
-        timeline = [ [0:size(FR_avg, 1) - 1] - extra_trace]*1000./avg_Fs;
+        timeline = [ [0:size(all_pulse_fr, 1) - 1] - extra_trace]*1000./avg_Fs;
         
         nexttile;
         fill_h = fill([timeline, flip(timeline)], [cur_srate + sem_srate; flipud(cur_srate - sem_srate)], [0.5 0.5 0.5]);
@@ -493,7 +499,9 @@ for f_region = fieldnames(region_data)'
                 rand_nr = randi([1, length(all_pulse_fr_by_neuron)]);
                 % Grab a window sample
                 rand_win_start = randi([1, length(all_pulse_fr_by_neuron{rand_nr}) - wind_size]);
-                iter_wind = horzcat_pad(iter_wind, all_pulse_fr_by_neuron{rand_nr}(rand_win_start:rand_win_start + wind_size - 1)');
+                iter_wind = horzcat_pad(iter_wind, ...
+                    all_pulse_fr_by_neuron{rand_nr}(rand_win_start:rand_win_start + wind_size - 1)' ... 
+                    - all_pulse_fr_by_neuron{rand_nr}(rand_win_start + extra_trace));
             end
             end_iter = toc;
             shuf_val_dist = horzcat_pad(shuf_val_dist, mean(iter_wind, 2));
