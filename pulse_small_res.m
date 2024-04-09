@@ -219,6 +219,7 @@ for f_region = fieldnames(region_data)'
     tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 20, 3.62, 5.16]);
     for f_stim=stims'
         f_stim = f_stim{1};
+        all_pulse_vm_by_neuron = cell(size(data_bystim.(f_stim).neuron_Vm, 2), 1);
         all_pulse_vm = [];
         norm_vms = data_bystim.(f_stim).neuron_Vm./data_bystim.(f_stim).neuron_spike_amp;
         all_pulse_trace_width = [];
@@ -257,7 +258,9 @@ for f_region = fieldnames(region_data)'
                 % Subtract from the pulse onset
                 Vm_pulse_width = norm_vms(start_trace_idx:end_trace_idx, nr) - norm_vms(start_trace_idx + extra_trace, nr);
 
-                % Store all of the Vm pulses
+                % Store all of the Vm pulses per neuron
+                all_pulse_vm_by_neuron{nr} = horzcat_pad(all_pulse_vm_by_neuron{nr}, Vm_pulse_width');
+                % Store all of the Vm pulses in one array
                 all_pulse_vm = horzcat_pad(all_pulse_vm, Vm_pulse_width);
             end
         end
@@ -284,41 +287,60 @@ for f_region = fieldnames(region_data)'
         hold on;
 
         % Shuffle all pulse average and plot average lines
+        % This just puts each pulse window into a massive array, 1000 copeies of each,
+        % and just makes it into a distribution. Does not seem to actually do a good randomization
+        %wind_size = size(all_pulse_vm, 1);
+        %shuf_val_dist = [];
+        %for i=1:1000
+        %    shuf_all_pulse_vm = [];
+        %    for j=1:size(all_pulse_vm, 2)
+        %        shuf_idx = randperm(wind_size);
+        %        shuf_all_pulse_vm = horzcat_pad(shuf_all_pulse_vm, all_pulse_vm(shuf_idx, j));
+        %    end
+
+        %    % Calculate the average value
+        %    shuf_avg_all_pulse = mean(shuf_all_pulse_vm, 2, 'omitnan');
+        %    
+        %    % Store the shuffled pulse window vm
+        %    shuf_val_dist = horzcat_pad(shuf_val_dist, shuf_avg_all_pulse);
+
+        %    % Store the max - min        
+        %    %shuf_val_dist = horzcat_pad(shuf_val_dist, max(shuf_all_pulse_vm, [], 1) - min(shuf_avg_all_pulse, [], 1));
+        %end
+
+        % This shuffle takes random window samples within the stim period, should be across the pulse times to indicate if the pulse timing is significant
         wind_size = size(all_pulse_vm, 1);
         shuf_val_dist = [];
+        tic;
         for i=1:1000
-            shuf_all_pulse_vm = [];
-            for j=1:size(all_pulse_vm, 2)
-                shuf_idx = randperm(wind_size);
-                shuf_all_pulse_vm = horzcat_pad(shuf_all_pulse_vm, all_pulse_vm(shuf_idx, j));
+            iter_wind = [];
+            for j=1:size(all_pulse_vm, 2) %length(data_bystim.(f_stim).stim_timestamps(:, 1))
+                rand_nr = randi([1, length(all_pulse_vm_by_neuron)]);
+                % Grab a window sample that fully fits within the stimulation period
+                rand_win_start = randi([1, length(all_pulse_vm_by_neuron{rand_nr}) - wind_size]);
+                iter_wind = horzcat_pad(iter_wind, all_pulse_vm_by_neuron{rand_nr}(rand_win_start:rand_win_start+wind_size - 1)');
             end
 
-            % Calculate the average value
-            shuf_avg_all_pulse = mean(shuf_all_pulse_vm, 2, 'omitnan');
-            
-            % Store the shuffled pulse window vm
-            shuf_val_dist = horzcat_pad(shuf_val_dist, shuf_avg_all_pulse);
-
-            % Store the max - min        
-            %shuf_val_dist = horzcat_pad(shuf_val_dist, max(shuf_all_pulse_vm, [], 1) - min(shuf_avg_all_pulse, [], 1));
+            end_iter = toc;
+            shuf_val_dist = horzcat_pad(shuf_val_dist, mean(iter_wind, 2));
         end
-
+        end_shuf = toc;
         % Calculate percentile values
-        low_perc = prctile(shuf_val_dist(:), 2.5);
-        high_perc = prctile(shuf_val_dist(:), 97.5);
-        shuf_mean = mean(shuf_val_dist(:), 'omitnan');
+        low_perc = prctile(shuf_val_dist, 2.5, 2);
+        high_perc = prctile(shuf_val_dist, 97.5, 2);
+        shuf_mean = mean(shuf_val_dist, 2);
         
         % Plot the shuffled values as dashed horizontal lines
-        yline([low_perc, high_perc], '--');
+        plot(timeline, [low_perc, high_perc], '--');
         hold on;
-        yline(shuf_mean);
+        plot(timeline, shuf_mean);
         hold on;
 
         % Plotting the significant time and peak
         sig_idx = find(cur_subVm > high_perc);
-        sig_idx(timeline(sig_idx) < 0 | timeline(sig_idx) > 1000*nr_avg_pulse_width_time) = [];
+        sig_idx(timeline(sig_idx) <= 0 | timeline(sig_idx) >= 1000*nr_avg_pulse_width_time) = [];
 
-        peak_idx = find(cur_subVm == max(cur_subVm(timeline' > 0 & timeline' < nr_avg_pulse_width_time*1000))); % The messsy condition is for inside the pulse window and not the extra traces
+        peak_idx = find(cur_subVm == max(cur_subVm(timeline' >= 0 & timeline' <= nr_avg_pulse_width_time*1000))); % The messsy condition is for inside the pulse window and not the extra traces
         if ~isempty(sig_idx)
             % DEBUG show the significant point
             xline([timeline(peak_idx(1)), timeline(sig_idx(1))], 'g');
@@ -391,6 +413,7 @@ for f_region = fieldnames(region_data)'
         FR_avg = [];
         extra_trace = 3;
         all_pulse_fr = [];
+        all_pulse_fr_by_neuron = cell(size(data_bystim.(f_stim).neuron_spikecounts_raster, 2), 1);
 
         % Looping through each neuron
         for nr = 1:size(data_bystim.(f_stim).neuron_spikecounts_raster, 2)
@@ -418,6 +441,7 @@ for f_region = fieldnames(region_data)'
                 fr_pulse_width = data_bystim.(f_stim).neuron_spikecounts_raster(start_trace_idx:end_trace_idx, nr)*nr_rate - data_bystim.(f_stim).neuron_spikecounts_raster(follow_trace_idx(1), nr)*nr_rate;
 
                 FR_avg = horzcat_pad(FR_avg, fr_pulse_width);
+                all_pulse_fr_by_neuron{nr} = horzcat_pad(all_pulse_fr_by_neuron{nr}, fr_pulse_width');
                 all_pulse_fr = horzcat_pad(all_pulse_fr, fr_pulse_width);
             end
         end
@@ -441,34 +465,53 @@ for f_region = fieldnames(region_data)'
         hold on;
 
         % Perform shuffling for all firing rate
+        % Old way of shuffling that really did not work; it just took values from the window
+        %wind_size = size(all_pulse_fr, 1);
+        %shuf_val_dist = [];
+        %for i=1:1000 
+        %    shuf_all_pulse_fr = [];
+        %    for j=1:size(all_pulse_fr, 2)
+        %        shuf_idx = randperm(wind_size);
+        %        shuf_all_pulse_fr = horzcat_pad(shuf_all_pulse_fr, all_pulse_fr(shuf_idx, j));
+        %    end
+
+        %    % Calculate the average value
+        %    shuf_avg_all_pulse = mean(shuf_all_pulse_fr, 2, 'omitnan');
+        %    
+        %    % This was the original value
+        %    %shuf_val_dist(end + 1) = mean(avg_all_pulse, 'omitnan');;
+        %    shuf_val_dist = horzcat_pad(shuf_val_dist, shuf_avg_all_pulse);
+        %end
+        
         wind_size = size(all_pulse_fr, 1);
         shuf_val_dist = [];
-        for i=1:1000 
-            shuf_all_pulse_fr = [];
+        tic;
+        for i=1:1000
+            iter_wind = [];
             for j=1:size(all_pulse_fr, 2)
-                shuf_idx = randperm(wind_size);
-                shuf_all_pulse_fr = horzcat_pad(shuf_all_pulse_fr, all_pulse_fr(shuf_idx, j));
+                % Grab a neuron
+                rand_nr = randi([1, length(all_pulse_fr_by_neuron)]);
+                % Grab a window sample
+                rand_win_start = randi([1, length(all_pulse_fr_by_neuron{rand_nr}) - wind_size]);
+                iter_wind = horzcat_pad(iter_wind, all_pulse_fr_by_neuron{rand_nr}(rand_win_start:rand_win_start + wind_size - 1)');
             end
-
-            % Calculate the average value
-            shuf_avg_all_pulse = mean(shuf_all_pulse_fr, 2, 'omitnan');
-            
-            % This was the original value
-            %shuf_val_dist(end + 1) = mean(avg_all_pulse, 'omitnan');;
-            shuf_val_dist = horzcat_pad(shuf_val_dist, shuf_avg_all_pulse);
+            end_iter = toc;
+            shuf_val_dist = horzcat_pad(shuf_val_dist, mean(iter_wind, 2));
         end
+        end_shuf = toc;
 
         % Calculate percentile values
-        low_perc = prctile(shuf_val_dist(:), 2.5);
-        high_perc = prctile(shuf_val_dist(:), 97.5);
-        shuf_mean = mean(shuf_val_dist(:), 'omitnan');
+        low_perc = prctile(shuf_val_dist, 2.5, 2);
+        high_perc = prctile(shuf_val_dist, 97.5, 2);
+        shuf_mean = mean(shuf_val_dist, 2);
 
         % Plot the shuffled values
         % Plotting using dashed lines
-        yline([low_perc, high_perc], '--');
+        plot(timeline, [low_perc, high_perc], '--');
         hold on;
-        yline(shuf_mean);
+        plot(timeline, shuf_mean);
         hold on;
+
         %shade_yvals = [repmat(high_perc, 1, length(timeline)), repmat(low_perc, 1, length(timeline))];
         %f = fill([timeline, flip(timeline)], shade_yvals, [0.62 0.71 1]);
         %Multi_func.set_fill_properties(f);
@@ -674,67 +717,70 @@ saveas(gcf, [figure_path 'Small_Res' f 'Violin_Fr_Heights_ca1_vs_m1.png']);
 saveas(gcf, [figure_path 'Small_Res' f 'Violin_Fr_Heights_ca1_vs_m1.pdf']);
 
 %% Time to peak Vm between CA1 and M1
-stats_log = [figure_path 'Small_Res' f 'Vm_pop_pulse_triggered_ca1_vs_m1_times'];
+stats_log = [figure_path 'Small_Res' f 'Vm_pop_pulse_triggered_region_times'];
 if exist(stats_log), delete(sprintf('%s', stats_log)), end;
 diary(stats_log);
 diary off;
 
+stats_data = struct();
+
 figure('Position', [140 150 , 1000, 1000]);
 %tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 4, 3.5, 5]);
 tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 4, 15, 20]);
-for f_stim = stims
+for f_stim = stims'
     f_stim = f_stim{1};
-    
-    % Store the time to peak values for both regions
-    ca1_pk_time = [];
-    m1_pk_time = [];
-    ca1_pulses = [];
-    m1_pulses = [];
-    
-    ca1_pulses = region_data.r_CA1.(f_stim).all_pulse_trig_Vm(extra_trace + 1:end - extra_trace - 1, :);
-    m1_pulses = region_data.r_M1.(f_stim).all_pulse_trig_Vm(extra_trace + 1:end - extra_trace - 1, :);
-    timeline = [0:size(ca1_pulses) - 1]*1000./avg_Fs;
-    for i=1:size(ca1_pulses, 2)
-        peak_idx = find(ca1_pulses(:, i) == max(ca1_pulses(:, i)));
-        if timeline(peak_idx) == 0
-            continue;
-        end
-        ca1_pk_time(end + 1) = timeline(peak_idx);
-    end
-
-    for i=1:size(m1_pulses, 2)
-        peak_idx = find(m1_pulses(:, i) == max(m1_pulses(:, i)));
-        if timeline(peak_idx) == 0
-            continue;
-        end
-        m1_pk_time(end + 1) = timeline(peak_idx);
-    end
+    stats_data.(f_stim) = struct();
+    stats_data.(f_stim).reg_order = {};
+    stats_data.(f_stim).data = [];
 
     diary on;
-    disp(['Time to peak stats ' f_stim]);
-    [p, h, stats] = ranksum(m1_pk_time, ca1_pk_time)
-    num_ca1_pk_times = length(ca1_pk_time);
-    num_m1_pk_times = length(m1_pk_time);
-    disp(['CA1 num pulses ' num2str(num_ca1_pk_times)]);
-    disp(['CA1 mean:' num2str(nanmean(ca1_pk_time))]);
-    disp(['CA1 sem: ' num2str(nanstd(ca1_pk_time)/sqrt(num_ca1_pk_times))]);
-    disp(['CA1 std:' num2str(nanstd(ca1_pk_time))]);
-    disp(['M1 num pulses ' num2str(num_m1_pk_times)]);
-    disp(['M1 mean:' num2str(nanmean(m1_pk_time))]);
-    disp(['M1 sem: ' num2str(nanstd(m1_pk_time)/sqrt(num_m1_pk_times))]);
-    disp(['M1 std:' num2str(nanstd(m1_pk_time))]);
-    fprintf('\n\n');
+    disp([f_stim(3:end) ' Hz Vm']);
     diary off;
 
     nexttile;
-    histogram(ca1_pk_time, 100, 'DisplayName', 'CA1'); 
-    hold on;
-    histogram(m1_pk_time, 100, 'DisplayName', 'M1');
+    % Loop through each brain region
+    for f_region = fieldnames(region_data)'
+        f_region = f_region{1};
+        % Store the time to peak values for both regions
+        reg_pk_time = [];
+        
+        reg_pulses = region_data.(f_region).(f_stim).all_pulse_trig_Vm(extra_trace + 1:end - extra_trace - 1, :);
+        timeline = [0:size(reg_pulses) - 1]*1000./avg_Fs;
+        for i=1:size(reg_pulses, 2)
+            peak_idx = find(reg_pulses(:, i) == max(reg_pulses(:, i)));
+            if timeline(peak_idx) == 0
+                continue;
+            end
+            reg_pk_time(end + 1) = timeline(peak_idx);
+        end
+
+        diary on;
+        num_pk_times = length(reg_pk_time);
+        disp([f_region(3:end) ' ' num2str(nanmean(reg_pk_time)) '+-' ... 
+                 num2str(nanstd(reg_pk_time)/sqrt(num_pk_times)) ...
+                 ' n=' num2str(num_pk_times)]);
+        diary off;
+        histogram(reg_pk_time, 100, 'DisplayName', f_region(3:end)); 
+        hold on;
+
+        % Save the peak times
+        stats_data.(f_stim).reg_order = cat(2, stats_data.(f_stim).reg_order, repmat({f_region}, 1, length(reg_pk_time)));
+        stats_data.(f_stim).data = [stats_data.(f_stim).data, reg_pk_time];
+    end
+    diary on;
+    fprintf('\n\n');
+    diary off;
     legend();
     title([num2str(f_stim) ' Vm time to peak histogram'], 'Interpreter', 'none');
+    diary on;
+    [p, h, stats] = kruskalwallis(stats_data.(f_stim).data, stats_data.(f_stim).reg_order)
+    disp('Group Columns');
+    disp(stats.gnames');
+    c = multcompare(stats, 'CriticalValueType', 'dunn-sidak')
+    diary off;
 end
-saveas(gcf, [figure_path 'Small_Res' f 'Histogram_Pulse_Triggered_Peak_Time_Vm_CA1_vs_M1.pdf']);
-saveas(gcf, [figure_path 'Small_Res' f 'Histogram_Pulse_Triggered_Peak_Time_Vm_CA1_vs_M1.png']);
+saveas(gcf, [figure_path 'Small_Res' f 'Histogram_Pulse_Triggered_Peak_Time_Vm_Regions.pdf']);
+saveas(gcf, [figure_path 'Small_Res' f 'Histogram_Pulse_Triggered_Peak_Time_Vm_Regions.png']);
 
 %% CA1 vs M1 all pulse firing rate 
 test_regions = {'r_CA1', 'r_M1'};
@@ -789,75 +835,76 @@ saveas(gcf, [figure_path 'Small_Res' f 'Pulse_Triggered_Region_Overlay_Fr.png'])
 saveas(gcf, [figure_path 'Small_Res' f 'Pulse_Triggered_Region_Overlay_Fr.pdf']);
 
 %% -- Time to peak pulse triggered Firing Rate between regions and compare statistical test
-stats_log = [figure_path 'Small_Res' f 'FR_pop_pulse_triggered_ca1_vs_m1_times'];
+stats_log = [figure_path 'Small_Res' f 'FR_pop_pulse_triggered_region_times'];
 if exist(stats_log), delete(sprintf('%s', stats_log)), end;
 diary(stats_log);
 diary off
 
+% Store all of the statistical data
+stats_data = struct();
+
 figure('Position', [140 150 , 1000, 1000]);
 %tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 4, 9.38, 4.94]);
 tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 4, 15, 20]);
-for f_stim = stims
+for f_stim = stims'
     f_stim = f_stim{1};
-    
-    % Store the time to peak values for both regions
-    ca1_pk_time = [];
-    m1_pk_time = [];
-    ca1_pulses = [];
-    m1_pulses = [];
-    
-    ca1_pulses = region_data.r_CA1.(f_stim).all_pulse_trig_fr(extra_trace + 1:end - extra_trace - 1, :);
-    m1_pulses = region_data.r_M1.(f_stim).all_pulse_trig_fr(extra_trace + 1:end - extra_trace - 1, :);
-    timeline = [0:size(ca1_pulses) - 1]*1000./avg_Fs;
-    for i=1:size(ca1_pulses, 2)
-        peak_idx = find(ca1_pulses(:, i) == max(ca1_pulses(:, i)));
-        if length(peak_idx) > 1
-            peak_idx = peak_idx(1);
-        end
-        if timeline(peak_idx) == 0
-            continue;
-        end
-        ca1_pk_time(end + 1) = timeline(peak_idx);
-    end
+    stats_data.(f_stim) = struct();
+    stats_data.(f_stim).reg_order = {};
+    stats_data.(f_stim).data = [];
 
-    for i=1:size(m1_pulses, 2)
-        peak_idx = find(m1_pulses(:, i) == max(m1_pulses(:, i)));
-        if length(peak_idx) > 1
-            peak_idx = peak_idx(1);
+    diary on;
+    disp([f_stim(3:end) ' Hz FR']);
+    diary off;
+    nexttile;
+
+    for f_region = fieldnames(region_data)'
+        f_region = f_region{1};
+        
+        % Store the time to peak values for both regions
+        reg_pk_time = [];
+    
+        reg_pulses = region_data.(f_region).(f_stim).all_pulse_trig_fr(extra_trace + 1:end - extra_trace - 1, :);
+        timeline = [0:size(reg_pulses) - 1]*1000./avg_Fs;
+        for i=1:size(reg_pulses, 2)
+            peak_idx = find(reg_pulses(:, i) == max(reg_pulses(:, i)));
+            if length(peak_idx) > 1
+                peak_idx = peak_idx(1);
+            end
+            if timeline(peak_idx) == 0
+                continue;
+            end
+            reg_pk_time(end + 1) = timeline(peak_idx);
         end
-        if timeline(peak_idx) == 0
-            continue;
-        end
-        m1_pk_time(end + 1) = timeline(peak_idx);
+
+        % Print data to file and commandline
+        diary on;
+        num_pk_times = length(reg_pk_time);
+        disp([f_region(3:end) ' ' num2str(nanmean(reg_pk_time)) '+-' ... 
+                 num2str(nanstd(reg_pk_time)/sqrt(num_pk_times)) ...
+                 ' n=' num2str(num_pk_times)]);
+        diary off;
+        histogram(reg_pk_time, 100, 'DisplayName', f_region(3:end)); 
+        hold on;
+    
+        % Save the peak times to a structure
+        stats_data.(f_stim).reg_order = cat(2, stats_data.(f_stim).reg_order, repmat({f_region}, 1, length(reg_pk_time)));
+        stats_data.(f_stim).data = [stats_data.(f_stim).data, reg_pk_time];
     end
 
     diary on;
-    disp(['Time to peak ' f_stim]);
-    [p, h, stats] = ranksum(m1_pk_time, ca1_pk_time)
-    num_ca1_pk_times = length(ca1_pk_time);
-    num_m1_pk_times = length(m1_pk_time);
-    disp(['CA1 num pulses ' num2str(num_ca1_pk_times)]);
-    disp(['CA1 mean:' num2str(nanmean(ca1_pk_time))]);
-    disp(['CA1 sem: ' num2str(nanstd(ca1_pk_time)/sqrt(num_ca1_pk_times))]);
-    disp(['CA1 std:' num2str(nanstd(ca1_pk_time))]);
-    disp(['M1 num pulses ' num2str(num_m1_pk_times)]);
-    disp(['M1 mean:' num2str(nanmean(m1_pk_time))]);
-    disp(['M1 sem: ' num2str(nanstd(m1_pk_time)/sqrt(num_m1_pk_times))]);
-    disp(['M1 std:' num2str(nanstd(m1_pk_time))]);
     fprintf('\n\n');
     diary off;
-        
-    %TODO debug, plot the average pulse triggered firing rate curves to ensure they match with the original
-
-    nexttile;
-    histogram(ca1_pk_time, 100, 'DisplayName', 'CA1'); 
-    hold on;
-    histogram(m1_pk_time, 100, 'DisplayName', 'M1');
     legend();
-    title([num2str(f_stim) ' Firing Rate time to peak histogram'], 'Interpreter', 'none');
+    title([num2str(f_stim) ' FR time to peak histogram'], 'Interpreter', 'none');
+    diary on;
+    [p, h, stats] = kruskalwallis(stats_data.(f_stim).data, stats_data.(f_stim).reg_order)
+    disp('Group Columns');
+    disp(stats.gnames');
+    c = multcompare(stats, 'CriticalValueType', 'dunn-sidak')
+    diary off;
 end
-saveas(gcf, [figure_path 'Small_Res' f 'Histogram_Pulse_Triggered_Peak_Time_Firing_Rate_CA1_vs_M1.pdf']);
-saveas(gcf, [figure_path 'Small_Res' f 'Histogram_Pulse_Triggered_Peak_Time_Firing_Rate_CA1_vs_M1.png']);
+saveas(gcf, [figure_path 'Small_Res' f 'Histogram_Pulse_Triggered_Peak_Time_Firing_Rate_Region.pdf']);
+saveas(gcf, [figure_path 'Small_Res' f 'Histogram_Pulse_Triggered_Peak_Time_Firing_Rate_Region.png']);
 
 %% Firing rate regression CA1 vs. M1
 stims = fieldnames(region_data.r_M1)';
