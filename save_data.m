@@ -235,7 +235,7 @@ for f_region = fieldnames(region_matfiles)'
                     cur_roi_subVm = horzcat_pad(cur_roi_subVm, detrend_subVm');
 
                     % Grab hilbert transform coefficients
-                    [filt_sig] = filt_data(detrend_subVm', [1:1:150], mean(cur_roi_Fs));
+                    [filt_sig] = Multi_func.filt_data(detrend_subVm', [1:1:150], mean(cur_roi_Fs));
                     cur_roi_hilbfilt(:, :, end + 1) = filt_sig;
 
                     % Grab the spike idxs
