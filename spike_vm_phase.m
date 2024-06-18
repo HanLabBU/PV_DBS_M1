@@ -138,6 +138,165 @@ for f_region = fieldnames(region_data)'
     end
 end
 
+%% Plot individual neurons low frequency power during baseline period
+low_freqs = [1:50] %Multi_func.theta_frequencies;
+num_iter = 500;
+% Loop through all regions
+for f_region = fieldnames(region_data)'
+    f_region = f_region{1};
+    data_bystim = region_data.(f_region); %
+
+    % Look at spike phase at Vm stimulation frequency
+    % Go through and average each spike phase
+    stims = fieldnames(data_bystim);
+
+    for f_stim=stims'
+        f_stim = f_stim{1};
+        
+        % Save the power and relative neuron names
+        base_all_power_norm = [];
+        power_norm_neuron_name = {};
+        
+        % This is a parallel array that will indicate whether is has low frequency stuff or not
+        has_low_freq = [];
+        popul_data = data_bystim.(f_stim);
+
+        % Loop through each neuron
+        for nr=1:size(popul_data.neuron_Vm, 2)
+            base_idx = find(popul_data.trace_timestamps(:, nr) < popul_data.stim_timestamps(1, nr));
+            nonbase_idx = find(popul_data.trace_timestamps(:, nr) >= popul_data.stim_timestamps(1, nr));
+            nr_filt_data = popul_data.neuron_hilbfilt{nr};
+
+            base_power = [];
+            vm_map = [];
+            % Loop through each trial
+            for tr=1:size(nr_filt_data, 3)
+                trace_noise = popul_data.all_trial_trace_noise{nr}(tr);
+
+                % Add the trace with SBR as value
+                vm_map = [vm_map; popul_data.all_trial_rawVm{nr}(:, tr)'./trace_noise];
+     
+                base_power(:, end + 1) = nanmean(abs(nr_filt_data(low_freqs, base_idx, tr)), 2);
+            end
+            
+            % Calculate the average power
+            avg_power = nanmean(base_power, 2);
+            std_power = std(base_power, 0, 2, 'omitnan');
+            num_trials = size(base_power, 2);
+            sem_power = std_power./sqrt(num_trials);
+            
+            timeline = popul_data.trace_timestamps(:, nr);
+            freqs = 1:size(base_power, 1);
+
+            % z-score the power across frequency
+            base_all_power_norm(:, end + 1) = zscore(avg_power(:, end), [], 1);
+            power_norm_neuron_name{end + 1} = popul_data.neuron_name{nr};
+
+            % Determine if neuron has low frequency oscillations
+            %has_low_freq(end + 1) = nanmean(base_all_power_norm(Multi_func.theta_frequencies, end), 1) > 1;
+
+            % TODO need to do a shuffled distribution of the base power
+            % What I think I have to do is shuffle the fluorescence traces and then
+            % recalculate the power spectra from there and then just average the power for the 2-10 frequencies
+            % This method does not seem super great, the shuffling creates such a small spread
+            shuf_dist_power = [];
+            for id = 1:length(num_iter)
+                shuf_roi_hilbfilt = [];
+                % Shuffle just the baseline period, but then perform the power spectra for the whole trace
+                for tr = 1:size(popul_data.all_trial_SubVm{nr}, 2)
+                    % Access each trial trace
+                    cur_trace = popul_data.all_trial_SubVm{nr}(:, tr); 
+                    % Create shuffled trace
+                    shuf_base_idx = base_idx(randperm(length(base_idx)));
+                    shuf_trace = [cur_trace(shuf_base_idx) ; cur_trace(nonbase_idx)];
+                                     
+                    [filt_sig] = Multi_func.filt_data(shuf_trace, [1:1:150], mean(popul_data.framerate));
+                    shuf_roi_hilbfilt(:, :, end+1) = filt_sig;
+                end
+                
+                % Drop the first empty element
+                shuf_roi_hilbfilt(:, :, 1) = [];
+            
+                % Take the average of the selected frequency range
+                base_power = nanmean(abs(shuf_roi_hilbfilt(low_freqs, base_idx)), 2);
+                avg_base_power = nanmean(squeeze(base_power), 2);
+
+                low_freq_power = nanmean(avg_base_power(Multi_func.theta_frequencies), 1);
+                shuf_dist_power(end + 1) = low_freq_power;
+            end
+
+            % Check if the current base_power is above the 95th percentile
+            prc_95 = prctile(shuf_dist_power, 95); 
+            obs_base_power = nanmean(avg_power(Multi_func.theta_frequencies), 1);
+            has_low_freq(end+1) = obs_base_power > prc_95;
+            
+            % Make a figure and plot all of the poewrs
+            figure('Position', [0 0 2000 1800]);
+            tiledlayout(3, 1, 'TileSpacing', 'compact', 'Padding', 'compact');
+
+            nexttile;
+            imagesc('XData', timeline, 'YData', 1:size(vm_map, 1), 'CData', vm_map);
+            
+            nexttile;
+
+            fill_h = fill([freqs'; flip(freqs)'], [avg_power + sem_power; flipud(avg_power - sem_power)], [0.5, 0.5, 0.5]);
+            hold on;
+
+            plot(freqs, avg_power');
+            xticks(0:10:150);
+            ylabel('Power');
+            xlabel('Frequency (Hz)');
+
+            % %Plotting the zscored power across frequency
+            %nexttile;
+            %plot(freqs, base_all_power_norm(:, end));
+        
+             % Plotting the shuffled distribution of base power
+            nexttile;
+            histogram(shuf_dist_power, 100);
+            hold on;
+            xline(prc_95, 'k');
+            hold on;
+            xline(obs_base_power, 'r');
+            hold on;
+
+             % Indicate if plotting for those with low frequency neuron
+            title_ext = '';
+            if has_low_freq(end) == 1
+                title_ext = 'Low Frequency Neurons';
+            elseif has_low_freq(end) == 0
+                title_ext = 'non-low freq neurons';
+            end
+
+            sgtitle([popul_data.neuron_name{nr} ' ' title_ext], 'Interpreter', 'none');
+            saveas(gcf, [figure_path 'Spectra' f 'Individual' f ...
+                popul_data.neuron_name{nr} '_power_spec_density.png']);
+            
+            % End Making figure
+
+        end
+        region_data.(f_region).(f_stim).has_low_freq = has_low_freq;
+        has_low_freq
+        
+        % Theta frequency variable: Multi_func.theta_frequencies
+        low_freq_power_norm = nanmean(base_all_power_norm(Multi_func.theta_frequencies, :), 1);
+        [~, I] = sort(low_freq_power_norm);
+        low_freq_power_norm = low_freq_power_norm(I);
+        power_norm_neuron_name = power_norm_neuron_name(I);
+
+         % Plot normalized base power
+        figure('Position', [0 0 1800 1800]);
+        plot(low_freq_power_norm, '.');
+        hold on;
+        yline(1);
+        ylabel('2-10Hz zscored power');
+        xlabel('Neuron Number');
+        xticks(1:length(power_norm_neuron_name));
+        xticklabels(power_norm_neuron_name);
+        set(gca,'TickLabelInterpreter','none');
+        title([f_region ' ' f_stim ' 2-10Hz zscored sorted'], 'Interpreter', 'none');
+    end
+end
 
 %% Plotting phase for 2-10Hz filtered
 lowfreq_phase_stats = struct();
@@ -169,6 +328,13 @@ for f_region = fieldnames(region_data)'
     
         %Loop through each neuron 
         for nr = 1:length(data_bystim.(f_stim).all_trial_spikeidx)
+
+            % Skip neurons that do not have low frequency oscillations
+            if data_bystim.(f_stim).has_low_freq(nr) == 0
+                disp('Skipped');
+                continue;
+            end
+
             base_idx = find(data_bystim.(f_stim).trace_timestamps(:, nr) < data_bystim.(f_stim).stim_timestamps(1, nr));
             stim_idx = find(data_bystim.(f_stim).trace_timestamps(:, nr) >= data_bystim.(f_stim).stim_timestamps(1, nr) & ...
                             data_bystim.(f_stim).trace_timestamps(:, nr) <= data_bystim.(f_stim).stim_timestamps(end, nr));
@@ -210,14 +376,14 @@ for f_region = fieldnames(region_data)'
         edges = linspace(0, 2*pi, 24);
         %polarhistogram(base_phases, edges, 'Normalization', 'probability', 'FaceColor', Multi_func.base_color, 'FaceAlpha', 0.3);
         polarhistogram(base_phases, edges, 'Normalization', 'probability', 'DisplayStyle', 'stairs', 'EdgeColor', Multi_func.base_color);
-        rlim([0 .15]);
+        rlim([0 .20]);
         title('Base');
         set(gca, 'Color', 'none');
     
         nexttile;
         %polarhistogram(stim_phases, edges, 'Normalization', 'probability', 'FaceColor', Multi_func.stim_color, 'FaceAlpha', 0.3);
         polarhistogram(stim_phases, edges, 'Normalization', 'probability', 'DisplayStyle', 'stairs', 'EdgeColor', Multi_func.stim_color);
-        rlim([0 .15]);
+        rlim([0 .20]);
         title('Stim');
         set(gca, 'Color', 'none');
     
@@ -229,112 +395,6 @@ for f_region = fieldnames(region_data)'
     end
 end
 
-%% Plot individual neurons low frequency power during baseline period
-low_freqs = [1:50] %Multi_func.theta_frequencies;
-% Loop through all regions
-for f_region = fieldnames(region_data)'
-    f_region = f_region{1};
-    data_bystim = region_data.(f_region); %
-
-    % Look at spike phase at Vm stimulation frequency
-    % Go through and average each spike phase
-    stims = fieldnames(data_bystim);
-
-    for f_stim=stims'
-        f_stim = f_stim{1};
-        
-        % Save the power and relative neuron names
-        base_all_power_norm = [];
-        power_norm_neuron_name = {};
-        
-        % This is a parallel array that will indicate whether is has low frequency stuff or not
-        has_low_freq = [];
-
-        % Loop through each neuron
-        for nr=1:size(data_bystim.(f_stim).neuron_Vm, 2)
-            base_idx = find(data_bystim.(f_stim).trace_timestamps(:, nr) < data_bystim.(f_stim).stim_timestamps(1, nr));
-            nr_filt_data = data_bystim.(f_stim).neuron_hilbfilt{nr};
-            neuron_data = data_bystim.(f_stim);
-
-            base_power = [];
-            vm_map = [];
-            % Loop through each trial
-            for tr=1:size(nr_filt_data, 3)
-                trace_noise = neuron_data.all_trial_trace_noise{nr}(tr);
-
-                % Add the trace with SBR as value
-                vm_map = [vm_map; neuron_data.all_trial_rawVm{nr}(:, tr)'./trace_noise];
-     
-                base_power(:, end + 1) = nanmean(abs(nr_filt_data(low_freqs, base_idx, tr)), 2);
-            end
-            
-            % Calculate the average power
-            avg_power = nanmean(base_power, 2);
-            std_power = std(base_power, 0, 2, 'omitnan');
-            num_trials = size(base_power, 2);
-            sem_power = std_power./sqrt(num_trials);
-            
-            timeline = neuron_data.trace_timestamps(:, nr);
-            freqs = 1:size(base_power, 1);
-
-            % z-score the power across frequency
-            base_all_power_norm(:, end + 1) = zscore(avg_power(:, end), [], 1);
-            power_norm_neuron_name{end + 1} = neuron_data.neuron_name{nr};
-
-            % Determine if neuron has low frequency oscillations
-            has_low_freq(end + 1) = nanmean(base_all_power_norm(Multi_func.theta_frequencies, end), 1) > 1;
-
-            % Make a figure and plot all of the poewrs
-            %figure('Position', [0 0 2000 1800]);
-            %tiledlayout(3, 1, 'TileSpacing', 'compact', 'Padding', 'compact');
-
-            %nexttile;
-            %imagesc('XData', timeline, 'YData', 1:size(vm_map, 1), 'CData', vm_map);
-            %
-            %nexttile;
-
-            %fill_h = fill([freqs'; flip(freqs)'], [avg_power + sem_power; flipud(avg_power - sem_power)], [0.5, 0.5, 0.5]);
-            %hold on;
-
-            %plot(freqs, avg_power' );
-            %xticks(0:10:150);
-            %ylabel('Power');
-            %xlabel('Frequency (Hz)');
-
-
-            % %Plotting the zscored power across frequency
-            %nexttile;
-            %plot(freqs, base_all_power_norm(:, end));
-
-            %sgtitle(neuron_data.neuron_name{nr}, 'Interpreter', 'none');
-            %saveas(gcf, [figure_path 'Spectra' f 'Individual' f ...
-            %    neuron_data.neuron_name{nr} '_power_spec_density.png']);
-            
-            % End Making figure
-
-        end
-        region_data.(f_region).(f_stim).has_low_freq = has_low_freq;
-        has_low_freq
-        
-        % Theta frequency variable: Multi_func.theta_frequencies
-        low_freq_power_norm = nanmean(base_all_power_norm(Multi_func.theta_frequencies, :), 1);
-        [~, I] = sort(low_freq_power_norm);
-        low_freq_power_norm = low_freq_power_norm(I);
-        power_norm_neuron_name = power_norm_neuron_name(I);
-
-        % Plot normalized base power
-        figure('Position', [0 0 1800 1800]);
-        plot(low_freq_power_norm, '.');
-        hold on;
-        yline(1);
-        ylabel('2-10Hz zscored power');
-        xlabel('Neuron Number');
-        xticks(1:length(power_norm_neuron_name));
-        xticklabels(power_norm_neuron_name);
-        set(gca,'TickLabelInterpreter','none');
-        title([f_region ' ' f_stim ' 2-10Hz zscored sorted'], 'Interpreter', 'none');
-    end
-end
 
 
 %% Create bar plots of the broad-band spike phase PLV
