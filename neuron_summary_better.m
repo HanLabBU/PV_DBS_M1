@@ -60,7 +60,7 @@ load(save_all_data_file);
 field1 = fieldnames(region_data);
 field1 = 'r_M1';
 avg_Fs = mean(region_data.(field1).f_40.framerate, 'omitnan');
-display_names = 1;
+display_names = 0;
 
 %% Create the heatmaps for subthreshold Vm and spike raster
 for f_region = fieldnames(region_data)'
@@ -68,15 +68,17 @@ for f_region = fieldnames(region_data)'
     data_bystim = region_data.(f_region);
     stims = fieldnames(data_bystim);
 
+    % Reset color_limits variable
+    color_limits = [];    
+
     for f_stim = stims'
         f_stim = f_stim{1};
-
         timeline = nanmean(data_bystim.(f_stim).trace_timestamps, 2)';
 
         % Create a figure that includes: raw, spikes, and SubVm
         figure('Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 40 40]);
         %tiledlayout(1, 2, 'TileSpacing', 'none', 'Padding', 'loose', 'Units', 'centimeters', 'InnerPosition', [4 5 8 8]);
-        tiledlayout(1, 2, 'TileSpacing', 'none', 'Padding', 'loose', 'Units', 'centimeters', 'InnerPosition', [4 5 20 20]);
+        tiledlayout(1, 2, 'TileSpacing', 'none', 'Padding', 'loose', 'Units', 'centimeters', 'InnerPosition', [3 20 8.13 8.482]);
         
         % Plot the raw traces
         nexttile;
@@ -102,17 +104,28 @@ for f_region = fieldnames(region_data)'
         end
         imagesc('XData', timeline, 'YData', 1:size(data_map, 1), 'CData', data_map);
 
-        %caxis([0, 1]);
         a = colorbar;
         a.Label.String = 'Vm';
-        color_limits = a.Limits;
+
+        % Set color limits if there was already
+        if isempty(color_limits)
+            color_limits = a.Limits;
+        end
+        caxis(color_limits);
+        
         set(a, 'Location', 'westoutside')
         Multi_func.set_default_axis(gca);
+        
+        % Set neuron separation
         yline(neuron_bound + 0.5);
+        neuron_mid = (neuron_bound(1:end - 1) + neuron_bound(2:end))/2;
+        yticks(neuron_mid);
+        yticklabels(1:length(neuron_mid))
+
         xlabel('Time from Stim onset(sec)');
-        xlim([-1 2.05]);
+        xlim([-.7 2.05]);
         ylim([0 size(data_map, 1)]);
-        ylabel('Neuron Trials');
+        ylabel('Neuron (Black outlines trials of each neuron)');
         title('Normalized Traces', 'Interpreter', 'none');
 
         % Plot the raster plot
@@ -134,7 +147,7 @@ for f_region = fieldnames(region_data)'
             
             if display_names == 1
                 % Plot the neuron label next to its raster
-                text(2.2, index - (size(cur_fov, 2)/2), data_bystim.(f_stim).neuron_name{fov}(1:end - 4), 'Interpreter', 'none');
+                text(2.2, index - (size(cur_fov, 2)/2), data_bystim.(f_stim).neuron_name{fov}, 'Interpreter', 'none');
                 hold on;
             end
         end
