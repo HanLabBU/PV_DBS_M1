@@ -354,7 +354,7 @@ for f_region = fieldnames(region_data)'
     f_region = f_region{1};
     data_bystim = region_data.(f_region);
     stims = fieldnames(data_bystim);
-    figure('visible', 'off', 'Renderer', 'Painters', 'Position', [200 200 1000 1000]);
+    figure('Renderer', 'Painters', 'Position', [200 200 1000 1000]);
     tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
     % Loop through each stimulation parameter
     for f_stim=stims'
