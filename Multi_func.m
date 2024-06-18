@@ -10,6 +10,7 @@ classdef Multi_func
 
         % Specify the theta range use for filtering stuff
         theta_range = [2 10];
+        theta_frequencies = [2:10];
 
         % Specify the transient and sustained time period
         trans_ped = [0, 100];
@@ -27,10 +28,15 @@ classdef Multi_func
         base_color = [57, 77, 161]/255;
         stim_color = [131, 195, 65]/255;
         post_color = [128, 56, 149]/255;
+        flick_color = [189, 130, 57]/255;
 
         % Colors indicating different brain regions
         ca1_color = [0.8500 0.3250 0.0980];
         m1_color = [0 0.4470 0.7410];
+        v1_color = [106, 189, 69]/255;
+
+        % Colors for shuffled data
+        shuf_color = [92, 161, 255]/255;
 
         % Colors indicating pulses
         pulse_color = [170, 176, 97]./255;
@@ -188,7 +194,7 @@ classdef Multi_func
                 FB=[ frs(steps)*0.95 frs(steps)*1.05];
                 
                 [B, A] = butter(2, [min(FB)/Fn max(FB)/Fn]);
-                filt_sig(:,steps)= hilbert(filtfilt(B,A,sig));
+                filt_sig(steps,:)= hilbert(filtfilt(B,A,sig));
             end
         end
 
@@ -234,7 +240,7 @@ classdef Multi_func
                 spike_idx = find(trial_spikes == 1);
                 spike_idx - timeshift;
                 spike_idx(spike_idx <= 0) = [];
-                indi_phase_vecs = exp(1i.*(nr_phases(spike_idx, :, i)));
+                indi_phase_vecs = exp(1i.*(nr_phases(:, spike_idx, i)));
                 
                 %DEBUG
                 if sum(~isnan(indi_phase_vecs), 'all') == 0
@@ -242,8 +248,11 @@ classdef Multi_func
                     %size(spikes)
                 end
 
-                phase_vecs = [phase_vecs; indi_phase_vecs];
+                phase_vecs = [phase_vecs, indi_phase_vecs];
             end
+
+            % Transpose so columns indicate frequencies and rows are the spike phases
+            phase_vecs = phase_vecs';
             
             num_spikes = size(phase_vecs, 1);
             PLV = (1/num_spikes)*(abs(sum(phase_vecs, 1)));
@@ -308,6 +317,46 @@ classdef Multi_func
             x_offset = (diff(x_pts) - txt_width)/2;
             delete(t1);
             text(x_pts(1) + x_offset, y + 2*offset, text_str, 'FontSize', 7);
+        end
+
+        % Determine if the population neuron data has a significant low frequency data
+        % Will return an array that will indicate this
+        function [has_low_freq] = get_low_freq_neurons(popul_data)
+            has_low_freq = [];
+            
+            base_all_power_norm = [];
+            power_norm_neuron_name = {};
+
+            % Range of frequencies to zscore by
+            low_freqs = [1:50];
+
+            % Loop through each neuron
+            for nr=1:size(popul_data.neuron_Vm, 2)
+                base_idx = find(popul_data.trace_timestamps(:, nr) < popul_data.stim_timestamps(1, nr));
+                nr_filt_data = popul_data.neuron_hilbfilt{nr};
+
+                base_power = [];
+                % Loop through each trial
+                for tr=1:size(nr_filt_data, 3)
+                    base_power(:, end + 1) = nanmean(abs(nr_filt_data(low_freqs, base_idx, tr)), 2);
+                end
+                
+                % Calculate the average power
+                avg_power = nanmean(base_power, 2);
+                std_power = std(base_power, 0, 2, 'omitnan');
+                num_trials = size(base_power, 2);
+                sem_power = std_power./sqrt(num_trials);
+                
+                timeline = popul_data.trace_timestamps(:, nr);
+                freqs = 1:size(base_power, 1);
+
+                % z-score the power across frequency
+                base_all_power_norm(:, end + 1) = zscore(avg_power(:, end), [], 1);
+                power_norm_neuron_name{end + 1} = popul_data.neuron_name{nr};
+
+                % Determine if neuron has low frequency oscillations
+                has_low_freq(end + 1) = nanmean(base_all_power_norm(Multi_func.theta_frequencies, end), 1) > 1; % Currently set to higher than 1 std of all frequencies
+            end
         end
 
         %TODO change the data_bystim part of the struct
