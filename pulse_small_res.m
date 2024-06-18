@@ -67,7 +67,7 @@ extra_trace = 3;
 
 %% Spike rate showing first few pulses
 Fr_onset_time = struct();
-stats_log = [figure_path 'Average' f 'Fr_onset_sig_times'];
+stats_log = [figure_path 'Small_Res' f 'Fr_onset_sig_times'];
 if exist(stats_log), delete(sprintf('%s', stats_log)), end;
 diary(stats_log);
 diary off
@@ -90,7 +90,7 @@ for f_region = fieldnames(region_data)'
         fill_h = fill([timeline; flip(timeline)], [cur_srate + sem_srate; flipud(cur_srate - sem_srate)], [0.5 0.5 0.5]);
         Multi_func.set_fill_properties(fill_h);
         hold on;
-        plot(timeline, cur_srate, 'k', 'LineWidth', 0.3);
+        plot(timeline, cur_srate, 'k', 'LineWidth', 1);
         hold on;
 
         % Plot the DBS stimulation time pulses
@@ -149,7 +149,7 @@ for f_region = fieldnames(region_data)'
     saveas(gcf, [figure_path 'Small_Res' f f_region '_First_Pulse_FR.eps'], 'epsc');
 end
 
-%% CA1 vs M1 first few pulses Firing Rate overlay
+%% All regions overlay first few pulses Firing Rate
 test_regions = fieldnames(region_data)' %{'r_CA1', 'r_M1'};
 stims = fieldnames(region_data.r_M1)';
 figure('Position', [0 0 , 1000, 1000]);
@@ -171,7 +171,7 @@ for f_stim=stims
         num_neurons = size(stim_data.neuron_srate_3, 2);
         %num_points = size(stim_data.neuron_srate_3, 1);
         sem_srate = std_srate./sqrt(num_neurons);
-        fill_h = fill([timeline; flip(timeline)], [cur_srate + sem_srate; flipud(cur_srate - sem_srate)], [0.5 0.5 0.5]);
+        fill_h = fill([timeline; flip(timeline)], [cur_srate + sem_srate; flipud(cur_srate - sem_srate)], [0.5 0.5 0.5], 'HandleVisibility', 'off');
         Multi_func.set_fill_properties(fill_h);
         hold on;
         
@@ -182,23 +182,29 @@ for f_stim=stims
         elseif strcmp(f_region, 'r_M1') == 1
             cur_color = Multi_func.m1_color;
             label = 'M1';
+        elseif strcmp(f_region, 'r_V1') == 1
+            cur_color = Multi_func.v1_color;
+            label = 'V1';
         end
 
-        plot(timeline, cur_srate, 'Color', cur_color, 'LineWidth', 0.3, 'DisplayName', f_region);
+        plot(timeline, cur_srate, 'Color', cur_color, 'LineWidth', 1, 'DisplayName', label);
         hold on;
 
         % Plot the DBS stimulation time pulses
-        xline(nanmean(stim_data.stim_timestamps, 2)*1000, 'Color', [170, 176, 97]./255, 'LineWidth', 0.5);
+        xline(nanmean(stim_data.stim_timestamps, 2)*1000, 'Color', [170, 176, 97]./255, 'LineWidth', 0.5, 'HandleVisibility', 'off');
         hold on;
     end
+
     % Increase timescale resolution
     xlim([0 - 50, 0 + 100]);
     x = gca; x = x.XAxis;
     Multi_func.set_spacing_axis(x, 50, 1);
     Multi_func.set_default_axis(gca);
+    legend('Location', 'northeast');
+
     ylabel('Firing Rate (Hz)');
     xlabel('Time from onset(ms)');
-    title(f_stim(3:end), 'Interpreter', 'none');
+    title([f_stim(3:end) ' Hz'], 'Interpreter', 'none');
 end
 sgtitle('Onset Fr Plot by Region Overlay');
 saveas(gcf, [figure_path 'Small_Res' f 'Onset_Overlay_Fr.png']);
@@ -206,7 +212,7 @@ saveas(gcf, [figure_path 'Small_Res' f 'Onset_Overlay_Fr.pdf']);
 
 %% Sub Vm pulse-triggered averaged across all pulses
 vm_trig_avg_time = struct();
-stats_log = [figure_path 'Small_Res' f 'Vm_pulse_triggered_times'];
+stats_log = [figure_path 'Small_Res' f 'Vm_pulse_triggered_time_to_final_average'];
 if exist(stats_log), delete(sprintf('%s', stats_log)), end;
 diary(stats_log);
 diary off
@@ -277,7 +283,9 @@ for f_region = fieldnames(region_data)'
 
         cur_subVm = mean(all_pulse_vm, 2, 'omitnan');
         std_subVm = std(all_pulse_vm, 0, 2, 'omitnan');
-        num_pulses = size(all_pulse_vm, 2);
+        
+        disp([f_region ' ' f_stim]);
+        num_pulses = size(all_pulse_vm, 2)
         %num_points = size(data_bystim.(f_stim).neuron_subVm, 1);
         sem_subVm = std_subVm./sqrt(num_pulses);
         nexttile;
@@ -332,15 +340,19 @@ for f_region = fieldnames(region_data)'
             shuf_val_dist = horzcat_pad(shuf_val_dist, mean(iter_wind, 2));
         end
         end_shuf = toc;
+        
         % Calculate percentile values
         low_perc = prctile(shuf_val_dist, 2.5, 2);
         high_perc = prctile(shuf_val_dist, 97.5, 2);
         shuf_mean = mean(shuf_val_dist, 2);
         
+        % Save the shuffle distribution data
+        region_data.(f_region).(f_stim).vm_shuf_val_dist = shuf_val_dist;
+
         % Plot the shuffled values as dashed horizontal lines
-        plot(timeline, [low_perc, high_perc], '--');
+        plot(timeline, [low_perc, high_perc], '--', 'Color', Multi_func.shuf_color); 
         hold on;
-        plot(timeline, shuf_mean);
+        plot(timeline, shuf_mean, 'Color', Multi_func.shuf_color);
         hold on;
 
         % Plotting the significant time and peak
@@ -402,7 +414,7 @@ end
 
 %% Spike rate averaged across all pulses
 fr_trig_avg_time = struct();
-stats_log = [figure_path 'Average' f  'Fr_pulse_triggered_times'];
+stats_log = [figure_path 'Small_Res' f  'Fr_pulse_triggered_times_final_average'];
 if exist(stats_log), delete(sprintf('%s', stats_log)), end;
 diary(stats_log);
 diary off;
@@ -457,7 +469,9 @@ for f_region = fieldnames(region_data)'
 
         cur_srate = mean(all_pulse_fr, 2, 'omitnan');
         std_srate = std(all_pulse_fr, 0, 2, 'omitnan');
-        num_pulses = size(all_pulse_fr, 2);
+        
+        disp([f_region ' ' f_stim]);
+        num_pulses = size(all_pulse_fr, 2)
         %num_points = size(data_bystim.(f_stim).neuron_srate_20, 1);
         sem_srate = std_srate./sqrt(num_pulses);
         
@@ -467,7 +481,7 @@ for f_region = fieldnames(region_data)'
         fill_h = fill([timeline, flip(timeline)], [cur_srate + sem_srate; flipud(cur_srate - sem_srate)], [0.5 0.5 0.5]);
         Multi_func.set_fill_properties(fill_h);
         hold on;
-        plot(timeline, cur_srate, 'k', 'LineWidth', 0.3);
+        plot(timeline, cur_srate, 'k', 'LineWidth', 1);
         hold on;
 
         % Perform shuffling for all firing rate
@@ -512,12 +526,15 @@ for f_region = fieldnames(region_data)'
         low_perc = prctile(shuf_val_dist, 2.5, 2);
         high_perc = prctile(shuf_val_dist, 97.5, 2);
         shuf_mean = mean(shuf_val_dist, 2);
+    
+        % Save the firing rate shuffled distribution values
+        region_data.(f_region).(f_stim).fr_shuf_val_dist = shuf_val_dist;
 
         % Plot the shuffled values
         % Plotting using dashed lines
-        plot(timeline, [low_perc, high_perc], '--');
+        plot(timeline, [low_perc, high_perc], '--', 'Color', Multi_func.shuf_color);
         hold on;
-        plot(timeline, shuf_mean);
+        plot(timeline, shuf_mean, 'Color', Multi_func.shuf_color);
         hold on;
 
         %shade_yvals = [repmat(high_perc, 1, length(timeline)), repmat(low_perc, 1, length(timeline))];
@@ -573,12 +590,12 @@ for f_region = fieldnames(region_data)'
     %saveas(gcf, [figure_path 'Average/' f_region '_All_Pulse_Avg_FR.eps'], 'epsc');
 end
 
-%% CA1 vs M1 All Pulse Vm regions
-test_regions = {'r_CA1', 'r_M1'};
+%% All region All Pulse Vm overlay
+test_regions = fieldnames(region_data)';
 stims = fieldnames(region_data.r_M1)';
 figure('Position', [0 0 , 1000, 1000]);
 tiledlayout(1, length(stims), 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 4, 8.3, 3.5]);
-%tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 4, 10, 20]);
+%tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
 % First loop through stimulations
 for f_stim=stims
     f_stim = f_stim{1};
@@ -596,7 +613,7 @@ for f_stim=stims
         %num_points = size(data_bystim.(f_stim).neuron_trig_vm, 1);
         sem_trig_vm = std_trig_vm./sqrt(num_pulses);
 
-        fill_h = fill([timeline, flip(timeline)], [cur_trig_vm + sem_trig_vm; flipud(cur_trig_vm - sem_trig_vm)], [0.5 0.5 0.5]);
+        fill_h = fill([timeline, flip(timeline)], [cur_trig_vm + sem_trig_vm; flipud(cur_trig_vm - sem_trig_vm)], [0.5 0.5 0.5], 'HandleVisibility', 'off');
         Multi_func.set_fill_properties(fill_h);
         hold on;
     
@@ -606,17 +623,33 @@ for f_stim=stims
         elseif strcmp(f_region, 'r_M1') == 1
             cur_color = Multi_func.m1_color;
             label = 'M1';
+        elseif strcmp(f_region, 'r_V1') == 1
+            cur_color = Multi_func.v1_color;
+            label = 'V1';
         end
 
-        plot(timeline, cur_trig_vm, 'Color', cur_color, 'LineWidth', 1, 'DisplayName', f_region);
+        plot(timeline, cur_trig_vm, 'Color', cur_color, 'LineWidth', 1, 'DisplayName', label);
         hold on;
-            
-        pulse_times = [0, mean(stim_data.all_pulse_width_time, 2)*1000]
-        % Display the pulses
-        xline(pulse_times, 'Color', Multi_func.pulse_color, 'LineWidth', 2);
+        
+        % Plot the shuffled distribution
+        shuf_val_dist = stim_data.vm_shuf_val_dist;
+        low_perc = prctile(shuf_val_dist, 2.5, 2);
+        high_perc = prctile(shuf_val_dist, 97.5, 2);
+        shuf_mean = mean(shuf_val_dist, 2);
+
+        % Plot the shuffled values as dashed horizontal lines
+        plot(timeline, [low_perc, high_perc], '--', 'Color', cur_color, 'HandleVisibility', 'off');
+        hold on;
+        plot(timeline, shuf_mean, 'Color', cur_color, 'HandleVisibility', 'off');
         hold on;
     end
-    %legend('AutoUpdate', 'off', 'Interpreter', 'none', 'Location', 'northoutside');
+
+    % Plot the pulses
+    pulse_times = [0, mean(stim_data.all_pulse_width_time, 2)*1000]
+    xline(pulse_times, 'Color', Multi_func.pulse_color, 'LineWidth', 2, 'HandleVisibility', 'off');
+    hold on;
+
+    legend('Location', 'northwest');
     Multi_func.set_default_axis(gca);
     title(f_stim, 'Interpreter', 'none');
     xlabel('time (ms)');
@@ -725,7 +758,7 @@ saveas(gcf, [figure_path 'Small_Res' f 'Violin_Fr_Heights_ca1_vs_m1.png']);
 saveas(gcf, [figure_path 'Small_Res' f 'Violin_Fr_Heights_ca1_vs_m1.pdf']);
 
 %% Time to peak Vm between CA1 and M1
-stats_log = [figure_path 'Small_Res' f 'Vm_pop_pulse_triggered_region_times'];
+stats_log = [figure_path 'Small_Res' f 'Vm_neuronwise_pulse_triggered_region_times'];
 if exist(stats_log), delete(sprintf('%s', stats_log)), end;
 diary(stats_log);
 diary off;
@@ -790,12 +823,12 @@ end
 saveas(gcf, [figure_path 'Small_Res' f 'Histogram_Pulse_Triggered_Peak_Time_Vm_Regions.pdf']);
 saveas(gcf, [figure_path 'Small_Res' f 'Histogram_Pulse_Triggered_Peak_Time_Vm_Regions.png']);
 
-%% CA1 vs M1 all pulse firing rate 
-test_regions = {'r_CA1', 'r_M1'};
+%% All region all pulse firing rate overlay
+test_regions = fieldnames(region_data)';
 stims = fieldnames(region_data.r_M1)';
 figure('Position', [0 0 , 1000, 1000]);
-tiledlayout(1, length(stims), 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 4, 8.3, 3.5]);
-%tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 4, 10, 20]);
+%tiledlayout(1, length(stims), 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 4, 8.3, 3.5]);
+tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 4, 10, 20]);
 % First loop through stimulations
 for f_stim=stims
     f_stim = f_stim{1};
@@ -813,7 +846,7 @@ for f_stim=stims
         %num_points = size(data_bystim.(f_stim).neuron_trig_vm, 1);
         sem_trig_fr = std_trig_fr./sqrt(num_pulses);
 
-        fill_h = fill([timeline, flip(timeline)], [cur_trig_fr + sem_trig_fr; flipud(cur_trig_fr - sem_trig_fr)], [0.5 0.5 0.5]);
+        fill_h = fill([timeline, flip(timeline)], [cur_trig_fr + sem_trig_fr; flipud(cur_trig_fr - sem_trig_fr)], [0.5 0.5 0.5], 'HandleVisibility', 'off');
         Multi_func.set_fill_properties(fill_h);
         hold on;
 
@@ -823,16 +856,33 @@ for f_stim=stims
         elseif strcmp(f_region, 'r_M1') == 1
             cur_color = Multi_func.m1_color;
             label = 'M1';
+        elseif strcmp(f_region, 'r_V1') == 1
+            cur_color = Multi_func.v1_color;
+            label = 'V1';
         end
-        plot(timeline, cur_trig_fr, 'Color', cur_color, 'LineWidth', 1, 'DisplayName', f_region);
+        plot(timeline, cur_trig_fr, 'Color', cur_color, 'LineWidth', 1, 'DisplayName', label);
         hold on;
             
-        pulse_times = [0, mean(stim_data.all_pulse_width_time, 2)*1000]
-        % Display the pulses
-        xline(pulse_times, 'Color', Multi_func.pulse_color, 'LineWidth', 2);
+        % Plot the shuffled distribution
+        shuf_val_dist = stim_data.fr_shuf_val_dist;
+        low_perc = prctile(shuf_val_dist, 2.5, 2);
+        high_perc = prctile(shuf_val_dist, 97.5, 2);
+        shuf_mean = mean(shuf_val_dist, 2);
+
+        % Plot the shuffled values as dashed horizontal lines
+        plot(timeline, [low_perc, high_perc], '--', 'Color', cur_color, 'HandleVisibility', 'off');
+        hold on;
+        plot(timeline, shuf_mean, 'Color', cur_color, 'HandleVisibility', 'off');
         hold on;
     end
-    %legend('AutoUpdate', 'off', 'Interpreter', 'none', 'Location', 'northoutside');
+ 
+    % Plot the time pulses
+    pulse_times = [0, mean(stim_data.all_pulse_width_time, 2)*1000]
+    % Display the pulses
+    xline(pulse_times, 'Color', Multi_func.pulse_color, 'LineWidth', 2, 'HandleVisibility', 'off');
+    hold on;
+    
+    legend('Location', 'northeast');
     Multi_func.set_default_axis(gca);
     title(f_stim, 'Interpreter', 'none');
     xlabel('time (ms)');
@@ -843,7 +893,7 @@ saveas(gcf, [figure_path 'Small_Res' f 'Pulse_Triggered_Region_Overlay_Fr.png'])
 saveas(gcf, [figure_path 'Small_Res' f 'Pulse_Triggered_Region_Overlay_Fr.pdf']);
 
 %% -- Time to peak pulse triggered Firing Rate between regions and compare statistical test
-stats_log = [figure_path 'Small_Res' f 'FR_pop_pulse_triggered_region_times'];
+stats_log = [figure_path 'Small_Res' f 'FR_neuronwise_pulse_triggered_region_times'];
 if exist(stats_log), delete(sprintf('%s', stats_log)), end;
 diary(stats_log);
 diary off
@@ -1210,7 +1260,7 @@ sgtitle('Time laggs cross-correlation');
 
 %% Subthreshold Vm first few pulses
 vm_onset_time = struct();
-stats_log = [figure_path 'Average' f 'Vm_onset_sig_times'];
+stats_log = [figure_path 'Small_Res' f 'Vm_onset_sig_times'];
 if exist(stats_log), delete(sprintf('%s', stats_log)), end;
 diary(stats_log);
 diary off
@@ -1296,8 +1346,8 @@ for f_region = fieldnames(region_data)'
     saveas(gcf, [figure_path 'Small_Res' f f_region '_First_Pulse_Vm.pdf']);
 end
 
-%% CA1 vs M1 first few pulses Vm overlay
-test_regions = {'r_CA1', 'r_M1'};
+%% All regions overlay first few pulses Vm 
+test_regions = {'r_CA1', 'r_M1', 'r_V1'};
 stims = fieldnames(region_data.r_M1)';
 figure('Position', [0 0 , 1000, 1000]);
 tiledlayout(1, length(stims), 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 4, 8.3, 3.5]);
@@ -1321,7 +1371,7 @@ for f_stim=stims
         %num_points = size(stim_data.neuron_Vm, 1);
  
         % Standard Error
-        fill_h = fill([timeline; flip(timeline)], [cur_Vm + sem_Vm; flipud(cur_Vm - sem_Vm)], [0.5 0.5 0.5]);
+        fill_h = fill([timeline; flip(timeline)], [cur_Vm + sem_Vm; flipud(cur_Vm - sem_Vm)], [0.5 0.5 0.5], 'HandleVisibility','off');
         Multi_func.set_fill_properties(fill_h);
         hold on;
         
@@ -1331,27 +1381,31 @@ for f_stim=stims
         elseif strcmp(f_region, 'r_M1') == 1
             cur_color = Multi_func.m1_color;
             label = 'M1';
+        elseif strcmp(f_region, 'r_V1') == 1
+            cur_color = Multi_func.v1_color;
+            label = 'V1';
         end
+
         % Plot Vm
-        plot(timeline, cur_Vm, 'Color', cur_color, 'LineWidth', 1);
+        plot(timeline, cur_Vm, 'Color', cur_color, 'LineWidth', 1, 'DisplayName', label);
         hold on;
-        
-        % Plot the DBS stimulation time pulses
-        xline(nanmean(stim_data.stim_timestamps, 2)*1000, 'Color', [170, 176, 97]./255, 'LineWidth', 0.5);
-        hold on;
-
-
-        % Increase timescale resolution
-        xlim([0 - 50, 0 + 100]);
-        ylabel('Normalized Vm');
-        xlabel('Time from onset(ms)');
-
-        Multi_func.set_default_axis(gca);
-        title(f_stim(3:end), 'Interpreter', 'none');
     end
+        
+    % Plot the DBS stimulation time pulses
+    xline(nanmean(stim_data.stim_timestamps, 2)*1000, 'Color', [170, 176, 97]./255, 'LineWidth', 0.5, 'HandleVisibility','off');
+    hold on;
+
+    % Increase timescale resolution
+    xlim([0 - 50, 0 + 100]);
+    ylabel('Normalized Vm');
+    xlabel('Time from onset(ms)');
+    
+    legend('Location', 'southeast');
+    Multi_func.set_default_axis(gca);
+    title([f_stim(3:end) ' Hz'], 'Interpreter', 'none');
 end
 
-sgtitle([f_region(3:end) ' Onset Vm Subthreshold Region Compare'], 'Interpreter', 'none');
+sgtitle(['Onset Vm Subthreshold Region Compare'], 'Interpreter', 'none');
 saveas(gcf, [figure_path 'Small_Res' f 'Onset_Overlay_Vm.png']);
 saveas(gcf, [figure_path 'Small_Res' f 'Onset_Overlay_Vm.pdf']);
 
