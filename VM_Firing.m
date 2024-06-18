@@ -50,8 +50,8 @@ end
 if ~exclude_200ms
     save_all_data_file = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Interm_Data' f 'pv_data.mat'];
 else
-    %save_all_data_file = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Interm_Data' f 'pv_data_ex200.mat'];
-    save_all_data_file = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Interm_Data' f 'ca1_data.mat'];
+    save_all_data_file = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Interm_Data' f 'pv_data_ex200.mat'];
+    %save_all_data_file = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Interm_Data' f 'ca1_data.mat'];
 end
 %Load the data
 load(save_all_data_file);
@@ -77,7 +77,7 @@ for f_region = fieldnames(region_data)'
     stims = fieldnames(data_bystim);
     
     figure('Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
-    tiledlayout(1, length(stims), 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 20, 17.56, 3.17]);
+    tiledlayout(1, length(stims), 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 20, 17.56, 3]);
     for f_stim=stims'
         f_stim = f_stim{1};
         cur_win_srate = 50;
@@ -121,7 +121,7 @@ for f_region = fieldnames(region_data)'
         else
             xlim([-1 2.05]);
         end
-        ylabel('Firing Rate (Hz)');
+        ylabel('Firing Rate Change (Hz)');
         %title(f_stim(3:end), 'Interpreter', 'none');
     end
     sgtitle([f_region(3:end) ' Average Spike rate'], 'Interpreter', 'none');
@@ -138,7 +138,7 @@ for f_region = fieldnames(region_data)'
     
     figure('Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
     fontsize(gcf, 7, "points")
-    tiledlayout(1, length(stims), 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 20, 17.56, 3.17]);
+    tiledlayout(1, length(stims), 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 20, 17.56, 2.80]);
     for f_stim=stims'
         f_stim = f_stim{1};
         timeline = nanmean(data_bystim.(f_stim).trace_timestamps, 2);
@@ -255,17 +255,22 @@ for f_region = fieldnames(region_data)'
         % Change axis cosmetics
         a = gca; y = a.YAxis;
         Multi_func.set_default_axis(gca);
+        y.Limits = [-1, 2];
+        Multi_func.set_spacing_axis(y, 1, 2);
+
+        % Old way of setting axis limits
         % Determine parameters based on what is being plotted
-        if strcmp(f_region, 'r_combine') == 1
-            y.Limits = [-2 8];
-            Multi_func.set_spacing_axis(y, 4, 1);
-        elseif strcmp(f_region, 'r_M1') == 1
-            y.Limits = [-1 2];
-            %Multi_func.set_spacing_axis(y, 10, 1);
-        elseif strcmp(f_region, 'r_V1') == 1
-            y.Limits = [-5 45];
-            Multi_func.set_spacing_axis(y, 20, 1);
-        end
+        %if strcmp(f_region, 'r_combine') == 1
+        %    y.Limits = [-2 8];
+        %    Multi_func.set_spacing_axis(y, 4, 1);
+        %elseif strcmp(f_region, 'r_M1') == 1
+        %    y.Limits = [-1 2];
+        %    %Multi_func.set_spacing_axis(y, 10, 1);
+        %elseif strcmp(f_region, 'r_V1') == 1
+        %    y.Limits = [-5 45];
+        %    Multi_func.set_spacing_axis(y, 20, 1);
+        %end
+
         title([f_stim(3:end) ' Hz DBS']);
         ylabel('Normalized Vm Change');
 
@@ -334,6 +339,8 @@ for f_region = fieldnames(region_data)'
     saveas(gcf, [figure_path 'Average/' f_region '_population_comp_stim_Vm_violin.pdf']);
     %saveas(gcf, [figure_path 'Average/' f_region '_population_comp_Vm_violin.eps'], 'epsc');
 end
+
+%% Violin plots firing rate transient and sustained periods
 
 % Struct to identify each group of data
 fr_stat_data = struct();
@@ -586,24 +593,42 @@ for f_region = fieldnames(region_data)'
     %saveas(gcf, [figure_path 'Average/' f_region '_Display_All_Pulse_Trig_FR.eps'], 'epsc');
 end
 
+
+%% Calculate statistics for Vm and Firing Rate of Transient and Sustained Period
 % signtest for individual: trans, sus, stim
 % signrank for paired, non-independent: 140 trans vs. 140 sus
 % ranksum paired, independent distributions: 140 trans vs 40 trans
+stats_log = [figure_path 'Average' f 'Population_Trans_and_Sustained_Vm_FR_stats']
+if exist(stats_log), delete(sprintf('%s', stats_log)), end;
+diary(stats_log);
+diary off
 
 % Loop through each region and stimulation to perform statistical tests
 for f_region = fieldnames(sub_vm_stat_data)'
     f_region = f_region{1};
-
+    
+        
     for f_stim = fieldnames(sub_vm_stat_data.(f_region))'
         f_stim = f_stim{1};
         
+        % Log diary for conditions
+        diary on;
+        disp([f_region ' ' f_stim]);
+        fprintf('\n');
+        diary off;
+
         % Perform individual signtests on subvm
         for f_ped = fieldnames(sub_vm_stat_data.(f_region).(f_stim))'
             f_ped = f_ped{1};
+            
+            if contains(f_ped, 'stats')
+                continue;
+            end
 
-            [p, h, stats] = signtest(sub_vm_stat_data.(f_region).(f_stim).(f_ped));
-            sub_vm_stat_data.(f_region).(f_stim).([f_ped '_stats']) = stats;
-            sub_vm_stat_data.(f_region).(f_stim).([f_ped '_p']) = p;
+            diary on;
+            disp(['Period ' f_ped]);
+            [p, h, stats] = signtest(sub_vm_stat_data.(f_region).(f_stim).(f_ped))
+            diary off;
 
             clear p, h, stats;
         end
@@ -612,24 +637,31 @@ for f_region = fieldnames(sub_vm_stat_data)'
         for f_ped = fieldnames(fr_stat_data.(f_region).(f_stim))'
             f_ped = f_ped{1};
 
-            [p, h, stats] = signtest(fr_stat_data.(f_region).(f_stim).(f_ped));
-            fr_stat_data.(f_region).(f_stim).([f_ped '_stats']) = stats;
-            fr_stat_data.(f_region).(f_stim).([f_ped '_p']) = p;
+            if contains(f_ped, 'stats')
+                continue;
+            end
+
+            diary on;
+            disp(['Period ' f_ped]);
+            [p, h, stats] = signtest(fr_stat_data.(f_region).(f_stim).(f_ped))
+            diary off;
 
             clear p, h, stats;
         end
 
-        % Perform the trans and sus comparison
-        [p, h, stats] = signrank(sub_vm_stat_data.(f_region).(f_stim).trans_vm, sub_vm_stat_data.(f_region).(f_stim).sus_vm);
-        sub_vm_stat_data.(f_region).(f_stim).trans_sus_stats = stats;
-        sub_vm_stat_data.(f_region).(f_stim).trans_sus_p = p;
+        % Perform the trans and sus comparison (Vm)
+        diary on;
+        disp(['Trans Vm vs Sustained Vm'])
+        [p, h, stats] = signrank(sub_vm_stat_data.(f_region).(f_stim).trans_vm, sub_vm_stat_data.(f_region).(f_stim).sus_vm)
+        diary off;
 
         clear p, h, stats;
 
-        [p, h, stats] = signrank(fr_stat_data.(f_region).(f_stim).trans_fr, fr_stat_data.(f_region).(f_stim).sus_fr);
-        fr_stat_data.(f_region).(f_stim).trans_sus_stats = stats;
-        fr_stat_data.(f_region).(f_stim).trans_sus_p = p;
-
+        diary on;
+        disp(['Trans FR vs Sustained FR'])
+        % Perform the trans and sus comparison (Firign Rate)
+        [p, h, stats] = signrank(fr_stat_data.(f_region).(f_stim).trans_fr, fr_stat_data.(f_region).(f_stim).sus_fr)
+        diary off;
     end
 end
 
