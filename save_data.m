@@ -60,8 +60,27 @@ if ~isfolder(local_root_path) || ~isfolder(pv_data_path)
     return;
 end
 
+%% Structure that contains the surgery date based on mouse ID
+% V1 mice surgery dates
+surg_date_dict.m_109557 = '20231113';
+surg_date_dict.m_109558 = '20231113';
+surg_date_dict.m_23072 = '20211102';
+surg_date_dict.m_611284 = '20210730';
+surg_date_dict.m_96334 = '20231026';
+surg_date_dict.m_109567 = '20231026';
+
+% M1 mice surgery dates
+surg_date_dict.m_31556eartag = '20220817';
+surg_date_dict.m_31556noeartag = '20220819';
+surg_date_dict.m_50373 = '20230621';
+surg_date_dict.m_50464 = '20230308';
+surg_date_dict.m_60430 = '20220901'; % Should be excluded
+surg_date_dict.m_81631 = '20240508'; % Should be excluded
+surg_date_dict.m_617100 = ''; % Do not have cage card unfortunately
+
+
 %% Setup
-ses = dir([pv_data_path '*.mat']); %DEBUG for debugging just try V1 data
+ses = dir([pv_data_path '*.mat']);
 all_matfiles = {ses.name};
 
 % Select matfiles by brain region
@@ -127,17 +146,27 @@ for f_region = fieldnames(region_matfiles)'
 
         % Neuron meta data
         data_bystim.(f_stim).neuron_name = {};
+        data_bystim.(f_stim).surgery_date = struct;
         data_bystim.(f_stim).trial_num = [];
 
         % Loop through each matfile of the current stimulation condition
         for matfile = matfiles
             matfile = matfile{1};
+            
+            tokens = regexp(matfile, '_', 'split');
+
+            % Determine the mouse ID and set the surgery date
+            % Check if the mouse ID is already listed
+            mouse_id_f = ['m_' tokens{1}];
+            if ~isfield(data_bystim.(f_stim).surgery_date, mouse_id_f)
+                data_bystim.(f_stim).surgery_date.(mouse_id_f) = surg_date_dict.(mouse_id_f);
+            end
+
             % Read in the mat file of the current condition
             data = load([pv_data_path matfile]);
             trial_idxs = find(~cellfun(@isempty, data.align.trial));
             trial_data = data.align.trial{trial_idxs(1)};    
             
-
             % Loop through each ROI
             for roi_idx=1:size(trial_data.detrend_traces, 2)
                 %Determine whether this roi is to be ignored for this particular trial
