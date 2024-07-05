@@ -1,6 +1,7 @@
 % Plot the currents used in the experiments
 clear all;
 close all;
+clc;
 
 f = filesep;
 
@@ -31,8 +32,7 @@ if ~isfolder(local_root_path)
     return;
 end
 
-all_currents = [];
-all_Fs = [];
+%% Load all region data
 
 % Use congregated data to save all of the currents
 % Read in the saved pv data and perform analysis
@@ -41,8 +41,109 @@ if ~exclude_200ms
 else
     save_all_data_file = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Interm_Data' f 'pv_data_ex200.mat'];
 end
+tic;
 %Load the data
 load(save_all_data_file);
+toc
+disp('Finished Loading Data');
+%% TODO plot these as days from surgery
+%% TODO plot currents of each brain region and frequency
+
+%%TODO plot the currents for each mouse, and try to indicate brain region or frequency
+
+
+%% Plotting current from days to surgery for each neuron
+% Red: 140Hz
+% Blue: 40Hz
+% Circle: M1
+% Plus: V1
+
+%TODO have a map that keeps track of how many repetitions there are
+%of number of days since surgery and amperage
+days_amp_map = [];
+
+figure;
+% Loop through regions
+for f_region = fieldnames(region_data)'
+    f_region = f_region{1};
+    data_bystim = region_data.(f_region);
+    stims = fieldnames(data_bystim);
+
+    % Loop through stim frequencies
+    for f_stim = stims'
+        f_stim = f_stim{1};
+        popul_data = data_bystim.(f_stim);
+        
+        % Loop through each neuron
+        for nr=1:length(popul_data.neuron_name)
+            tokens = regexp(popul_data.neuron_name{nr}, '_', 'split');
+
+            % Calculate the days between imaging and surgery date
+            surg_date = popul_data.surgery_date.(['m_' tokens{1}]);
+            if isempty(surg_date)
+                continue;
+            end
+            tokens{3} = erase(tokens{3}, 'rec');
+
+            surg_date = datetime(surg_date, 'InputFormat', 'yyyyMMdd');
+            img_date = datetime(tokens{3}, 'InputFormat', 'yyyyMMdd');
+
+            days_from_surg = days(img_date - surg_date);
+
+            % Parse out the current amperage
+            fov_i = find(contains(tokens, 'FOV') == 1);
+            amp_i = fov_i + 2;
+            if contains(tokens{amp_i}, '.') == 1
+                amp_str = regexp(tokens{amp_i}, '\.', 'split');
+                amp_str = amp_str{1};
+            else
+                amp_str = tokens{amp_i};
+            end
+
+            % Set labels based on brain region and stim frequency
+            plot_str = '';
+            if strcmp(f_region, 'r_M1') == 1
+                plot_str(end+1) = 'o';
+            elseif strcmp(f_region, 'r_V1') == 1
+                plot_str(end+1) = '+';
+            end
+
+            % Set the frequency stuff
+            if strcmp(f_stim, 'f_40') == 1
+                plot_str(end+1) = 'b';
+            elseif strcmp(f_stim, 'f_140') == 1
+                plot_str(end+1) = 'r';
+            end
+
+            % Increment the marker size for repeated points
+            if size(days_amp_map, 1) < days_from_surg | size(days_amp_map, 2) < str2num(amp_str)
+                days_amp_map(days_from_surg, str2num(amp_str)) = 1;
+            else
+                days_amp_map(days_from_surg, str2num(amp_str)) = ...
+                    1 + days_amp_map(days_from_surg, str2num(amp_str));
+            end
+
+            % Plot data point
+            hold on;
+            plot(days_from_surg, str2num(amp_str), plot_str, 'MarkerSize', 8 + days_amp_map(days_from_surg, str2num(amp_str)));
+            hold on;
+            text(400, 600, '+: V1 region');
+            hold on;
+            text(400, 580, 'o: M1 region');
+            hold on;
+            text(400, 560, '█: 140Hz', 'Color', 'r');
+            hold on;
+            text(400, 540, '█: 40Hz', 'Color', 'b');
+            hold on;
+            
+        end
+    end
+end
+
+%%
+
+all_currents = [];
+all_Fs = [];
 
 % Loop through and grab each neuron's current amplitude
 for f_region = {'r_M1'}
