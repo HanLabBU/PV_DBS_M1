@@ -61,8 +61,9 @@ disp('Finished Loading Data');
 %TODO have a map that keeps track of how many repetitions there are
 %of number of days since surgery and amperage
 days_amp_map = [];
+mouse_color = struct();
 
-figure;
+figure('Position', [0 0 1000 800]);
 % Loop through regions
 for f_region = fieldnames(region_data)'
     f_region = f_region{1};
@@ -74,71 +75,123 @@ for f_region = fieldnames(region_data)'
         f_stim = f_stim{1};
         popul_data = data_bystim.(f_stim);
         
+        % Keep track of neurons plotted
+        neurons_plotted = [];
+
         % Loop through each neuron
         for nr=1:length(popul_data.neuron_name)
-            tokens = regexp(popul_data.neuron_name{nr}, '_', 'split');
-
-            % Calculate the days between imaging and surgery date
-            surg_date = popul_data.surgery_date.(['m_' tokens{1}]);
-            if isempty(surg_date)
+            if ismember(nr, neurons_plotted)
                 continue;
             end
-            tokens{3} = erase(tokens{3}, 'rec');
 
-            surg_date = datetime(surg_date, 'InputFormat', 'yyyyMMdd');
-            img_date = datetime(tokens{3}, 'InputFormat', 'yyyyMMdd');
+            tokens = regexp(popul_data.neuron_name{nr}, '_', 'split');
 
-            days_from_surg = days(img_date - surg_date);
+            % Find all of the neurons that come from the same mouse
+            same_m_nrs = find(contains(popul_data.neuron_name, tokens{1}) == 1);
+            same_m_nrs_pts = [];
+            neurons_plotted = cat(2, neurons_plotted, same_m_nrs);
+            for i=same_m_nrs
 
-            % Parse out the current amperage
-            fov_i = find(contains(tokens, 'FOV') == 1);
-            amp_i = fov_i + 2;
-            if contains(tokens{amp_i}, '.') == 1
-                amp_str = regexp(tokens{amp_i}, '\.', 'split');
-                amp_str = amp_str{1};
-            else
-                amp_str = tokens{amp_i};
+                tokens = regexp(popul_data.neuron_name{i}, '_', 'split');
+
+                % Calculate the days between imaging and surgery date
+                surg_date = popul_data.surgery_date.(['m_' tokens{1}]);
+                if isempty(surg_date)
+                    continue;
+                end
+                tokens{3} = erase(tokens{3}, 'rec');
+
+                surg_date = datetime(surg_date, 'InputFormat', 'yyyyMMdd');
+                img_date = datetime(tokens{3}, 'InputFormat', 'yyyyMMdd');
+
+                days_from_surg = days(img_date - surg_date);
+
+                % Parse out the current amperage
+                fov_i = find(contains(tokens, 'FOV') == 1);
+                amp_i = fov_i + 2;
+                if contains(tokens{amp_i}, '.') == 1
+                    amp_str = regexp(tokens{amp_i}, '\.', 'split');
+                    amp_str = amp_str{1};
+                else
+                    amp_str = tokens{amp_i};
+                end
+
+                % Set labels based on brain region and stim frequency
+                plot_str = '';
+                if strcmp(f_region, 'r_M1') == 1
+                    plot_str(end+1) = 'o';
+                elseif strcmp(f_region, 'r_V1') == 1
+                    plot_str(end+1) = '+';
+                end
+
+                % Set the frequency stuff
+                if strcmp(f_stim, 'f_40') == 1
+                    plot_str(end+1) = 'b';
+                elseif strcmp(f_stim, 'f_140') == 1
+                    plot_str(end+1) = 'r';
+                end
+
+                % Increment the marker size for repeated points
+                if size(days_amp_map, 1) < days_from_surg | size(days_amp_map, 2) < str2num(amp_str)
+                    days_amp_map(days_from_surg, str2num(amp_str)) = 1;
+                else
+                    days_amp_map(days_from_surg, str2num(amp_str)) = ...
+                        1 + days_amp_map(days_from_surg, str2num(amp_str));
+                end
+
+                % Plot data point
+                hold on;
+                plot(days_from_surg, str2num(amp_str), plot_str, 'MarkerSize', 8 + days_amp_map(days_from_surg, str2num(amp_str)));
+                hold on;
+
+                % Keep track of points
+                same_m_nrs_pts(:, end + 1) = [days_from_surg; str2num(amp_str)];
             end
 
-            % Set labels based on brain region and stim frequency
-            plot_str = '';
-            if strcmp(f_region, 'r_M1') == 1
-                plot_str(end+1) = 'o';
-            elseif strcmp(f_region, 'r_V1') == 1
-                plot_str(end+1) = '+';
+            % Plot lines across all FOVs of the same mouse
+            %TODO sort the x values from decreasing to increasing, makes figure easier to read
+            if ~isempty(same_m_nrs_pts)
+                
+                [~, i] = sort(same_m_nrs_pts(1, :));
+                if isfield(mouse_color, ['m_' tokens{1}])
+                    color = mouse_color.(['m_' tokens{1}]);
+                    plot(same_m_nrs_pts(1, i), same_m_nrs_pts(2, i), '-', 'Color', color);
+                else
+                    plot_h = plot(same_m_nrs_pts(1, i), same_m_nrs_pts(2, i),  '-');
+                    mouse_color.(['m_' tokens{1}]) = get(plot_h, 'Color');
+                end
             end
-
-            % Set the frequency stuff
-            if strcmp(f_stim, 'f_40') == 1
-                plot_str(end+1) = 'b';
-            elseif strcmp(f_stim, 'f_140') == 1
-                plot_str(end+1) = 'r';
-            end
-
-            % Increment the marker size for repeated points
-            if size(days_amp_map, 1) < days_from_surg | size(days_amp_map, 2) < str2num(amp_str)
-                days_amp_map(days_from_surg, str2num(amp_str)) = 1;
-            else
-                days_amp_map(days_from_surg, str2num(amp_str)) = ...
-                    1 + days_amp_map(days_from_surg, str2num(amp_str));
-            end
-
-            % Plot data point
-            hold on;
-            plot(days_from_surg, str2num(amp_str), plot_str, 'MarkerSize', 8 + days_amp_map(days_from_surg, str2num(amp_str)));
-            hold on;
-            text(400, 600, '+: V1 region');
-            hold on;
-            text(400, 580, 'o: M1 region');
-            hold on;
-            text(400, 560, '█: 140Hz', 'Color', 'r');
-            hold on;
-            text(400, 540, '█: 40Hz', 'Color', 'b');
-            hold on;
-            
         end
     end
 end
+
+
+% Add legend label for each item
+text(400, 600, '+: V1 region');
+hold on;
+text(400, 580, 'o: M1 region');
+hold on;
+text(400, 560, '140Hz', 'Color', 'r');
+hold on;
+text(400, 540, '40Hz', 'Color', 'b');
+hold on;
+
+y_val = 600;
+for mouse_f=fieldnames(mouse_color)'
+    mouse_f = mouse_f{1};
+    text(450, y_val, '--', 'Color', mouse_color.(mouse_f), 'FontWeight', 'bold');
+    y_val = y_val - 20;
+end
+% Label 
+xlabel('Days since surgery (days)');
+ylabel('Amperage (uamp)');
+
+saveas(gcf, [savepath 'Current/' '2d_currents_by_region_frequency.png']);
+saveas(gcf, [savepath 'Current/' '2d_currents_by_region_frequency.pdf']);
+
+%TODO make a 3D plot so that each mouse's data is in a different axis
+% Try to reuse as much as possible from the top figure plotting
+%% Generates a 3D plot of the mouse current stuff
 
 %%
 
