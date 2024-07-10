@@ -1,3 +1,5 @@
+%% This is deprecated. save_data already accounts for TICO data
+
 clear all;
 close all;
 clc;
@@ -14,10 +16,10 @@ server_root_path = '~/handata_server/';
 % List path where all of the matfiles are stored
 %data_path = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'PV_Data' f];
 % Data on local linux machine
-%data_path = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'PV_Data' f];
+data_path = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'PV_Data' f 'new_data' f];
 % Data on handata3 folder
 %data_path = [server_root_path 'EricLowet' f 'DBS' f 'github' f 'DBS_volt_data_github'];
-data_path = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'CA1_Data' f];
+%data_path = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'CA1_Data' f];
 
 exclude_200ms = 0;
 
@@ -60,7 +62,7 @@ ses = dir([data_path '*mat']);
 matfiles = {ses.name};
 
 % Loop through different stimulation conditions
-regions = {'r_CA1'};
+regions = {'r_V1'};
 stim_conditions = {'f_140', 'f_40'};
 
 % Select matfiles by brain region
@@ -141,38 +143,6 @@ for f_region = regions'
             trial_idxs = find(~cellfun(@isempty, data.align.trial));
             trial_data = data.align.trial{trial_idxs(1)};    
             
-            cur_fov_Fs = [];
-            cur_fov_subVm = [];
-            cur_fov_rawtraces = [];
-            cur_fov_tracenoises = [];
-            cur_fov_spikeidx = [];
-            cur_fov_spike_amp = [];
-
-            cur_fov_srate_100 = [];
-            cur_fov_srate_50 = [];
-            cur_fov_srate_20 = [];
-            cur_fov_srate_10 = [];
-            cur_fov_srate_3 = [];
-            cur_fov_srate_inst = [];
-            cur_fov_raster = [];
-
-            cur_fov_trans_Vm = [];      
-            cur_fov_sus_Vm = []; 
-            cur_fov_stim_Vm = [];
-            cur_fov_trans_FR = [];     
-            cur_fov_sus_FR = [];
-            cur_fov_stim_FR = [];
-
-            cur_fov_base_Vm = [];
-            cur_fov_base_FR = [];
-
-            cur_fov_stim_time = [];
-            cur_fov_trace_time = [];
-
-            cur_fov_wt = [];
-            cur_fov_f = [];
-
-            cur_fov_hilbfilt = [];
 
             % Loop through each ROI
             for roi_idx=1 % :size(trial_data.detrend_traces, 2)
@@ -193,6 +163,39 @@ for f_region = regions'
                     continue;
                 end
             
+                % Store all data for each roi
+                cur_roi_Fs = [];
+                cur_roi_subVm = [];
+                cur_roi_rawtraces = [];
+                cur_roi_tracenoises = [];
+                cur_roi_spikeidx = [];
+                cur_roi_spike_amp = [];
+
+                cur_roi_srate_100 = [];
+                cur_roi_srate_50 = [];
+                cur_roi_srate_20 = [];
+                cur_roi_srate_10 = [];
+                cur_roi_srate_3 = [];
+                cur_roi_srate_inst = [];
+                cur_roi_raster = [];
+
+                cur_roi_trans_Vm = [];      
+                cur_roi_sus_Vm = []; 
+                cur_roi_stim_Vm = [];
+                cur_roi_trans_FR = [];     
+                cur_roi_sus_FR = [];
+                cur_roi_stim_FR = [];
+
+                cur_roi_base_Vm = [];
+                cur_roi_base_FR = [];
+
+                cur_roi_stim_time = [];
+                cur_roi_trace_time = [];
+
+                cur_roi_wt = [];
+                cur_roi_f = [];
+
+                cur_roi_hilbfilt = [];
 
                 % Loop through each trial                
                 for tr_idx=trial_idxs        
@@ -359,8 +362,8 @@ for f_region = regions'
                     [trial_wt, trial_f] = get_power_spec(detrend_subVm', nanmean(cur_fov_Fs));
                     cur_fov_wt = cat(3, cur_fov_wt, abs(trial_wt));
                     cur_fov_f = cat(3, cur_fov_f, trial_f);
+                end
 
-                end 
             end
             % End looping through each neuron
 
