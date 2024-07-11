@@ -1,0 +1,610 @@
+clear all;
+close all;
+clc;
+f = filesep;
+
+%% USER Modification
+% Linux server
+local_root_path = '~/Projects/';
+% Handata Server on Linux
+server_root_path = '~/handata_server/eng_research_handata3/';
+% Windows server
+%local_root_path = 'Z:\';
+
+exclude_200ms = 1;
+
+% Parameters for frames to chop off
+if ~exclude_200ms
+    front_frame_drop = 15;
+else 
+    front_frame_drop = 15 + round((828*.200));
+end
+
+back_frame_drop = 2496;
+
+% List path where all of the matfiles are stored
+%pv_data_path = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'PV_Data' f];
+% Data on local linux machine
+%pv_data_path = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'PV_Data' f];
+% Data on handata3 folder
+pv_data_path = [server_root_path 'Pierre Fabris' f 'PV Project' f 'PV_Data' f];
+
+%figure_path = [server_root_path 'Pierre Fabris' f 'PV Project' f 'Plots' f];
+figure_path = Multi_func.save_plot;
+
+% CSV file to determine which trials to ignore
+ignore_trial_dict = Multi_func.csv_to_struct([local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f ...
+                                       'Stim Recordings' f 'Data_Config' f 'byvis_ignore.csv']);
+
+% Parameter to determine whether to combine all regions as one data
+all_regions = 0;
+
+% This is mostly for debugging purposes
+display_names = 0;
+
+%% END Modification
+
+%% Check that the server path exists
+if ~isfolder(server_root_path)
+    disp('Server rootpath does not exist!!!');
+    return;
+end
+
+% Read in the saved pv data and perform analysis
+if ~exclude_200ms
+    save_all_data_file = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Interm_Data' f 'pv_data.mat'];
+else
+    save_all_data_file = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Interm_Data' f 'pv_data_ex200.mat'];
+    %save_all_data_file = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Interm_Data' f 'ca1_data.mat'];
+end
+%Load the data
+load(save_all_data_file);
+
+%% Calculate the Vm modulation stats
+wind_dist = 100/1000; % numerator in ms, window from onset to include for baseline and stim comparison
+% Loop through regions
+for f_region = fieldnames(region_data)'
+    f_region = f_region{1};
+    data_bystim = region_data.(f_region);
+    stims = fieldnames(data_bystim);
+
+    % Loop through stim frequencies
+    for f_stim = stims'
+        f_stim = f_stim{1};
+        popul_data = data_bystim.(f_stim);
+        
+        Vm_mod_stats = struct;
+
+        for nr=1:length(popul_data.neuron_name)
+            nr_timeline = popul_data.trace_timestamps(:, nr);
+            base_idx = find(nr_timeline > 0 - wind_dist & nr_timeline < 0);
+            stim_idx = find(nr_timeline > 0 & nr_timeline < 0 + wind_dist);
+            
+            % Calculate the average amplitude Vm for each trial
+            Vm_mean_pre = mean(popul_data.all_trial_SubVm{nr}(base_idx, :), 1);
+            Vm_mean_stim = mean(popul_data.all_trial_SubVm{nr}(stim_idx, :), 1);
+
+            [p_sign, ~, stats] = signrank(Vm_mean_pre, Vm_mean_stim);
+            
+            % Check the modulation level
+            if p_sign < 0.05 && mean(Vm_mean_stim - Vm_mean_pre) > 0
+                mod = 1;
+            elseif p_sign < 0.05 && mean(Vm_mean_stim - Vm_mean_pre) < 0
+                mod = -1;
+            else
+                mod = 0;
+            end
+
+            %DEBUG
+            figure;
+            imagesc(popul_data.all_trial_SubVm{nr}');
+            hold on;
+            plot(base_idx, repmat(1, length(base_idx), 1), 'r');
+            hold on;
+            plot(stim_idx, repmat(1, length(stim_idx), 1), 'g');
+            legend([num2str(p_sign) ' ' num2str(mean(Vm_mean_stim - Vm_mean_pre))]);
+            title(popul_data.neuron_name{nr}, 'Interpreter', 'none');
+
+            % Append all of the modulation data
+            Vm_mod_stats(nr).p_sign = p_sign;
+            Vm_mod_stats(nr).sign_stats = stats;
+            Vm_mod_stats(nr).mod = mod;
+
+        end
+        region_data.(f_region).(f_stim).Vm_mod_stats = Vm_mod_stats;
+    end
+end
+
+%% Plot the Vm modulation heatmap and modulated averages
+[heatmap_color] = (cbrewer('div', 'RdBu',500));
+heatmap_color(heatmap_color > 1) = 1;
+heatmap_color(heatmap_color < 0) = 0;
+heatmap_color = flipud(heatmap_color);
+
+for f_region = fieldnames(region_data)'
+    f_region = f_region{1};
+    data_bystim = region_data.(f_region);
+    stims = fieldnames(data_bystim);
+
+    % Loop through stim frequencies
+    for f_stim = stims'
+        f_stim = f_stim{1};
+        popul_data = data_bystim.(f_stim);
+        
+        % Get the neuron idx of neurons that were modulated
+        nr_act = find([popul_data.Vm_mod_stats.mod] > 0);
+        nr_sup = find([popul_data.Vm_mod_stats.mod] < 0);
+        nr_non = find([popul_data.Vm_mod_stats.mod] == 0);
+
+        % Grab idxs for different parts of the signal
+        base_idx = find(mean(popul_data.trace_timestamps, 2) < 0);
+
+        stim_idx = find(mean(popul_data.trace_timestamps, 2) > 0 &...
+                    mean(popul_data.trace_timestamps, 2) < 0 + wind_dist);
+
+        % Need to sort across each groups
+        [~, act_i] = sort(mean(popul_data.neuron_Vm(stim_idx, nr_act), 1), 'descend');
+        [~, sup_i] = sort(mean(popul_data.neuron_Vm(stim_idx, nr_sup), 1), 'descend');
+        [~, non_i] = sort(mean(popul_data.neuron_Vm(stim_idx, nr_non), 1), 'descend');
+        act_i = nr_act(act_i);
+        sup_i = nr_sup(sup_i);
+        non_i = nr_non(non_i);
+
+        % Save the trial-averaged neuron Vm
+        pop_act_vm = popul_data.neuron_Vm(:, act_i);
+        pop_non_vm = popul_data.neuron_Vm(:, non_i);
+        pop_sup_vm = popul_data.neuron_Vm(:, sup_i);
+
+        % Zscore all of the trial-averaged neuron Vm
+        pop_act_vm = zscore(pop_act_vm, [], 1);
+        pop_non_vm = zscore(pop_non_vm, [], 1);
+        pop_sup_vm = zscore(pop_sup_vm, [], 1);
+
+        % Zscore the trial-averaged neuron Vm using baseline mean and standard deviation
+        %pop_act_vm = (pop_act_vm - mean(pop_act_vm(base_idx, :), 1))./std(pop_act_vm(base_idx, :), 0, 1);
+        %
+        %pop_non_vm = (pop_non_vm - mean(pop_non_vm(base_idx, :), 1))./std(pop_non_vm(base_idx, :), 0, 1);
+        %
+        %pop_sup_vm = (pop_sup_vm - mean(pop_sup_vm(base_idx, :), 1))./std(pop_sup_vm(base_idx, :), 0, 1);
+
+        % Baseline subtract the vm data
+        pop_act_vm = pop_act_vm - mean(pop_act_vm(base_idx, :), 1);
+        pop_non_vm = pop_non_vm - mean(pop_non_vm(base_idx, :), 1);
+        pop_sup_vm = pop_sup_vm - mean(pop_sup_vm(base_idx, :), 1);
+
+        % Construct Vm heatmap
+        vm_heatmap = pop_act_vm;
+        vm_heatmap = horzcat_pad(vm_heatmap, pop_non_vm);
+        vm_heatmap = horzcat_pad(vm_heatmap, pop_sup_vm)';
+
+        % Calculate the population average of each groups
+        act_Vm_avg = mean(pop_act_vm, 2);
+        act_Vm_sem = std(pop_act_vm, 0, 2)./sqrt(size(pop_act_vm, 2));
+        non_Vm_avg = mean(pop_non_vm, 2);
+        non_Vm_sem = std(pop_non_vm, 0, 2)./sqrt(size(pop_non_vm, 2));
+        sup_Vm_avg = mean(pop_sup_vm, 2);
+        sup_Vm_sem = std(pop_sup_vm, 0, 2)./sqrt(size(pop_sup_vm, 2));
+
+        % Perform the plotting
+        figure('Position', [0, 0, 800, 1000]);
+        tiledlayout(2, 1, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 4, 10, 20]);
+
+        % Plot the heatmap
+        nexttile;
+        timeline = mean(popul_data.trace_timestamps, 2);
+        imagesc('XData', timeline, 'YData', 1:size(vm_heatmap, 1), 'CData', vm_heatmap);
+        hold on;
+        yline(0.5 + [length(act_i), length(act_i) + length(non_i), length(act_i) + length(non_i) + length(sup_i)]);
+        hold on;
+        xline([0 1]);
+        hold on;
+        Multi_func.set_default_axis(gca);
+
+        %DEBUG
+        if display_names == 1
+            i=1;
+            for nr=[act_i, non_i, sup_i]
+                text(2.2, i, [num2str(popul_data.Vm_mod_stats(nr).mod) ' '...
+                            popul_data.neuron_name{nr}], ...
+                            'Interpreter', 'none');
+                i = i+1;
+            end
+            xlim([-1, 4.5]);
+        else
+            xlim([min(timeline) - .01, max(timeline)]);
+        end
+        ylim([0.5 size(vm_heatmap, 1) + 0.5]);
+        xlabel('Time from onset (S)');
+
+        colormap(heatmap_color);
+        c = colorbar;
+        c.Label.String = 'Vm (z-scored)';
+
+        % Plot the population average for each group activated
+        nexttile;
+
+        fill_h = fill([timeline; flip(timeline)], ...
+                [non_Vm_avg + non_Vm_sem; flipud(non_Vm_avg - non_Vm_sem)], ...
+                Multi_func.non_color, 'HandleVisibility', 'off');
+        Multi_func.set_fill_properties(fill_h);
+
+        fill_h.EdgeAlpha = 0;
+        hold on;
+        plot(timeline, non_Vm_avg, 'DisplayName', 'Non-modulated', 'Color', Multi_func.non_color);
+        hold on;
+
+        fill_h = fill([timeline; flip(timeline)], ...
+                [act_Vm_avg + act_Vm_sem; flipud(act_Vm_avg - act_Vm_sem)], ...
+                Multi_func.act_color, 'HandleVisibility', 'off');
+        Multi_func.set_fill_properties(fill_h);
+        fill_h.EdgeAlpha = 0;
+        hold on;
+        plot(timeline, act_Vm_avg, 'DisplayName', 'Activated', 'Color', Multi_func.act_color);
+        hold on;
+        
+        fill_h = fill([timeline; flip(timeline)], ...
+                [sup_Vm_avg + sup_Vm_sem; flipud(sup_Vm_avg - sup_Vm_sem)], ...
+                Multi_func.sup_color, 'HandleVisibility', 'off');
+        Multi_func.set_fill_properties(fill_h);
+
+        fill_h.EdgeAlpha = 0;
+        hold on;
+        plot(timeline, sup_Vm_avg, 'DisplayName', 'Suppressed', 'Color', Multi_func.sup_color);
+        hold on;
+
+        Multi_func.set_default_axis(gca);
+        hold on;
+        xline([0 1], 'HandleVisibility', 'off');
+        legend();
+        sgtitle([f_region ' ' f_stim], 'Interpreter', 'none');
+        
+        % Set x-axis limits
+        if display_names == 0
+            xlim([-.7 2.05]);
+        end
+
+        % Save figure stuff
+        saveas(gcf, [figure_path 'Neuronwise/' f_region '_' f_stim '_' num2str(wind_dist) '_Vm_mod_plots.png']);
+        saveas(gcf, [figure_path 'Neuronwise/' f_region '_' f_stim '_' num2str(wind_dist) '_Vm_mod_plots.pdf']);
+    end
+end
+
+%% Calculate modulation of spike rate
+% Loop through regions
+for f_region = fieldnames(region_data)'
+    f_region = f_region{1};
+    data_bystim = region_data.(f_region);
+    stims = fieldnames(data_bystim);
+
+    % Loop through stim frequencies
+    for f_stim = stims'
+        f_stim = f_stim{1};
+        popul_data = data_bystim.(f_stim);
+        
+        fr_mod_stats = struct;
+
+        for nr=1:length(popul_data.neuron_name)
+            nr_timeline = popul_data.trace_timestamps(:, nr);
+            base_idx = find(nr_timeline > 0 - wind_dist & nr_timeline < 0);
+            stim_idx = find(nr_timeline > 0 & nr_timeline < 0 + wind_dist);
+            
+            % Calculate the average amplitude Vm for each trial
+            fr_mean_pre = sum(popul_data.all_trial_spike_rasters{nr}(base_idx, :), 1);
+            fr_mean_stim = sum(popul_data.all_trial_spike_rasters{nr}(stim_idx, :), 1);
+
+            [p_sign, ~, stats] = signrank(fr_mean_pre, fr_mean_stim);
+            
+            % Check the modulation level
+            if p_sign < 0.05 && mean(fr_mean_stim - fr_mean_pre) > 0
+                mod = 1;
+            elseif p_sign < 0.05 && mean(fr_mean_stim - fr_mean_pre) < 0
+                mod = -1;
+            else
+                mod = 0;
+            end
+
+            %DEBUG
+            figure;
+            imagesc(popul_data.all_trial_spike_rasters{nr}');
+            hold on;
+            plot(base_idx, repmat(1, length(base_idx), 1), 'r');
+            hold on;
+            plot(stim_idx, repmat(1, length(stim_idx), 1), 'g');
+            legend([num2str(p_sign) ' ' num2str(mean(fr_mean_stim - fr_mean_pre))]);
+            title(popul_data.neuron_name{nr}, 'Interpreter', 'none');
+
+            % Append all of the modulation data
+            fr_mod_stats(nr).p_sign = p_sign;
+            fr_mod_stats(nr).sign_stats = stats;
+            fr_mod_stats(nr).mod = mod;
+
+        end
+        region_data.(f_region).(f_stim).fr_mod_stats = fr_mod_stats;
+    end
+end
+
+%% Plot the firing rate modulation heatmap and modulated averages
+for f_region = fieldnames(region_data)'
+    f_region = f_region{1};
+    data_bystim = region_data.(f_region);
+    stims = fieldnames(data_bystim);
+
+    % Loop through stim frequencies
+    for f_stim = stims'
+        f_stim = f_stim{1};
+        popul_data = data_bystim.(f_stim);
+        
+        % Get the neuron idx of neurons that were modulated
+        nr_act = find([popul_data.fr_mod_stats.mod] > 0);
+        nr_sup = find([popul_data.fr_mod_stats.mod] < 0);
+        nr_non = find([popul_data.fr_mod_stats.mod] == 0);
+
+        % Grab idxs for different parts of the signal
+        base_idx = find(mean(popul_data.trace_timestamps, 2) < 0);
+
+        stim_idx = find(mean(popul_data.trace_timestamps, 2) > 0 &...
+                    mean(popul_data.trace_timestamps, 2) < 0 + wind_dist);
+
+        % Need to sort across each groups
+        [~, act_i] = sort(mean(popul_data.neuron_srate_50(stim_idx, nr_act), 1), 'descend');
+        [~, sup_i] = sort(mean(popul_data.neuron_srate_50(stim_idx, nr_sup), 1), 'descend');
+        [~, non_i] = sort(mean(popul_data.neuron_srate_50(stim_idx, nr_non), 1), 'descend');
+        act_i = nr_act(act_i);
+        sup_i = nr_sup(sup_i);
+        non_i = nr_non(non_i);
+
+        % Save the trial-averaged neuron firing rate
+        
+        pop_act_fr = popul_data.neuron_srate_50(:, act_i);
+        pop_non_fr = popul_data.neuron_srate_50(:, non_i);
+        pop_sup_fr = popul_data.neuron_srate_50(:, sup_i);
+
+        % Zscore all of the trial-averaged neuron firing rate
+        pop_act_fr = zscore(pop_act_fr, [], 1);
+        pop_non_fr = zscore(pop_non_fr, [], 1);
+        pop_sup_fr = zscore(pop_sup_fr, [], 1);
+
+        % Zscore the trial-averaged neuron fr using baseline mean and standard deviation
+        % Check for zero std
+        %if std(pop_act_fr(base_idx, :), 0, 1) == 0
+        %    pop_act_fr = (pop_act_fr - mean(pop_act_fr(base_idx, :), 1));
+        %else
+        %    pop_act_fr = (pop_act_fr - mean(pop_act_fr(base_idx, :), 1))./std(pop_act_fr(base_idx, :), 0, 1);
+        %end
+
+        %if std(pop_non_fr(base_idx, :), 0, 1) == 0
+        %    pop_non_fr = (pop_non_fr - mean(pop_non_fr(base_idx, :), 1));
+        %else
+        %    pop_non_fr = (pop_non_fr - mean(pop_non_fr(base_idx, :), 1))./std(pop_non_fr(base_idx, :), 0, 1);
+        %end
+        %
+        %if std(pop_sup_fr(base_idx, :), 0, 1) == 0
+        %    pop_sup_fr = (pop_sup_fr - mean(pop_sup_fr(base_idx, :), 1));
+        %else
+        %    pop_sup_fr = (pop_sup_fr - mean(pop_sup_fr(base_idx, :), 1))./std(pop_sup_fr(base_idx, :), 0, 1);
+        %end
+        
+
+        % Baseline subtract the fr data
+        pop_act_fr = pop_act_fr - mean(pop_act_fr(base_idx, :), 1);
+        pop_non_fr = pop_non_fr - mean(pop_non_fr(base_idx, :), 1);
+        pop_sup_fr = pop_sup_fr - mean(pop_sup_fr(base_idx, :), 1);
+
+        % Construct fr heatmap
+        fr_heatmap = pop_act_fr;
+        fr_heatmap = horzcat_pad(fr_heatmap, pop_non_fr);
+        fr_heatmap = horzcat_pad(fr_heatmap, pop_sup_fr)';
+
+        % Calculate the population average of each groups
+        act_fr_avg = mean(pop_act_fr, 2);
+        act_fr_sem = std(pop_act_fr, 0, 2)./sqrt(size(pop_act_fr, 2));
+        non_fr_avg = mean(pop_non_fr, 2);
+        non_fr_sem = std(pop_non_fr, 0, 2)./sqrt(size(pop_non_fr, 2));
+        sup_fr_avg = mean(pop_sup_fr, 2);
+        sup_fr_sem = std(pop_sup_fr, 0, 2)./sqrt(size(pop_sup_fr, 2));
+
+        
+
+        % Perform the plotting
+        figure('Position', [0, 0, 800, 1000]);
+        fontsize = 11;
+        tiledlayout(2, 1, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 4, 10, 20]);
+
+        % Plot the heatmap
+        nexttile;
+        timeline = mean(popul_data.trace_timestamps, 2);
+        imagesc('XData', timeline, 'YData', 1:size(fr_heatmap, 1), 'CData', fr_heatmap);
+        hold on;
+        yline(0.5 + [length(act_i), length(act_i) + length(non_i), length(act_i) + length(non_i) + length(sup_i)]);
+        hold on;
+        xline([0 1]);
+        hold on;
+        Multi_func.set_default_axis(gca);
+
+        %DEBUG
+        if display_names == 1
+            i=1;
+            for nr=[act_i, non_i, sup_i]
+                text(2.2, i, [num2str(popul_data.fr_mod_stats(nr).mod) ' '...
+                            popul_data.neuron_name{nr}], ...
+                            'Interpreter', 'none');
+                i = i+1;
+            end
+            xlim([-1, 4.5]);
+        else
+            xlim([min(timeline) - .01, max(timeline)]);
+        end
+        ylim([0.5 size(fr_heatmap, 1) + 0.5]);
+        xlabel('Time from onset (S)');
+
+
+        colormap(heatmap_color);
+        c = colorbar;
+        caxis([-5 5]);
+        c.Label.String = 'spike rate (z-scored)';
+
+        % Plot the population average for each group activated
+        nexttile;
+
+        fill_h = fill([timeline; flip(timeline)], ...
+                [non_fr_avg + non_fr_sem; flipud(non_fr_avg - non_fr_sem)], ...
+                Multi_func.non_color, 'HandleVisibility', 'off');
+        Multi_func.set_fill_properties(fill_h);
+
+        
+        fill_h.EdgeAlpha = 0;
+        hold on;
+        plot(timeline, non_fr_avg, 'DisplayName', 'Non-modulated', 'Color', Multi_func.non_color);
+        hold on;
+
+        fill_h = fill([timeline; flip(timeline)], ...
+                [act_fr_avg + act_fr_sem; flipud(act_fr_avg - act_fr_sem)], ...
+                Multi_func.act_color, 'HandleVisibility', 'off');
+        Multi_func.set_fill_properties(fill_h);
+        fill_h.EdgeAlpha = 0;
+        hold on;
+        plot(timeline, act_fr_avg, 'DisplayName', 'Activated', 'Color', Multi_func.act_color);
+        hold on;
+        
+        fill_h = fill([timeline; flip(timeline)], ...
+                [sup_fr_avg + sup_fr_sem; flipud(sup_fr_avg - sup_fr_sem)], ...
+                Multi_func.sup_color, 'HandleVisibility', 'off');
+        Multi_func.set_fill_properties(fill_h);
+
+        fill_h.EdgeAlpha = 0;
+        hold on;
+        plot(timeline, sup_fr_avg, 'DisplayName', 'Suppressed', 'Color', Multi_func.sup_color);
+        hold on;
+
+        Multi_func.set_default_axis(gca);
+        hold on;
+        xline([0 1], 'HandleVisibility', 'off');
+        legend();
+        sgtitle([f_region ' ' f_stim], 'Interpreter', 'none');
+        
+        % Set x-axis limits
+        if display_names == 0
+            xlim([-.7 2.05]);
+        end
+
+        % Save figure stuff
+        saveas(gcf, [figure_path 'Neuronwise/' f_region '_' f_stim '_' num2str(wind_dist) '_fr_mod_plots.png']);
+        saveas(gcf, [figure_path 'Neuronwise/' f_region '_' f_stim '_' num2str(wind_dist) '_fr_mod_plots.pdf']);
+    end
+end
+
+%% Calculate single cell PLV as well as shuffled distribution
+num_iter = 500; %TODO change to more
+wind_dist = 1000/1000; %ms
+% Loop through regions
+for f_region = fieldnames(region_data)'
+    f_region = f_region{1};
+    data_bystim = region_data.(f_region);
+    stims = fieldnames(data_bystim);
+
+    % Loop through stim frequencies
+    for f_stim = stims'
+        f_stim = f_stim{1};
+        popul_data = data_bystim.(f_stim);
+        
+        % Stim freq for PLV
+        plv_freq = str2num(erase(f_stim, 'f_'));
+        avg_Fs = mean(popul_data.framerate, 'omitnan');
+        plv_mod_stats = struct; %TODO add this part in the shuffle thing
+
+        figure('Position', [0, 0, 800, 1000]);
+        tiledlayout(length(popul_data.neuron_name), 2, 'TileSpacing', 'compact', 'Padding', 'compact');
+
+        for nr=1:length(popul_data.neuron_name)
+            nr_timeline = popul_data.trace_timestamps(:, nr);
+            base_idx = find(nr_timeline > 0 - wind_dist & nr_timeline < 0);
+            stim_idx = find(nr_timeline > 0 & nr_timeline < 0 + wind_dist);
+
+            filt_trial = @(trial) (angle(Multi_func.filt_data(trial, plv_freq, avg_Fs)));
+            
+            % Function that waits for a function and matrix and then returns a function waiting for a column value
+            applyFunToColi = @(func, mat) (@(col) func(mat(:, col)));
+            % Aply the filtering function with the whole trial matrix, so all is left is waiting for a column number
+            partial_apply = applyFunToColi(filt_trial, popul_data.all_trial_SubVm{nr});
+            % Iterate through each column trial and concatenate all o fthe results
+            vm_phases = arrayfun(partial_apply, [1:size(popul_data.all_trial_SubVm{nr}, 2)]' , 'UniformOutput', false); 
+            % 
+            vm_phases = cat(3, vm_phases{:});
+
+            % Calculate stimulation raster with dimensions of the whole trace
+            nr_stim_time = reshape(popul_data.stim_timestamps(:, nr), 1, []);
+            nr_frame_time = popul_data.trace_timestamps(:, nr);
+            diffs = abs(nr_stim_time - nr_frame_time);
+            [~, stim_idx_i] = min(diffs, [], 1);
+            
+            dbs_raster = zeros(size(nr_frame_time));
+            dbs_raster(stim_idx_i) = 1;
+            dbs_rasters = repmat(dbs_raster, 1, size(vm_phases, 3));
+
+            stim_rasters = zeros(size(dbs_rasters));
+            stim_rasters(stim_idx) = dbs_rasters(stim_idx);
+            
+            [PLV, PLV2, norm_vecs] = Multi_func.spike_field_PLV(vm_phases, stim_rasters, 0, 10);             
+            % Find the upper limit for randomization
+            filt_time = nr_frame_time(nr_stim_time(1) > nr_frame_time);
+            % Compute absolute differences
+            diffs = abs(filt_time - nr_stim_time(1));
+            % Find index of minimum difference in filtered_array
+            [minDiff, minIndex] = min(diffs);
+            % Find index of corresponding element in original array
+            last_index = find(nr_frame_time == filt_time(minIndex), 1);
+
+            % Shuffled PLV data
+            shuf_plv = [];
+            shuf_plv_adj = [];
+
+            % Shuffle the start of the dbs timepoints and recalculate the PLV
+            % Need to randomize where the DBS points are along the rasters
+            for i=1:num_iter
+                % Randomly select stim onset time
+                onset_rand = randi(last_index, 1, size(vm_phases, 3));
+                
+                % Reset the starting stim_idx for each trial and keep the spacing between indices the same
+                rand_stim_idx = repmat(stim_idx_i' - stim_idx_i(1), 1, size(vm_phases, 3)) + onset_rand;
+                col_ind_mat = repmat(1:size(rand_stim_idx, 2), size(rand_stim_idx, 1), 1);
+                stim_rasters = zeros(size(dbs_rasters));   
+                stim_rasters(sub2ind(size(stim_rasters),...
+                                     rand_stim_idx(:),...
+                                     col_ind_mat(:))) = 1;
+            
+                % Using randomized randomized stim rasters, calculate the PLVs
+                %TODO
+                
+                [sh_PLV, sh_PLV2, norm_vecs] = Multi_func.spike_field_PLV(vm_phases, stim_rasters, 0, 10);            
+                shuf_plv(end + 1) = sh_PLV;
+                shuf_plv_adj(end + 1) = sh_PLV2;
+            end
+        
+            % Calculate the 95th percentile
+            high_prc = prctile(shuf_plv_adj, 95);
+
+            % Plot the trial-averaged Vm
+            nexttile;
+            plot(nr_timeline, popul_data.neuron_Vm(:, nr));
+
+            % plot the shuffled distribution
+            nexttile;
+            histogram(shuf_plv_adj, 1000);
+            hold on;
+            xline(high_prc, '-b');
+            hold on;
+            Multi_func.set_default_axis(gca);
+            
+            % Check if significant
+            if PLV2 > high_prc
+                xline(PLV2, '-g');
+            else
+                xline(PLV2, '-r');
+            end
+            
+            sgtitle([f_region ' ' f_stim], 'Interpreter', 'none');
+
+        end %neuron loop
+    end % Stim freq loop
+end % Region loop
+
