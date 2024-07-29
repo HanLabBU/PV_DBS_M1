@@ -11,6 +11,7 @@ classdef Multi_func
         % Specify the theta range use for filtering stuff
         theta_range = [2 10];
         theta_frequencies = [2:10];
+        entr_freqs = [1:200];
 
         % Specify the transient and sustained time period
         trans_ped = [0, 100];
@@ -34,6 +35,11 @@ classdef Multi_func
         ca1_color = [0.8500 0.3250 0.0980];
         m1_color = [0 0.4470 0.7410];
         v1_color = [106, 189, 69]/255;
+
+        % Colors for activated, non-modulated, suppressed
+        sup_color = [0 119 182]/255;
+        non_color = [0 0 0]/255;
+        act_color = [214 40 40]/255;
 
         % Colors for shuffled data
         shuf_color = [92, 161, 255]/255;
@@ -265,7 +271,7 @@ classdef Multi_func
 
         % Calculate cwt for input signal and 
         function [wt, f] = get_power_spec(signal, samp_freq)
-            freqLimits = [0 150];
+            freqLimits = [0 200];
             fb = cwtfilterbank(SignalLength=length(signal),...
                                SamplingFrequency=samp_freq,...
                                FrequencyLimits=freqLimits);
