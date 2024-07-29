@@ -19,7 +19,7 @@ server_root_path = '~/handata_server/';
 %data_path = [server_root_path 'EricLowet' f 'DBS' f 'github' f 'DBS_volt_data_github'];
 data_path = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'CA1_Data' f];
 
-exclude_200ms = 0;
+exclude_200ms = 1;
 
 % Parameters for frames to chop off
 if ~exclude_200ms
@@ -36,7 +36,6 @@ back_frame_drop = 2496;
 save_all_data_file = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Interm_Data' f 'pv_data_ex200.mat'];
 
 %Variables to differentiate between the larger and finer resolution of spike rate
-%TODO may need to change variable names and add finer resolutions
 srate_win_100 = 100;
 srate_win_50 = 50;
 srate_win_20 = 20;
@@ -80,7 +79,7 @@ for f_region = regions'
     % Store all of the calculated sampling frequencies
 
     % Loop through each stimulation condition
-    for f_stim = fieldnames(matfile_stim)' %stim_conditions
+    for f_stim = stim_conditions %fieldnames(matfile_stim)' %
         f_stim = f_stim{1};
 
         % Initialize field subthreshold array
@@ -110,6 +109,8 @@ for f_region = regions'
         data_bystim.(f_stim).neuron_spec_power = [];
         data_bystim.(f_stim).neuron_spec_freq = [];
         data_bystim.(f_stim).neuron_hilbfilt = {};
+        data_bystim.(f_stim).all_trial_power_spec = {};        
+        data_bystim.(f_stim).all_trial_spec_freq = {};        
 
         % Store transient information    
         data_bystim.(f_stim).neuron_trans_Vm = [];      
@@ -223,7 +224,7 @@ for f_region = regions'
                     cur_fov_subVm = horzcat_pad(cur_fov_subVm, detrend_subVm');
 
                     % Grab hilbert transform coefficients
-                    [filt_sig] = filt_data(detrend_subVm', [1:1:150], mean(cur_fov_Fs));
+                    [filt_sig] = filt_data(detrend_subVm', [1:1:200], mean(cur_fov_Fs));
                     cur_fov_hilbfilt(:, :, end + 1) = filt_sig;
 
                     % Grab the spike idxs
@@ -459,6 +460,10 @@ for f_region = regions'
             temp = data_bystim.(f_stim).neuron_spec_freq;   
             data_bystim.(f_stim).neuron_spec_freq = cat(3, temp, mean(cur_fov_f, 3, 'omitnan'));
 
+            % Add individual power spectra data
+            data_bystim.(f_stim).all_trial_power_spec{end + 1} = cur_fov_wt;
+            data_bystim.(f_stim).all_trial_spec_freq{end + 1} = cur_fov_f;
+
             % Save the hilbert frequency data
             cur_fov_hilbfilt(:, :, 1) = []; % Remove empty first element
             data_bystim.(f_stim).neuron_hilbfilt{end + 1} = cur_fov_hilbfilt;
@@ -472,7 +477,6 @@ end
 
 %% Save CA1 data to matfile
 
-%TODO append this to the interm pv datapath to include CA1 region
 % Check first if the matfile exists
 if isfile(save_all_data_file)
     data = load(save_all_data_file);
@@ -484,7 +488,7 @@ if isfile(save_all_data_file)
 else
     save_all_data_file = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Interm_Data' f 'ca1_data.mat'];
 end
-save([save_all_data_file], 'region_data', '-v7.3');
+%save([save_all_data_file], 'region_data', '-v7.3');
 
 %%
 
@@ -513,7 +517,7 @@ end
 
 % Calculate cwt for input signal and 
 function [wt, f] = get_power_spec(signal, samp_freq)
-    freqLimits = [0 150];
+    freqLimits = [0 200];
     fb = cwtfilterbank(SignalLength=length(signal),...
                        SamplingFrequency=samp_freq,...
                        FrequencyLimits=freqLimits);
