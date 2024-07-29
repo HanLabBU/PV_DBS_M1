@@ -30,21 +30,41 @@ ignore_trial_dict = Multi_func.csv_to_struct([local_root_path 'Pierre Fabris' f 
 % Parameter to determine whether to combine all regions as one data
 all_regions = 0;
 
+exclude_200ms = 1;
+
 % Flag for neurons that have the low frequency oscillations
 sep_neurons_by_freq = 0;
 use_low_freq = 1; % 1 to calculate itc for low freq neurons
 
 %% Read in the saved pv data and perform analysis
-save_all_data_file = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Interm_Data' f 'pv_data.mat'];
+if ~isfolder(server_root_path)
+    disp('Server rootpath does not exist!!!');
+    return;
+end
+
+% Read in the saved pv data and perform analysis
+if ~exclude_200ms
+    save_all_data_file = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Interm_Data' f 'pv_data.mat'];
+else
+    save_all_data_file = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Interm_Data' f 'pv_data_ex200.mat'];
+    %save_all_data_file = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Interm_Data' f 'ca1_data.mat'];
+end
 %Load the data
 load(save_all_data_file);
 
+% -- Depracated --
 % Check if combining all of the regions or not
+%if all_regions == 1
+%    region_data = Multi_func.combine_regions_old(region_data);
+%end
+
 if all_regions == 1
     region_data = Multi_func.combine_regions(region_data);
 end
 
-disp('Finished Loading');
+field1 = fieldnames(region_data);
+field1 = field1(1);
+avg_Fs = mean(region_data.(field1{1}).f_40.framerate, 'omitnan');
 
 %% Identify low frequency oscillations
 if sep_neurons_by_freq == 1
@@ -73,7 +93,7 @@ for f_region = fieldnames(region_data)'
         
         % Specify timepoints within trial
         timeline = nanmean(region_data.(f_region).(f_stim).trace_timestamps, 2);
-        post_ran_idx = find(timeline >= 1 & timeline <= 1.5);
+        post_ran_idx = find(timeline >= 1 & timeline <= 1.5); %TODO should use a shared variable across whole script
         base_idx = find(timeline < 0);
 
         % Store each neuron's base and post stimulation ITC for comparison
@@ -223,6 +243,96 @@ for f_region = fieldnames(region_data)'
     saveas(gcf, [figure_path 'ITC/Base_vs_Post_ITC_for_' title_ext '_' f_region '.pdf']);
 
 end
+
+%TODO perform statistical test between each group for each condition
+
+%% Calculate shuffled distribution of offset times with ITC
+num_shuf = 500;
+wind_oi = 500;
+% Ensure to change the offset time between onset to end of trial-(itc period calculation)
+for f_region = fieldnames(region_data)'
+    f_region = f_region{1};
+    data_bystim = region_data.(f_region);
+
+    stims = fieldnames(data_bystim);
+
+    % Loop through stimulation frequencies
+    for f_stim=stims'
+        f_stim = f_stim{1};
+        popul_data = data_bystim.(f_stim);
+
+        figure('Position', [0, 0, 750, 2000]);
+        tiledlayout(length(popul_data.trial_num), 2, 'TileSpacing', 'tight', 'Padding', 'tight');
+
+        % Loop through each neuron
+        for nr=1:length(popul_data.trial_num)
+            timeline = popul_data.trace_timestamps(:, nr);
+            post_stim_idx = find(timeline >= 1 & timeline <= 1.5);
+            
+            nr_coeffs = popul_data.neuron_hilbfilt{nr};
+
+            % Shuffled post-stim ITC
+            shuf_itc = [];
+            
+            % loop through and shuffle the offset time for each trial and calculate the post_itc
+            for i=1:num_shuf
+                shuf_tr_coeff = [];
+                %loop through each trial
+                for tr=1:popul_data.trial_num(nr)
+                    % Grab the stim onset to max post-stim offset period
+                    stim_onset_range = [find(timeline == 0), length(timeline) - wind_oi ];
+                    rand_start = randi(stim_onset_range, 1);
+                    rand_range = rand_start:rand_start + wind_oi;
+
+                    shuf_tr_coeff(:, :, end+1) = nr_coeffs(:, rand_range, tr);
+                end
+                
+                % Remove the initial trial
+                shuf_tr_coeff(:, :, 1) = [];
+                
+                % Calculate shuffled trial ITC
+                itc_wind_map = abs(mean(shuf_tr_coeff./abs(shuf_tr_coeff), 3, 'omitnan'));
+                shuf_itc(end + 1) = mean(itc_wind_map(freq_idx, :), 'all');
+            end
+            
+            % Caluclate the acual post-stim ITC
+            itc_map = abs(mean(nr_coeffs./abs(nr_coeffs), 3, 'omitnan'));
+            obs_post_itc = mean(itc_map(freq_idx, post_stim_idx), 'all');
+
+            % Plot the shuffled distribution
+            nexttile;
+            high_prc = prctile(shuf_itc(:), 97.5);
+            low_prc = prctile(shuf_itc(:), 2.5);
+            
+            histogram(shuf_itc, 1000);
+            hold on;
+            xline([low_prc, high_prc], '-b');
+            hold on;
+            
+            Multi_func.set_default_axis(gca);
+
+            % If observed is higher make the line green, otherwise
+            %within distribution just make it red
+            if obs_post_itc > high_prc
+                xline(obs_post_itc, '-g');
+            else
+                xline(obs_post_itc, '-r');
+            end
+
+            % Plot the subvm heatmap
+            nexttile;
+            imagesc('XData', timeline, 'YData', 1:popul_data.trial_num(nr), 'CData',...
+                popul_data.all_trial_rawVm{nr}');
+
+            Multi_func.set_default_axis(gca);
+        end
+
+        sgtitle([f_region ' ' f_stim], 'Interpreter', 'none');
+        saveas(gcf, [figure_path 'ITC/Shuffled_histogram_' f_region '_' f_stim '.png']);
+    end
+end
+
+
 
 %% Calculate all of the ITCs for 40Hz M1 region neurons, and sort by the post ITRC  
 f_region = 'r_M1';
