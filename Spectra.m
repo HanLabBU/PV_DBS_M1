@@ -1,3 +1,5 @@
+clc;
+clear all;
 close all;
 f = filesep;
 
@@ -48,130 +50,9 @@ if ~isfolder(local_root_path)
     return;
 end
 
-%ses = dir([pv_data_path '*.mat']);
-%
-%all_matfiles = {ses.name};
-%
-%% Select matfiles by brain region
-%[region_matfiles] = Multi_func.find_region(all_matfiles);
-%region_data = struct();
-%all_Fs = [];
-%for f_region = fieldnames(region_matfiles)'
-%    f_region = f_region{1};
-%
-%    %% Select matfiles by stim specific conditions for all regions
-%    %[matfile_stim] = stim_cond(all_matfiles); 
-%    %% Select matfiles by stim condition for given region
-%    [matfile_stim] = stim_cond(region_matfiles.(f_region).names);
-%
-%    %% Loop through each field of the struct and concatenate everything together
-%    % Store trace aspect data by each individual stimulation condition
-%    data_bystim = struct();
-%    % Store all of the calculated sampling frequencies
-%
-%    % Loop through each stimulation condition
-%    for f_stim = fieldnames(matfile_stim)'
-%        f_stim = f_stim{1};
-%        matfiles = matfile_stim.(f_stim).names;    
-%    
-%        % Initialize field subthreshold array
-%        data_bystim.(f_stim) = struct();
-%        data_bystim.(f_stim).neuron_Vm = [];
-%        data_bystim.(f_stim).neuron_spec_power = [];
-%        data_bystim.(f_stim).neuron_spec_freq = [];
-%        data_bystim.(f_stim).stim_timestamps = [];
-%        data_bystim.(f_stim).trace_timestamps = [];
-%
-%        % Loop through each matfile of the current stimulation condition
-%        for matfile = matfiles
-%            % Read in the mat file of the current condition
-%            data = load([pv_data_path matfile{1}]);
-%            trial_idxs = find(~cellfun(@isempty, data.align.trial));
-%            trial_data = data.align.trial{trial_idxs(1)};    
-%            cur_fov_Fs = [];
-%            cur_fov_subVm = [];
-%            cur_fov_stim_time = [];
-%            cur_fov_trace_time = [];
-%
-%            % Loop through each ROI
-%            for roi_idx=1:size(trial_data.detrend_traces, 2)
-%                %Determine whether this roi is to be ignored for this particular trial
-%                ri = strsplit(matfile{1}, '_');
-%                try
-%                    trial_ignr_list = ignore_trial_dict.(['mouse_' ri{1}]).(['rec_' erase(ri{3}, 'rec')]).(ri{4}).(['f_' ri{5}]).(['ROI' num2str(roi_idx)]);
-%                catch
-%                    trial_ignr_list = [];
-%                end
-%        
-%                % Remove ignored trials from trial idx list
-%                trial_idxs = setdiff(trial_idxs, trial_ignr_list);
-%
-%                % Skip ROI if there are at most 2 trials
-%                if length(trial_idxs) <= 2
-%                    continue;
-%                end
-%
-%                % Loop through each trial                
-%                for tr_idx=trial_idxs        
-%                    trial_data = data.align.trial{tr_idx};
-%                    raw_trial_data = data.raw.trial{tr_idx};
-%
-%                    % Store the camera framerate
-%                    all_Fs(end+1) = trial_data.camera_framerate;
-%                    cur_fov_Fs(end + 1) = trial_data.camera_framerate;
-%
-%                    % Grab the subthreshold Vm
-%                    % Chop the respective frames
-%                    cur_trace_ws = trial_data.spike_info375.trace_ws(roi_idx, front_frame_drop:back_frame_drop);
-%                    [baseline, coeff] = Multi_func.exp_fit_Fx(cur_trace_ws', round(trial_data.camera_framerate));
-%                    detrend_subVm = cur_trace_ws - baseline;
-%                    cur_fov_subVm = horzcat_pad(cur_fov_subVm, detrend_subVm');
-%
-%                    % Store all of the timestamp info
-%                    stim_start = raw_trial_data.raw_stimulation_time(1);
-%                    cur_fov_stim_time = horzcat_pad(cur_fov_stim_time, raw_trial_data.raw_stimulation_time - stim_start);
-%                    cur_fov_trace_time = horzcat_pad(cur_fov_trace_time, trial_data.camera_frame_time(front_frame_drop:back_frame_drop) - stim_start);
-%                    % DEBUG
-%                    if max(cur_fov_trace_time(:, end)) < 2
-%                        stim_trace_sz = size(cur_fov_stim_time)
-%                        trace_time_sz = size(cur_fov_trace_time)
-%                        pause;
-%                        matfile{1}
-%                    end
-%                end % End looping through each neuron
-%            end
-%            
-%            % Skip rest of the calculations if the subthreshold Vm is nan
-%            if sum(isnan(cur_fov_subVm(:))) > 0 || isempty(cur_fov_subVm)
-%                continue;
-%            end
-%
-%            % Average for each neuron and save the subthreshold Vm
-%            temp = data_bystim.(f_stim).neuron_Vm;
-%            data_bystim.(f_stim).neuron_Vm = horzcat_pad(temp, nanmean(cur_fov_subVm, 2));
-%            % Store the timestamp data
-%            temp = data_bystim.(f_stim).stim_timestamps;
-%            data_bystim.(f_stim).stim_timestamps = horzcat_pad(temp, nanmean(cur_fov_stim_time, 2));
-%            temp = data_bystim.(f_stim).trace_timestamps;
-%            data_bystim.(f_stim).trace_timestamps = horzcat_pad(temp, nanmean(cur_fov_trace_time, 2));
-%            
-%            % Calculate and save frequency data
-%            [wt, f] = get_power_spec(nanmean(cur_fov_subVm, 2)', nanmean(cur_fov_Fs));
-%            temp = data_bystim.(f_stim).neuron_spec_power;
-%            data_bystim.(f_stim).neuron_spec_power = cat(3, temp, wt);
-%            temp = data_bystim.(f_stim).neuron_spec_freq;   
-%            data_bystim.(f_stim).neuron_spec_freq = cat(3, temp, f);
-%
-%        end % End looping through FOVs of a condition
-%    end
-%
-%    % Save the VM to the specific region
-%    region_data.(f_region).data_bystim = data_bystim;
-%end
-
 % Read in the saved pv data and perform analysis
-%save_all_data_file = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Interm_Data' f 'pv_data_ex200.mat'];
-save_all_data_file = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Interm_Data' f 'ca1_data.mat'];
+save_all_data_file = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Interm_Data' f 'pv_data_ex200.mat'];
+%save_all_data_file = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Interm_Data' f 'ca1_data.mat'];
 %Load the data
 load(save_all_data_file);
 
@@ -196,7 +77,7 @@ for f_region = fieldnames(region_data)'
     data_bystim = region_data.(f_region);
     stims = fieldnames(data_bystim);
     figure('visible', 'on', 'Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
-    tiledlayout(1, length(stims), 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [1, 10, 16.62, 2.26]);
+    tiledlayout(1, length(stims), 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [1, 10, 16.62, 4]); % ORiginal [1, 10, 16.62, 2.26]);
     % Loop through each stimulation parameter
     for f_stim=stims'
         f_stim = f_stim{1};
@@ -231,7 +112,7 @@ for f_region = fieldnames(region_data)'
         colormap(jet*.8);
         % Add DBS bar
         hold on;
-        Multi_func.plot_dbs_bar([0, 1], 155, '');
+        Multi_func.plot_dbs_bar([0, 1], 205, '');
 
         caxis([-0.4 0.4]);
         
@@ -529,7 +410,7 @@ for f_region = fieldnames(region_data)'
         hold on;
         plot(freqs, avg_offset_trans, '-', 'DisplayName', 'Offset Transient');
         hold on;
-        plot(1:150, repmat(0, 150, 1), '-k', 'HandleVisibility','off');
+        plot(1:200, repmat(0, 200, 1), '-k', 'HandleVisibility','off');
         legend('Location','eastoutside');
         
         % Format and label axes
@@ -640,7 +521,7 @@ end
 %% Functin to calculate the power spectra
 % Calculate cwt for input signal and 
 function [wt, f] = get_power_spec(signal, samp_freq)
-    freqLimits = [0 150];
+    freqLimits = [0 200];
     fb = cwtfilterbank(SignalLength=length(signal),...
                        SamplingFrequency=samp_freq,...
                        FrequencyLimits=freqLimits);
