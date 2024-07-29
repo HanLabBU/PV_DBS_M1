@@ -75,7 +75,7 @@ surg_date_dict.m_31556noeartag = '20220819';
 surg_date_dict.m_50373 = '20230621';
 surg_date_dict.m_50464 = '20230308';
 surg_date_dict.m_60430 = '20220901'; % Should be excluded
-surg_date_dict.m_81631 = '20240508'; % Should be excluded
+surg_date_dict.m_81631 = '20230508'; % Should be excluded
 surg_date_dict.m_617100 = ''; % Do not have cage card unfortunately
 
 
@@ -132,6 +132,8 @@ for f_region = fieldnames(region_matfiles)'
         data_bystim.(f_stim).neuron_spec_power = [];
         data_bystim.(f_stim).neuron_spec_freq = [];
         data_bystim.(f_stim).neuron_hilbfilt = {};
+        data_bystim.(f_stim).all_trial_power_spec = {};        
+        data_bystim.(f_stim).all_trial_spec_freq = {};        
 
         % Store transient information    
         data_bystim.(f_stim).neuron_trans_Vm = [];      
@@ -264,7 +266,7 @@ for f_region = fieldnames(region_matfiles)'
                     cur_roi_subVm = horzcat_pad(cur_roi_subVm, detrend_subVm');
 
                     % Grab hilbert transform coefficients
-                    [filt_sig] = Multi_func.filt_data(detrend_subVm', [1:1:150], mean(cur_roi_Fs));
+                    [filt_sig] = Multi_func.filt_data(detrend_subVm', [1:1:200], mean(cur_roi_Fs));
                     cur_roi_hilbfilt(:, :, end + 1) = filt_sig;
 
                     % Grab the spike idxs
@@ -516,6 +518,10 @@ for f_region = fieldnames(region_matfiles)'
                 temp = data_bystim.(f_stim).neuron_spec_freq;   
                 data_bystim.(f_stim).neuron_spec_freq = cat(3, temp, mean(cur_roi_f, 3));
 
+                % Add individual power spectra data
+                data_bystim.(f_stim).all_trial_power_spec{end + 1} = cur_roi_wt;
+                data_bystim.(f_stim).all_trial_spec_freq{end + 1} = cur_roi_f;
+
                 % Save the hilbert frequency data
                 cur_roi_hilbfilt(:, :, 1) = []; % Remove empty first element
                 data_bystim.(f_stim).neuron_hilbfilt{end + 1} = cur_roi_hilbfilt;
@@ -543,12 +549,13 @@ if isfile(save_all_data_file)
             region_data.(field) = data.region_data.(field);
         end
     end
-    save([save_all_data_file], 'region_data', '-v7.3');
 end
+
+save([save_all_data_file], 'region_data', '-v7.3');
 
 % Calculate cwt for input signal and 
 function [wt, f] = get_power_spec(signal, samp_freq)
-    freqLimits = [0 150];
+    freqLimits = [0 200];
     fb = cwtfilterbank(SignalLength=length(signal),...
                        SamplingFrequency=samp_freq,...
                        FrequencyLimits=freqLimits);
