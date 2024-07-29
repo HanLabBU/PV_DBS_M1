@@ -193,6 +193,160 @@ saveas(gcf, [savepath 'Current/' '2d_currents_by_region_frequency.pdf']);
 % Try to reuse as much as possible from the top figure plotting
 %% Generates a 3D plot of the mouse current stuff
 
+%% Plot a similar plot as above, but a linear regression for all points in each condition
+% I will have 4 plots where I overlay the points for each group together
+% For example, top row will be 140Hz one panel and 40Hz on the other panel.
+% Both brain regions are plotted in each panel
+% Bottom row is the same idea, but with each panel being a unique brain region
+% Mouse information will not be preserved here
+
+%Specify a color based on 
+color_dict.r_M1 = 'g';
+color_dict.r_V1 = 'm';
+color_dict.f_40 = 'b';
+color_dict.f_140 = 'r';
+
+figure('Position', [0 0 1000 800])
+
+tiledlayout(2, 2, 'TileSpacing', 'compact', 'Padding', 'compact');
+% Loop through regions
+for f_region = fieldnames(region_data)'
+    f_region = f_region{1};
+    data_bystim = region_data.(f_region);
+    stims = fieldnames(data_bystim);
+
+    % Loop through stim frequencies
+    for f_stim = stims'
+        f_stim = f_stim{1};
+        popul_data = data_bystim.(f_stim);
+        
+        nrs_pts = [];
+        days_amp_map = [];
+        % Loop through each neuron
+        for nr=1:length(popul_data.neuron_name)
+            tokens = regexp(popul_data.neuron_name{nr}, '_', 'split');
+            
+            % Grab surgery date
+            surg_date = popul_data.surgery_date.(['m_' tokens{1}]);
+            if isempty(surg_date)
+                continue;
+            end
+
+            % Grab imaging date
+            tokens{3} = erase(tokens{3}, 'rec');
+
+            surg_date = datetime(surg_date, 'InputFormat', 'yyyyMMdd');
+            img_date = datetime(tokens{3}, 'InputFormat', 'yyyyMMdd');
+
+            days_from_surg = days(img_date - surg_date);
+
+            % Parse out the current amperage
+            fov_i = find(contains(tokens, 'FOV') == 1);
+            amp_i = fov_i + 2;
+            if contains(tokens{amp_i}, '.') == 1
+                amp_str = regexp(tokens{amp_i}, '\.', 'split');
+                amp_str = amp_str{1};
+            else
+                amp_str = tokens{amp_i};
+            end
+            
+            amp = str2num(amp_str);
+
+            % Add brain region data
+            nrs_pts(:, end + 1) = [days_from_surg; amp];
+
+            % Increment the marker size for repeated points
+            if size(days_amp_map, 1) < days_from_surg | size(days_amp_map, 2) < amp
+                days_amp_map(days_from_surg, amp) = 1;
+            else
+                days_amp_map(days_from_surg, amp) = ...
+                    1 + days_amp_map(days_from_surg, amp);
+            end
+
+            % plot point in respective panel
+        
+            % Add points to respective plots
+            if strcmp(f_region, 'r_M1') == 1
+                nexttile(1);
+            elseif strcmp(f_region, 'r_V1') == 1
+                nexttile(2);
+            end
+
+            % Perform plotting for the brain region
+            hold on;
+            plot(days_from_surg, amp, [color_dict.(f_stim) '.'], 'MarkerSize',...
+                10 + 1.5*days_amp_map(days_from_surg, amp));
+            
+            if strcmp(f_stim, 'f_40') == 1
+                nexttile(4);
+            elseif strcmp(f_stim, 'f_140') == 1
+                nexttile(3);
+            end
+
+            % Perform plotting for the stimulation frequency
+            hold on;
+            plot(days_from_surg, amp, [color_dict.(f_region) '.'], 'MarkerSize',...
+                10 + 1.5*days_amp_map(days_from_surg, amp));
+
+        end
+
+        % Perform regression on each group of plots
+        fit_results = polyfit(nrs_pts(1, :), nrs_pts(2, :), 1);
+        fit_y = polyval(fit_results, nrs_pts(1, :));
+        pearson_coeff = corrcoef(nrs_pts(1, :), nrs_pts(2, :));
+
+
+        % Add points to respective plots
+        if strcmp(f_region, 'r_M1') == 1
+            nexttile(1);
+        elseif strcmp(f_region, 'r_V1') == 1
+            nexttile(2);
+        end
+
+        % Perform plotting for the brain region
+        hold on;
+        plot(nrs_pts(1, :), fit_y, [color_dict.(f_stim) '-']);
+        hold on;
+        text(450, max(nrs_pts(2, :))/2 - 10,...
+            [f_stim ' ' num2str(pearson_coeff(1, 2))], ...
+            'Interpreter', 'none', 'Color', color_dict.(f_stim));
+        xlim([0 500]);
+        ylim([0 350]);
+        Multi_func.set_default_axis(gca);
+
+        if strcmp(f_stim, 'f_40') == 1
+            nexttile(4);
+        elseif strcmp(f_stim, 'f_140') == 1
+            nexttile(3);
+        end
+
+        % Perform plotting for the stimulation frequency
+        hold on;
+        plot(nrs_pts(1, :), fit_y, [color_dict.(f_region) '-']);
+        hold on;
+        text(450, max(nrs_pts(2, :))/2 - 10,...
+            [f_region ' ' num2str(pearson_coeff(1, 2))], ...
+            'Interpreter', 'none', 'Color', color_dict.(f_region));
+        xlim([0 500]);
+        ylim([0 350]);
+        Multi_func.set_default_axis(gca);
+
+    end
+end
+
+nexttile(1);
+title('M1 Neurons');
+nexttile(2);
+title('V1 Neurons');
+nexttile(3);
+title('140Hz neurons');
+nexttile(4);
+title('40Hz neurons');
+
+
+saveas(gcf, [savepath 'Current/' 'by_condition_currents.png']);
+saveas(gcf, [savepath 'Current/' 'by_condition_currents.pdf']);
+
 %%
 
 all_currents = [];
