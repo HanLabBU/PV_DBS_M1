@@ -211,6 +211,13 @@ saveas(gcf, [figure_path 'Small_Res' f 'Onset_Overlay_Fr.png']);
 saveas(gcf, [figure_path 'Small_Res' f 'Onset_Overlay_Fr.pdf']);
 
 %% Sub Vm pulse-triggered averaged across all pulses
+
+% Flag to determine which populations to plot
+% The variable must be set from 'single_cell_mod'
+%nr_pop = 'all';
+nr_pop = 'etrain';
+%nr_pop = 'non';
+
 vm_trig_avg_time = struct();
 stats_log = [figure_path 'Small_Res' f 'Vm_pulse_triggered_time_to_final_average'];
 if exist(stats_log), delete(sprintf('%s', stats_log)), end;
@@ -221,22 +228,50 @@ for f_region = fieldnames(region_data)'
     data_bystim = region_data.(f_region);
     stims = fieldnames(data_bystim);
     
-    figure('Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
-    tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 20, 3.62, 5.16]);
+    % Set up all of the figures
+    all_pulse_fig = figure('Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
+    all_tt = tiledlayout(all_pulse_fig, length(stims), 3, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 20, 3*3.62, 5.16]);
+    
+    tilenum = 1;
+
     for f_stim=stims'
         f_stim = f_stim{1};
-        all_pulse_vm_by_neuron = cell(size(data_bystim.(f_stim).neuron_Vm, 2), 1);
+        popul_data = data_bystim.(f_stim);
+
+        % Check if there is an entrained field in the population data
+        try
+            switch nr_pop
+                case 'etrain'
+                    nr_idxs = find([popul_data.plv_mod_stats.mod] > 0);
+                case 'non'
+                    nr_idxs = find([popul_data.plv_mod_stats.mod] < 0);
+                case 'all'
+                    nr_idxs = 1:length(popul_data.plv_mod_stats);
+            end
+        catch ME
+            disp(ME.message);
+        end
+        
+        num_neurons = length(nr_idxs);
+
+        all_pulse_vm_by_neuron = cell(num_neurons, 1);
         all_pulse_vm = [];
-        norm_vms = data_bystim.(f_stim).neuron_Vm./data_bystim.(f_stim).neuron_spike_amp;
+        norm_vms = popul_data.neuron_Vm(:, nr_idxs)./popul_data.neuron_spike_amp(nr_idxs);
         all_pulse_trace_width = [];
         all_pulse_width_time = [];
 
+        % Save the pulse data for transient and sustained period  
+        trans_pulse_vm = [];
+        trans_pulse_vm_by_neuron = cell(num_neurons, 1);
+        sus_pulse_vm = [];
+        sus_pulse_vm_by_neuron = cell(num_neurons, 1); 
+
         % Looping through each neuron
-        for nr = 1:size(data_bystim.(f_stim).neuron_Vm, 2)
+        for nr = nr_idxs
             
             % Calculate the number of trace idxs between pulses
-            nr_avg_pulse_width_time = mean(diff(data_bystim.(f_stim).stim_timestamps(:, nr) ), 'omitnan');
-            nr_avg_trace_time = mean(diff(data_bystim.(f_stim).trace_timestamps(:, nr) ), 'omitnan');
+            nr_avg_pulse_width_time = mean(diff(popul_data.stim_timestamps(:, nr) ), 'omitnan');
+            nr_avg_trace_time = mean(diff(popul_data.trace_timestamps(:, nr) ), 'omitnan');
             trace_width = ceil(nr_avg_pulse_width_time./nr_avg_trace_time);
         
             all_pulse_trace_width = horzcat_pad(all_pulse_trace_width, trace_width(:));
@@ -246,8 +281,8 @@ for f_region = fieldnames(region_data)'
             %trace_width = 21;
 
             % Loop through each stimulation time pulses
-            for pulse_time = data_bystim.(f_stim).stim_timestamps(:, nr)'
-                follow_trace_idx = find(pulse_time <= data_bystim.(f_stim).trace_timestamps(:, nr));
+            for pulse_time = popul_data.stim_timestamps(:, nr)'
+                follow_trace_idx = find(pulse_time <= popul_data.trace_timestamps(:, nr));
                 
                 start_trace_idx = follow_trace_idx(1) - extra_trace;
                 
@@ -267,12 +302,38 @@ for f_region = fieldnames(region_data)'
                 % Store all of the Vm pulses per neuron preserving relative stimulation period shapes
                 all_pulse_vm_by_neuron{nr} = horzcat_pad(all_pulse_vm_by_neuron{nr}, Vm_pulse_width');
 
+                % Store windows depending on period of pulse
+                %Transient pulse
+                if pulse_time >= Multi_func.trans_ped(1)/1000 & pulse_time < Multi_func.trans_ped(2)/1000
+                    trans_pulse_vm_by_neuron{nr} = horzcat_pad(trans_pulse_vm_by_neuron{nr},...
+                        Vm_pulse_width');
+                end
+
+                %Sustained pulse
+                if pulse_time >= Multi_func.sus_ped(1)/1000 & pulse_time < Multi_func.sus_ped(2)/1000
+                    sus_pulse_vm_by_neuron{nr} = horzcat_pad(sus_pulse_vm_by_neuron{nr},...
+                        Vm_pulse_width');
+                end
+
                 % Subtract from the pulse onset
                 Vm_pulse_width = norm_vms(start_trace_idx:end_trace_idx, nr) ...
                     - norm_vms(start_trace_idx + extra_trace, nr);
 
                 % Store all of the onset subtracted Vm pulses in one array
                 all_pulse_vm = horzcat_pad(all_pulse_vm, Vm_pulse_width);
+
+                % Store onset SUBTRACTED windows depending on period of pulse
+                %Transient pulse
+                if pulse_time >= Multi_func.trans_ped(1)/1000 & pulse_time < Multi_func.trans_ped(2)/1000
+                    trans_pulse_vm = horzcat_pad(trans_pulse_vm,...
+                        Vm_pulse_width);
+                end
+                
+                %Sustained pulse
+                if pulse_time >= Multi_func.sus_ped(1)/1000 & pulse_time < Multi_func.sus_ped(2)/1000
+                    sus_pulse_vm = horzcat_pad(sus_pulse_vm,...
+                        Vm_pulse_width);
+                end
             end
         end
         
@@ -281,6 +342,7 @@ for f_region = fieldnames(region_data)'
         region_data.(f_region).(f_stim).all_pulse_trace_width = all_pulse_trace_width;
         region_data.(f_region).(f_stim).all_pulse_width_time = all_pulse_width_time;
 
+        % -- Plotting the whole period pulse average
         cur_subVm = mean(all_pulse_vm, 2, 'omitnan');
         std_subVm = std(all_pulse_vm, 0, 2, 'omitnan');
         
@@ -288,7 +350,8 @@ for f_region = fieldnames(region_data)'
         num_pulses = size(all_pulse_vm, 2)
         %num_points = size(data_bystim.(f_stim).neuron_subVm, 1);
         sem_subVm = std_subVm./sqrt(num_pulses);
-        nexttile;
+        
+        nexttile(all_tt, tilenum);
         
         % Use the average trace framerate to calculate the timelinefigure_path = [server_root_path 'Pierre Fabris' f 'PV Project' f 'Plots' f];
         timeline = [ [0:size(all_pulse_vm, 1) - 1] - extra_trace]*1000./avg_Fs;
@@ -298,57 +361,91 @@ for f_region = fieldnames(region_data)'
         hold on;
         plot(timeline, cur_subVm, 'k', 'LineWidth', 1);
         hold on;
+        % -- End plotting the whole period pulse average
+        
+        % -- Plotting the transient pulse average
+        trans_cur_subVm = mean(trans_pulse_vm, 2, 'omitnan');
+        trans_sem_subVm = std(trans_pulse_vm, 0, 2, 'omitnan')./sqrt(size(trans_pulse_vm, 2));
+        
+        nexttile(all_tt, tilenum + 1);
 
-        % Shuffle all pulse average and plot average lines
-        % This just puts each pulse window into a massive array, 1000 copeies of each,
-        % and just makes it into a distribution. Does not seem to actually do a good randomization
-        %wind_size = size(all_pulse_vm, 1);
-        %shuf_val_dist = [];
-        %for i=1:1000
-        %    shuf_all_pulse_vm = [];
-        %    for j=1:size(all_pulse_vm, 2)
-        %        shuf_idx = randperm(wind_size);
-        %        shuf_all_pulse_vm = horzcat_pad(shuf_all_pulse_vm, all_pulse_vm(shuf_idx, j));
-        %    end
+        timeline = [ [0:size(trans_pulse_vm, 1) - 1] - extra_trace]*1000./avg_Fs;
+        
+        fill_h = fill([timeline, flip(timeline)], [trans_cur_subVm + trans_sem_subVm; flipud(trans_cur_subVm - trans_sem_subVm)], [0.5 0.5 0.5]);
+        Multi_func.set_fill_properties(fill_h);
+        hold on;
+        plot(timeline, trans_cur_subVm, 'k', 'LineWidth', 1);
+        hold on;
+        % -- End plotting the transient period pulse average
 
-        %    % Calculate the average value
-        %    shuf_avg_all_pulse = mean(shuf_all_pulse_vm, 2, 'omitnan');
-        %    
-        %    % Store the shuffled pulse window vm
-        %    shuf_val_dist = horzcat_pad(shuf_val_dist, shuf_avg_all_pulse);
+        % -- Plotting the sustained pulse average
+        sus_cur_subVm = mean(sus_pulse_vm, 2, 'omitnan');
+        sus_sem_subVm = std(sus_pulse_vm, 0, 2, 'omitnan')./sqrt(size(sus_pulse_vm, 2));
+        
+        nexttile(all_tt, tilenum + 2);
 
-        %    % Store the max - min        
-        %    %shuf_val_dist = horzcat_pad(shuf_val_dist, max(shuf_all_pulse_vm, [], 1) - min(shuf_avg_all_pulse, [], 1));
-        %end
+        timeline = [ [0:size(sus_pulse_vm, 1) - 1] - extra_trace]*1000./avg_Fs;
+        
+        fill_h = fill([timeline, flip(timeline)], [sus_cur_subVm + sus_sem_subVm; flipud(sus_cur_subVm - sus_sem_subVm)], [0.5 0.5 0.5]);
+        Multi_func.set_fill_properties(fill_h);
+        hold on;
+        plot(timeline, sus_cur_subVm, 'k', 'LineWidth', 1);
+        hold on;
+        % -- End plotting the transient period pulse average
+
 
         % This shuffle takes random window samples within the stim period, should be across the pulse times to indicate if the pulse timing is significant
         wind_size = size(all_pulse_vm, 1);
         shuf_val_dist = [];
+        shuf_trans_dist = [];
+        shuf_sus_dist = [];
         tic;
         for i=1:1000
             iter_wind = [];
+            iter_trans_wind = [];
+            iter_sus_wind = [];
+
             for j=1:size(all_pulse_vm, 2) %length(data_bystim.(f_stim).stim_timestamps(:, 1))
+                % Randomly grab a neuron
                 rand_nr = randi([1, length(all_pulse_vm_by_neuron)]);
                 % Grab a window sample that fully fits within the stimulation period
                 rand_win_start = randi([1, length(all_pulse_vm_by_neuron{rand_nr}) - wind_size]);
                 iter_wind = horzcat_pad(iter_wind, ...
                     all_pulse_vm_by_neuron{rand_nr}(rand_win_start:rand_win_start+wind_size - 1)' ...
                     - all_pulse_vm_by_neuron{rand_nr}(rand_win_start + extra_trace));
+                    
+                % Same as above, but for both stimulation periods, can use the same neuron by the way
+                trans_rand_win_start = randi([1,...
+                    length(trans_pulse_vm_by_neuron{rand_nr}) - wind_size]);
+                iter_trans_wind = horzcat_pad(iter_trans_wind, ...
+                    trans_pulse_vm_by_neuron{rand_nr}(trans_rand_win_start:trans_rand_win_start+wind_size - 1)' ...
+                    - trans_pulse_vm_by_neuron{rand_nr}(trans_rand_win_start + extra_trace));
+
+                sus_rand_win_start = randi([1,...
+                    length(sus_pulse_vm_by_neuron{rand_nr}) - wind_size]);
+                iter_sus_wind = horzcat_pad(iter_sus_wind, ...
+                    sus_pulse_vm_by_neuron{rand_nr}(sus_rand_win_start:sus_rand_win_start+wind_size - 1)' ...
+                    - sus_pulse_vm_by_neuron{rand_nr}(sus_rand_win_start + extra_trace));
             end
 
             end_iter = toc;
             shuf_val_dist = horzcat_pad(shuf_val_dist, mean(iter_wind, 2));
+            shuf_trans_dist = horzcat_pad(shuf_trans_dist, mean(iter_trans_wind, 2));
+            shuf_sus_dist = horzcat_pad(shuf_sus_dist, mean(iter_sus_wind, 2));
         end
-        end_shuf = toc;
+        end_shuf = toc
         
+        
+        % Save the shuffle distribution data
+        region_data.(f_region).(f_stim).vm_shuf_val_dist = shuf_val_dist;
+        
+        % -- Plotting the all pulse shuffled data
         % Calculate percentile values
         low_perc = prctile(shuf_val_dist, 2.5, 2);
         high_perc = prctile(shuf_val_dist, 97.5, 2);
         shuf_mean = mean(shuf_val_dist, 2);
-        
-        % Save the shuffle distribution data
-        region_data.(f_region).(f_stim).vm_shuf_val_dist = shuf_val_dist;
 
+        nexttile(all_tt, tilenum);
         % Plot the shuffled values as dashed horizontal lines
         plot(timeline, [low_perc, high_perc], '--', 'Color', Multi_func.shuf_color); 
         hold on;
@@ -376,23 +473,9 @@ for f_region = fieldnames(region_data)'
             region_data.(f_region).(f_stim).all_pulse_vm_pk_time = timeline(peak_idx(1));
         end
 
-        % Plot the percentiles as a different colored shading
-        %shade_yvals = [repmat(high_perc, 1, length(timeline)), repmat(low_perc, 1, length(timeline))];
-        %fill_h = fill([timeline, flip(timeline)], shade_yvals, [0.62 0.71 1]);
-        %Multi_func.set_fill_properties(fill_h);
-        %hold on;
-        %yline(shuf_mean, '--');
-
         % Plot the DBS stimulation time pulses
         xline([0:nr_avg_pulse_width_time*1000:nr_avg_pulse_width_time*1000], 'Color', Multi_func.pulse_color, 'LineWidth', 2);
         hold on;
-
-        % Plot the timescale bar
-        %posx = 0;
-        %posy = 0;
-        %timelength = 0.5;
-        %plot([posx, posx + timelength], [posy posy], 'k', 'LineWidth', 2);
-        %text(posx, posy - 0.2, [num2str(timelength*(1/avg_Fs)) 'ms']);
 
         % Increase timescale resolution
         %xlim([0 - .100, 0 + .100]);
@@ -400,16 +483,141 @@ for f_region = fieldnames(region_data)'
         ylabel('Normalized Vm');
         xlabel('Time from pulse(ms)');
         %ylim([0, 7]);
-
+        
         % Remove x-axis and right y-axis
         %set(gca,'xtick',[]);
         title(f_stim(3:end), 'Interpreter', 'none');
-    
+        % -- End plotting the all pulse shuffled data
+
+        % -- Plotting the trans pulse shuffled data
+        % Calculate percentile values
+        low_perc = prctile(shuf_trans_dist, 2.5, 2);
+        high_perc = prctile(shuf_trans_dist, 97.5, 2);
+        shuf_mean = mean(shuf_trans_dist, 2);
+        
+        nexttile(all_tt, tilenum + 1);
+        % Plot the shuffled values as dashed horizontal lines
+        plot(timeline, [low_perc, high_perc], '--', 'Color', Multi_func.shuf_color); 
+        hold on;
+        plot(timeline, shuf_mean, 'Color', Multi_func.shuf_color);
+        hold on;
+
+        % Plotting the significant time and peak
+        sig_idx = find(sus_cur_subVm > high_perc);
+        sig_idx(timeline(sig_idx) <= 0 | timeline(sig_idx) >= 1000*nr_avg_pulse_width_time) = [];
+
+        peak_idx = find(trans_cur_subVm == max(trans_cur_subVm(timeline' >= 0 & timeline' <= nr_avg_pulse_width_time*1000))); % The messsy condition is for inside the pulse window and not the extra traces
+        if ~isempty(sig_idx)
+            % DEBUG show the significant point
+            xline([timeline(peak_idx(1)), timeline(sig_idx(1))], 'g');
+            
+            diary on;
+            fprintf('\n\n');
+            disp([f_region ' ' f_stim ' for the transient period']);
+            disp(['Sig Vm all pulse at ' num2str(timeline(sig_idx(1))) 'ms']);
+            disp(['Peak Vm all pulse at ' num2str(timeline(peak_idx(1))) 'ms']);
+            fprintf('\n\n');
+            diary off;
+
+            % Save the peak time for the region and stimulation
+            region_data.(f_region).(f_stim).trans_pulse_vm_pk_time = timeline(peak_idx(1));
+        end
+
+        % Plot the DBS stimulation time pulses
+        xline([0:nr_avg_pulse_width_time*1000:nr_avg_pulse_width_time*1000], 'Color', Multi_func.pulse_color, 'LineWidth', 2);
+        hold on;
+
+        % Increase timescale resolution
+        %xlim([0 - .100, 0 + .100]);
+        Multi_func.set_default_axis(gca);
+        ylabel('Normalized Vm');
+        xlabel('Time from pulse(ms)');
+        %ylim([0, 7]);
+        
+        % Remove x-axis and right y-axis
+        %set(gca,'xtick',[]);
+        title([f_stim(3:end) ' transient'], 'Interpreter', 'none');
+        % -- End plotting the trans pulse shuffled data
+        
+        % -- Plotting the sus pulse shuffled data
+        % Calculate percentile values
+        low_perc = prctile(shuf_sus_dist, 2.5, 2);
+        high_perc = prctile(shuf_sus_dist, 97.5, 2);
+        shuf_mean = mean(shuf_sus_dist, 2);
+        
+        nexttile(all_tt, tilenum + 2);
+        % Plot the shuffled values as dashed horizontal lines
+        plot(timeline, [low_perc, high_perc], '--', 'Color', Multi_func.shuf_color); 
+        hold on;
+        plot(timeline, shuf_mean, 'Color', Multi_func.shuf_color);
+        hold on;
+
+        % Plotting the significant time and peak
+        sig_idx = find(sus_cur_subVm > high_perc);
+        sig_idx(timeline(sig_idx) <= 0 | timeline(sig_idx) >= 1000*nr_avg_pulse_width_time) = [];
+
+        peak_idx = find(sus_cur_subVm == max(sus_cur_subVm(timeline' >= 0 & timeline' <= nr_avg_pulse_width_time*1000))); % The messsy condition is for inside the pulse window and not the extra traces
+        if ~isempty(sig_idx)
+            % DEBUG show the significant point
+            xline([timeline(peak_idx(1)), timeline(sig_idx(1))], 'g');
+            
+            diary on;
+            fprintf('\n\n');
+            disp([f_region ' ' f_stim ' for the sustained period']);
+            disp(['Sig Vm all pulse at ' num2str(timeline(sig_idx(1))) 'ms']);
+            disp(['Peak Vm all pulse at ' num2str(timeline(peak_idx(1))) 'ms']);
+            fprintf('\n\n');
+            diary off;
+
+            % Save the peak time for the region and stimulation
+            region_data.(f_region).(f_stim).sus_pulse_vm_pk_time = timeline(peak_idx(1));
+        end
+
+        % Plot the DBS stimulation time pulses
+        xline([0:nr_avg_pulse_width_time*1000:nr_avg_pulse_width_time*1000], 'Color', Multi_func.pulse_color, 'LineWidth', 2);
+        hold on;
+
+        % Increase timescale resolution
+        %xlim([0 - .100, 0 + .100]);
+        Multi_func.set_default_axis(gca);
+        ylabel('Normalized Vm');
+        xlabel('Time from pulse(ms)');
+        %ylim([0, 7]);
+        
+        % Remove x-axis and right y-axis
+        %set(gca,'xtick',[]);
+        title([f_stim(3:end) ' sustained'], 'Interpreter', 'none');
+        % -- End plotting the trans pulse shuffled data
+
+        % Increase tile number indicator
+        tilenum = tilenum + 3;
     end
+
+    %TODO change the figure for saving between periods
     sgtitle([f_region(3:end) ' Sub Vm all pulse average'], 'Interpreter', 'none');
     saveas(gcf, [figure_path 'Small_Res' f f_region '_Pulse_Avg_Vm.png']);
     saveas(gcf, [figure_path 'Small_Res' f f_region '_Pulse_Avg_Vm.pdf']);
     saveas(gcf, [figure_path 'Small_Res' f f_region '_Pulse_Avg_Vm.eps'], 'epsc');
+end
+
+
+% -- This might be deprecated
+%% Sub Vm pulse-triggered average across transient vs sustained pulses
+for f_region = fieldnames(region_data)'
+    f_region = f_region{1};
+    data_bystim = region_data.(f_region);
+    stims = fieldnames(data_bystim);
+    
+    figure('Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
+    tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 20, 3.62, 5.16]);
+
+    for f_stim=stims'
+        f_stim = f_stim{1};
+        
+
+
+
+    end
 end
 
 %% Spike rate averaged across all pulses
