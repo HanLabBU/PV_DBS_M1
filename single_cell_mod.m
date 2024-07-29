@@ -60,7 +60,7 @@ end
 %Load the data
 load(save_all_data_file);
 
-%% Calculate the Vm modulation stats
+%% Calculate the Vm modulation stats from onset
 wind_dist = 100/1000; % numerator in ms, window from onset to include for baseline and stim comparison
 % Loop through regions
 for f_region = fieldnames(region_data)'
@@ -73,7 +73,7 @@ for f_region = fieldnames(region_data)'
         f_stim = f_stim{1};
         popul_data = data_bystim.(f_stim);
         
-        Vm_mod_stats = struct;
+        Vm_trans_mod_stats = struct;
 
         for nr=1:length(popul_data.neuron_name)
             nr_timeline = popul_data.trace_timestamps(:, nr);
@@ -95,27 +95,18 @@ for f_region = fieldnames(region_data)'
                 mod = 0;
             end
 
-            %DEBUG
-            figure;
-            imagesc(popul_data.all_trial_SubVm{nr}');
-            hold on;
-            plot(base_idx, repmat(1, length(base_idx), 1), 'r');
-            hold on;
-            plot(stim_idx, repmat(1, length(stim_idx), 1), 'g');
-            legend([num2str(p_sign) ' ' num2str(mean(Vm_mean_stim - Vm_mean_pre))]);
-            title(popul_data.neuron_name{nr}, 'Interpreter', 'none');
-
             % Append all of the modulation data
-            Vm_mod_stats(nr).p_sign = p_sign;
-            Vm_mod_stats(nr).sign_stats = stats;
-            Vm_mod_stats(nr).mod = mod;
+            Vm_trans_mod_stats(nr).p_sign = p_sign;
+            Vm_trans_mod_stats(nr).sign_stats = stats;
+            Vm_trans_mod_stats(nr).mod = mod;
 
         end
-        region_data.(f_region).(f_stim).Vm_mod_stats = Vm_mod_stats;
+        region_data.(f_region).(f_stim).Vm_trans_mod_stats = Vm_trans_mod_stats;
     end
 end
 
-%% Plot the Vm modulation heatmap and modulated averages
+
+%% Plot the Vm modulation heatmap and modulated averages based on the transient phase
 [heatmap_color] = (cbrewer('div', 'RdBu',500));
 heatmap_color(heatmap_color > 1) = 1;
 heatmap_color(heatmap_color < 0) = 0;
@@ -132,9 +123,9 @@ for f_region = fieldnames(region_data)'
         popul_data = data_bystim.(f_stim);
         
         % Get the neuron idx of neurons that were modulated
-        nr_act = find([popul_data.Vm_mod_stats.mod] > 0);
-        nr_sup = find([popul_data.Vm_mod_stats.mod] < 0);
-        nr_non = find([popul_data.Vm_mod_stats.mod] == 0);
+        nr_act = find([popul_data.Vm_trans_mod_stats.mod] > 0);
+        nr_sup = find([popul_data.Vm_trans_mod_stats.mod] < 0);
+        nr_non = find([popul_data.Vm_trans_mod_stats.mod] == 0);
 
         % Grab idxs for different parts of the signal
         base_idx = find(mean(popul_data.trace_timestamps, 2) < 0);
@@ -156,9 +147,9 @@ for f_region = fieldnames(region_data)'
         pop_sup_vm = popul_data.neuron_Vm(:, sup_i);
 
         % Zscore all of the trial-averaged neuron Vm
-        %pop_act_vm = zscore(pop_act_vm, [], 1);
-        %pop_non_vm = zscore(pop_non_vm, [], 1);
-        %pop_sup_vm = zscore(pop_sup_vm, [], 1);
+        pop_act_vm = zscore(pop_act_vm, [], 1);
+        pop_non_vm = zscore(pop_non_vm, [], 1);
+        pop_sup_vm = zscore(pop_sup_vm, [], 1);
 
         % Zscore the trial-averaged neuron Vm using baseline mean and standard deviation
         %pop_act_vm = (pop_act_vm - mean(pop_act_vm(base_idx, :), 1))./std(pop_act_vm(base_idx, :), 0, 1);
@@ -187,10 +178,10 @@ for f_region = fieldnames(region_data)'
 
         % Perform the plotting
         figure('Position', [0, 0, 800, 1000]);
-        tiledlayout(2, 1, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 4, 10, 20]);
+        tiledlayout(4, 1, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 4, 10, 20]);
 
         % Plot the heatmap
-        nexttile;
+        nexttile([2, 1]);
         timeline = mean(popul_data.trace_timestamps, 2);
         imagesc('XData', timeline, 'YData', 1:size(vm_heatmap, 1), 'CData', vm_heatmap);
         hold on;
@@ -221,7 +212,7 @@ for f_region = fieldnames(region_data)'
         c.Label.String = 'Vm (z-scored)';
 
         % Plot the population average for each group activated
-        nexttile;
+        nexttile([1 1]);
 
         fill_h = fill([timeline; flip(timeline)], ...
                 [non_Vm_avg + non_Vm_sem; flipud(non_Vm_avg - non_Vm_sem)], ...
@@ -255,12 +246,14 @@ for f_region = fieldnames(region_data)'
         Multi_func.set_default_axis(gca);
         hold on;
         xline([0 1], 'HandleVisibility', 'off');
-        legend();
+        legend('Location', 'northeastoutside');
         sgtitle([f_region ' ' f_stim], 'Interpreter', 'none');
         
         % Set x-axis limits
         if display_names == 0
             xlim([-.7 2.05]);
+        else
+            xlim([min(timeline) - .01, max(timeline)]);
         end
 
         % Save figure stuff
@@ -269,7 +262,10 @@ for f_region = fieldnames(region_data)'
     end
 end
 
-%% Calculate modulation of spike rate
+%% Calculate the Vm modulation stats for sustained period
+per_start = Multi_func.sus_ped(1)/1000; % convert to sec
+per_stop = Multi_func.sus_ped(2)/1000;
+
 % Loop through regions
 for f_region = fieldnames(region_data)'
     f_region = f_region{1};
@@ -281,7 +277,52 @@ for f_region = fieldnames(region_data)'
         f_stim = f_stim{1};
         popul_data = data_bystim.(f_stim);
         
-        fr_mod_stats = struct;
+        Vm_sus_mod_stats = struct;
+
+        for nr=1:length(popul_data.neuron_name)
+            nr_timeline = popul_data.trace_timestamps(:, nr);
+            base_idx = find(nr_timeline > 0 - range([per_start, per_stop]) & nr_timeline < 0);
+            stim_idx = find(nr_timeline > per_start & nr_timeline < per_stop);
+            
+            % Calculate the average amplitude Vm for each trial
+            Vm_mean_pre = mean(popul_data.all_trial_SubVm{nr}(base_idx, :), 1);
+            Vm_mean_stim = mean(popul_data.all_trial_SubVm{nr}(stim_idx, :), 1);
+
+            [p_sign, ~, stats] = signrank(Vm_mean_pre, Vm_mean_stim);
+            
+            % Check the modulation level
+            if p_sign < 0.05 && mean(Vm_mean_stim - Vm_mean_pre) > 0
+                mod = 1;
+            elseif p_sign < 0.05 && mean(Vm_mean_stim - Vm_mean_pre) < 0
+                mod = -1;
+            else
+                mod = 0;
+            end
+
+            % Append all of the modulation data
+            Vm_sus_mod_stats(nr).p_sign = p_sign;
+            Vm_sus_mod_stats(nr).sign_stats = stats;
+            Vm_sus_mod_stats(nr).mod = mod;
+
+        end
+        region_data.(f_region).(f_stim).Vm_sus_mod_stats = Vm_sus_mod_stats;
+    end
+end
+
+
+%% Calculate modulation of spike rate in the transient period
+% Loop through regions
+for f_region = fieldnames(region_data)'
+    f_region = f_region{1};
+    data_bystim = region_data.(f_region);
+    stims = fieldnames(data_bystim);
+
+    % Loop through stim frequencies
+    for f_stim = stims'
+        f_stim = f_stim{1};
+        popul_data = data_bystim.(f_stim);
+        
+        fr_trans_mod_stats = struct;
 
         for nr=1:length(popul_data.neuron_name)
             nr_timeline = popul_data.trace_timestamps(:, nr);
@@ -304,22 +345,22 @@ for f_region = fieldnames(region_data)'
             end
 
             %DEBUG
-            figure;
-            imagesc(popul_data.all_trial_spike_rasters{nr}');
-            hold on;
-            plot(base_idx, repmat(1, length(base_idx), 1), 'r');
-            hold on;
-            plot(stim_idx, repmat(1, length(stim_idx), 1), 'g');
-            legend([num2str(p_sign) ' ' num2str(mean(fr_mean_stim - fr_mean_pre))]);
-            title(popul_data.neuron_name{nr}, 'Interpreter', 'none');
+            %figure;
+            %imagesc(popul_data.all_trial_spike_rasters{nr}');
+            %hold on;
+            %plot(base_idx, repmat(1, length(base_idx), 1), 'r');
+            %hold on;
+            %plot(stim_idx, repmat(1, length(stim_idx), 1), 'g');
+            %legend([num2str(p_sign) ' ' num2str(mean(fr_mean_stim - fr_mean_pre))]);
+            %title(popul_data.neuron_name{nr}, 'Interpreter', 'none');
 
             % Append all of the modulation data
-            fr_mod_stats(nr).p_sign = p_sign;
-            fr_mod_stats(nr).sign_stats = stats;
-            fr_mod_stats(nr).mod = mod;
+            fr_trans_mod_stats(nr).p_sign = p_sign;
+            fr_trans_mod_stats(nr).sign_stats = stats;
+            fr_trans_mod_stats(nr).mod = mod;
 
         end
-        region_data.(f_region).(f_stim).fr_mod_stats = fr_mod_stats;
+        region_data.(f_region).(f_stim).fr_trans_mod_stats = fr_trans_mod_stats;
     end
 end
 
@@ -335,9 +376,9 @@ for f_region = fieldnames(region_data)'
         popul_data = data_bystim.(f_stim);
         
         % Get the neuron idx of neurons that were modulated
-        nr_act = find([popul_data.fr_mod_stats.mod] > 0);
-        nr_sup = find([popul_data.fr_mod_stats.mod] < 0);
-        nr_non = find([popul_data.fr_mod_stats.mod] == 0);
+        nr_act = find([popul_data.fr_trans_mod_stats.mod] > 0);
+        nr_sup = find([popul_data.fr_trans_mod_stats.mod] < 0);
+        nr_non = find([popul_data.fr_trans_mod_stats.mod] == 0);
 
         % Grab idxs for different parts of the signal
         base_idx = find(mean(popul_data.trace_timestamps, 2) < 0);
@@ -403,15 +444,13 @@ for f_region = fieldnames(region_data)'
         sup_fr_avg = mean(pop_sup_fr, 2);
         sup_fr_sem = std(pop_sup_fr, 0, 2)./sqrt(size(pop_sup_fr, 2));
 
-        
-
         % Perform the plotting
         figure('Position', [0, 0, 800, 1000]);
         fontsize = 11;
-        tiledlayout(2, 1, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 4, 10, 20]);
+        tiledlayout(4, 1, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 4, 10, 20]);
 
         % Plot the heatmap
-        nexttile;
+        nexttile([2 1]);
         timeline = mean(popul_data.trace_timestamps, 2);
         imagesc('XData', timeline, 'YData', 1:size(fr_heatmap, 1), 'CData', fr_heatmap);
         hold on;
@@ -425,7 +464,7 @@ for f_region = fieldnames(region_data)'
         if display_names == 1
             i=1;
             for nr=[act_i, non_i, sup_i]
-                text(2.2, i, [num2str(popul_data.fr_mod_stats(nr).mod) ' '...
+                text(2.2, i, [num2str(popul_data.fr_trans_mod_stats(nr).mod) ' '...
                             popul_data.neuron_name{nr}], ...
                             'Interpreter', 'none');
                 i = i+1;
@@ -479,12 +518,14 @@ for f_region = fieldnames(region_data)'
         Multi_func.set_default_axis(gca);
         hold on;
         xline([0 1], 'HandleVisibility', 'off');
-        legend();
+        legend('Location', 'northeastoutside');
         sgtitle([f_region ' ' f_stim], 'Interpreter', 'none');
         
         % Set x-axis limits
         if display_names == 0
             xlim([-.7 2.05]);
+        else
+            xlim([min(timeline) - .01, max(timeline)]);
         end
 
         % Save figure stuff
@@ -493,8 +534,63 @@ for f_region = fieldnames(region_data)'
     end
 end
 
+
+%% Calculate modulation of spike rate in the sustained period
+% Loop through regions
+for f_region = fieldnames(region_data)'
+    f_region = f_region{1};
+    data_bystim = region_data.(f_region);
+    stims = fieldnames(data_bystim);
+
+    % Loop through stim frequencies
+    for f_stim = stims'
+        f_stim = f_stim{1};
+        popul_data = data_bystim.(f_stim);
+        
+        fr_sus_mod_stats = struct;
+
+        for nr=1:length(popul_data.neuron_name)
+            nr_timeline = popul_data.trace_timestamps(:, nr);
+            base_idx = find(nr_timeline > 0 - wind_dist & nr_timeline < 0);
+            stim_idx = find(nr_timeline > 0 & nr_timeline < 0 + wind_dist);
+            
+            % Calculate the average amplitude Vm for each trial
+            fr_mean_pre = sum(popul_data.all_trial_spike_rasters{nr}(base_idx, :), 1);
+            fr_mean_stim = sum(popul_data.all_trial_spike_rasters{nr}(stim_idx, :), 1);
+
+            [p_sign, ~, stats] = signrank(fr_mean_pre, fr_mean_stim);
+            
+            % Check the modulation level
+            if p_sign < 0.05 && mean(fr_mean_stim - fr_mean_pre) > 0
+                mod = 1;
+            elseif p_sign < 0.05 && mean(fr_mean_stim - fr_mean_pre) < 0
+                mod = -1;
+            else
+                mod = 0;
+            end
+
+            %DEBUG
+            figure;
+            imagesc(popul_data.all_trial_spike_rasters{nr}');
+            hold on;
+            plot(base_idx, repmat(1, length(base_idx), 1), 'r');
+            hold on;
+            plot(stim_idx, repmat(1, length(stim_idx), 1), 'g');
+            legend([num2str(p_sign) ' ' num2str(mean(fr_mean_stim - fr_mean_pre))]);
+            title(popul_data.neuron_name{nr}, 'Interpreter', 'none');
+
+            % Append all of the modulation data
+            fr_sus_mod_stats(nr).p_sign = p_sign;
+            fr_sus_mod_stats(nr).sign_stats = stats;
+            fr_sus_mod_stats(nr).mod = mod;
+
+        end
+        region_data.(f_region).(f_stim).fr_sus_mod_stats = fr_sus_mod_stats;
+    end
+end
+
 %% Calculate single cell PLV as well as shuffled distribution
-num_iter = 500; %TODO change to more
+num_iter = 500; 
 wind_dist = 1000/1000; %ms
 % Loop through regions
 for f_region = fieldnames(region_data)'
@@ -510,7 +606,7 @@ for f_region = fieldnames(region_data)'
         % Stim freq for PLV
         plv_freq = str2num(erase(f_stim, 'f_'))
         avg_Fs = mean(popul_data.framerate, 'omitnan');
-        plv_mod_stats = struct; %TODO add this part in the shuffle thing
+        plv_mod_stats = struct;
 
         figure('Position', [0, 0, 800, 1000]);
         tiledlayout(length(popul_data.neuron_name), 2, 'TileSpacing', 'compact', 'Padding', 'compact');
@@ -619,13 +715,10 @@ for f_region = fieldnames(region_data)'
     end % Stim freq loop
 end % Region loop
 
-%% TODO calculate all frequency PLVs for all neurons
-% ^ Using the normal script for this
-
 %% Plot stuff based on stim-Vm PLV
-plot_mode = 'pow'; % Use stimulation frequency power spectra for each neuron
+%plot_mode = 'pow'; % Use stimulation frequency power spectra for each neuron
 %plot_mode = 'Vm'; % Use the trial averaged Vm
-%plot_mode = 'pulse'; % use Pulse-triggered average
+plot_mode = 'pulse'; % use Pulse-triggered average
 freqs = Multi_func.entr_freqs;
 extra_trace = 3;
 
@@ -714,6 +807,7 @@ for f_region = fieldnames(region_data)'
             
             case 'pulse'
                 pop_pulse_vm = [];
+
                 % Need to loop through each neuron and calculate its pulse triggered average
                 for nr=1:length(popul_data.neuron_name)
                     % Calculate the number of trace idxs between pulses
@@ -931,13 +1025,12 @@ for f_region = fieldnames(region_data)'
         sgtitle([f_region ' ' f_stim], 'Interpreter', 'none');
         
         % Save figure stuff
-        saveas(gcf, [figure_path 'Neuronwise/' f_region '_' f_stim '_' num2str(wind_dist) '_stimVm_plv_mod_plots.png']);
-        saveas(gcf, [figure_path 'Neuronwise/' f_region '_' f_stim '_' num2str(wind_dist) '_stimVm_plv_mod_plots_mode' plot_mode '.pdf']);
+        saveas(gcf, [figure_path 'Neuronwise' f f_region '_' f_stim '_' num2str(wind_dist) '_stimVm_plv_mod_plots.png']);
+        saveas(gcf, [figure_path 'Neuronwise' f f_region '_' f_stim '_' num2str(wind_dist) '_stimVm_plv_mod_plots_mode' plot_mode '.pdf']);
     end
 end
 
 %% Display the number of modulated stuff
-%TODO maybe I should do a diary here?
 for f_region = fieldnames(region_data)'
     f_region = f_region{1};
     data_bystim = region_data.(f_region);
@@ -974,6 +1067,74 @@ for f_region = fieldnames(region_data)'
         fprintf('\n');
     end
 end
+
+%% Display the number of neurons per modulation
+stats_t = table();
+for f_region = fieldnames(region_data)'
+    f_region = f_region{1};
+    data_bystim = region_data.(f_region);
+    stims = fieldnames(data_bystim);
+
+    % Loop through stim frequencies
+    for f_stim = stims'
+        f_stim = f_stim{1};
+        popul_data = data_bystim.(f_stim);
+       
+        % Grab the neuron number of each Vm trans positive modulation
+        vm_act_nr = find([popul_data.Vm_trans_mod_stats.mod] > 0);
+        vm_non_nr = find([popul_data.Vm_trans_mod_stats.mod] == 0);
+        vm_sup_nr = find([popul_data.Vm_trans_mod_stats.mod] < 0);
+
+        % Grab the firing rate modulated trans data
+        fr_act_nr = find([popul_data.fr_trans_mod_stats.mod] > 0);
+        fr_non_nr = find([popul_data.fr_trans_mod_stats.mod] == 0);
+        fr_sup_nr = find([popul_data.fr_trans_mod_stats.mod] < 0);
+
+        stats_t([f_region f_stim], 'Vm Trans Act') = {length(vm_act_nr)};
+        stats_t([f_region f_stim], 'Vm Trans Non') = {length(vm_non_nr)};
+        stats_t([f_region f_stim], 'Vm Trans Sup') = {length(vm_sup_nr)};
+    
+        stats_t([f_region f_stim], 'FR Trans Act') = {length(fr_act_nr)};
+        stats_t([f_region f_stim], 'FR Trans Non') = {length(fr_non_nr)};
+        stats_t([f_region f_stim], 'FR Trans Sup') = {length(fr_sup_nr)};
+
+        %----- Modulated data for sustained period
+        % Grab the neuron number of each Vm sus positive modulation
+        vm_act_nr = find([popul_data.Vm_sus_mod_stats.mod] > 0);
+        vm_non_nr = find([popul_data.Vm_sus_mod_stats.mod] == 0);
+        vm_sup_nr = find([popul_data.Vm_sus_mod_stats.mod] < 0);
+
+        % Grab the firing rate modulated sus data
+        fr_act_nr = find([popul_data.fr_sus_mod_stats.mod] > 0);
+        fr_non_nr = find([popul_data.fr_sus_mod_stats.mod] == 0);
+        fr_sup_nr = find([popul_data.fr_sus_mod_stats.mod] < 0);
+
+        stats_t([f_region f_stim], 'Vm sus Act') = {length(vm_act_nr)};
+        stats_t([f_region f_stim], 'Vm sus Non') = {length(vm_non_nr)};
+        stats_t([f_region f_stim], 'Vm sus Sup') = {length(vm_sup_nr)};
+    
+        stats_t([f_region f_stim], 'FR sus Act') = {length(fr_act_nr)};
+        stats_t([f_region f_stim], 'FR sus Non') = {length(fr_non_nr)};
+        stats_t([f_region f_stim], 'FR sus Sup') = {length(fr_sup_nr)};
+        
+
+        %--- Determine the entrainment PLV mod stuff
+        etrain_nr = find([popul_data.plv_mod_stats.mod] > 0);
+        non_nr = find([popul_data.plv_mod_stats.mod] < 0);
+        stats_t([f_region f_stim], 'PLV Etrain') = {length(etrain_nr)};
+        stats_t([f_region f_stim], 'PLV non-etrain') = {length(non_nr)};
+        
+        %--- Add total number of neurons
+        stats_t([f_region f_stim], 'Total Neurons') = {length([popul_data.plv_mod_stats.mod])};
+
+        % Loop and create percentages
+        for row = stats_t.Properties.RowNames'
+            stats_t{row{1}, :} = stats_t{row{1}, :}*100 / stats_t{row{1}, 'Total Neurons'};
+        end
+    end
+end
+disp(stats_t);
+writetable(stats_t, [figure_path 'Neuronwise' f 'modulation_stats.csv'], 'WriteRowNames', true);
 
 %% Display the number of neurons that demonstrated similar modulation between Vm and entrainment
 for f_region = fieldnames(region_data)'
