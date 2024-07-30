@@ -72,6 +72,13 @@ field1 = field1{1};
 avg_Fs = mean(region_data.(field1).f_40.framerate, 'omitnan');
 
 %% Subthreshold time series spectra with (x - A)/(A + B) normalization for each neuron and 
+
+% Flag to determine which populations to plot
+% The variable must be set from 'single_cell_mod'
+%nr_pop = 'all';
+%nr_pop = 'etrain';
+nr_pop = 'non';
+
 for f_region = fieldnames(region_data)'
     f_region = f_region{1};
     data_bystim = region_data.(f_region);
@@ -81,33 +88,56 @@ for f_region = fieldnames(region_data)'
     % Loop through each stimulation parameter
     for f_stim=stims'
         f_stim = f_stim{1};
+
+        popul_data = data_bystim.(f_stim);
+
+        % Check if there is an entrained field in the population data
+        try
+            switch nr_pop
+                case 'etrain'
+                    nr_idxs = find([popul_data.plv_mod_stats.mod] > 0);
+                case 'non'
+                    nr_idxs = find([popul_data.plv_mod_stats.mod] < 0);
+                case 'all'
+                    nr_idxs = 1:length(popul_data.plv_mod_stats);
+            end
+        catch ME
+            disp(ME.message);
+        end
+
         nexttile;
         
         % Get the trace timestamps
-        timeline = nanmean(data_bystim.(f_stim).trace_timestamps, 2)';
+        timeline = nanmean(popul_data.trace_timestamps, 2)';
         
         % Normalize ratio
         % First calculate by doing the ratios for each neuron first and then averaging
-        cur_spec_pow = data_bystim.(f_stim).neuron_spec_power;
+        cur_spec_pow = popul_data.neuron_spec_power(nr_idxs);
     
         % Plot the starting time point for each neuron
-        sz = size(data_bystim.(f_stim).trace_timestamps);
+        sz = size(popul_data.trace_timestamps);
     
-        % Loop throug each neuron
-        for i = 1:size(data_bystim.(f_stim).trace_timestamps, 2)
-            % Get the indices define the periods within in the trace
-            baseline_idx = find(data_bystim.(f_stim).trace_timestamps(:, i) < data_bystim.(f_stim).stim_timestamps(1, i));
-            stim_idx = find(data_bystim.(f_stim).trace_timestamps(:, i) >= data_bystim.(f_stim).stim_timestamps(1, i) & ...
-                            data_bystim.(f_stim).trace_timestamps(:, i) <= data_bystim.(f_stim).stim_timestamps(end, i));
-            %plot(baseline_idx, i*5, '.r');
-            %hold on;
-            base_power = nanmean(abs(cur_spec_pow(:, baseline_idx, i)), 2);
-            stim_power = nanmean(abs(cur_spec_pow(:, stim_idx, i)), 2);
-            cur_spec_pow(:, :, i) = (abs(cur_spec_pow(:, :, i)) - base_power)./(base_power + stim_power);
-        end
+        get_base_idxs = @(tr_tmstmp, stim_tmstp) find(tr_tmstmp < stim_tmstp(1));
+        get_stim_idxs = @(tr_tmstmp, stim_tmstp) find(tr_tmstmp >= stim_tmstp(1) & ...
+                                                   tr_tmstmp <= stim_tmstp(end));
+
+        calc_time_pow = @(trial_spec, time_idxs) mean(trial_spec(:, time_idxs, :), 2);
+        
+        calc_trial_spec = @(trial_spec, base_pow, stim_pow) (trial_spec - base_pow)./(base_pow + stim_pow);
+        
+        calc_nr_spec = @(trial_spec, tr_tmstmp, stim_tmstp) mean(calc_trial_spec(trial_spec, ...
+            calc_time_pow(trial_spec, get_base_idxs(tr_tmstmp, stim_tmstp)),  ...
+            calc_time_pow(trial_spec, get_stim_idxs(tr_tmstmp, stim_tmstp))), 3, 'omitnan');
+
+        cur_spec_pow = arrayfun(@(i) calc_nr_spec(popul_data.all_trial_power_spec{i}, ...
+                                popul_data.trace_timestamps(:, i), ...
+                                popul_data.stim_timestamps(:, i)), ...
+                                nr_idxs, 'UniformOutput', false);
+        
+        cur_spec_pow = cat(3, cur_spec_pow{:});
 
         surface(timeline, ... 
-                nanmean(data_bystim.(f_stim).neuron_spec_freq, 3), ...
+                nanmean(popul_data.neuron_spec_freq(:, :, nr_idxs), 3), ...
                 nanmean(cur_spec_pow, 3), 'CDataMapping', 'scaled', 'FaceColor', 'texturemap', 'edgecolor', 'none');
         colormap(jet*.8);
         % Add DBS bar
@@ -132,9 +162,9 @@ for f_region = fieldnames(region_data)'
     end
     sgtitle([ f_region ' Time Series Spectra with (x - A)/(A + B) normalization individually'], 'Interpreter', 'none');
     
-    saveas(gcf, [figure_path 'Spectra/' f_region '_A_B_Normalization_Time_Spectra.png']);
-    saveas(gcf, [figure_path 'Spectra/' f_region '_A_B_Normalization_Time_Spectra.pdf']);
-    savefig(gcf, [figure_path 'Spectra/' f_region '_A_B_Normalization_Time_Spectra.fig']);
+    saveas(gcf, [figure_path 'Spectra/' f_region '_' nr_pop '_A_B_Normalization_Time_Spectra.png']);
+    saveas(gcf, [figure_path 'Spectra/' f_region '_' nr_pop '_A_B_Normalization_Time_Spectra.pdf']);
+    savefig(gcf, [figure_path 'Spectra/' f_region '_' nr_pop '_A_B_Normalization_Time_Spectra.fig']);
     %saveas(gcf, [figure_path 'Spectra/' f_region '_A_B_Normalization_Time_Spectra.eps'], 'epsc');
     %savefig(gcf, [figure_path 'Spectra/' f_region '_A_B_Normalization_Time_Spectra.fig']);
 end
@@ -153,21 +183,21 @@ for f_region = fieldnames(region_data)'
         nexttile;
         
         % Get the trace timestamps
-        timeline = nanmean(data_bystim.(f_stim).trace_timestamps, 2)';
+        timeline = nanmean(popul_data.trace_timestamps, 2)';
         
         % Normalize ratio
         % First calculate by doing the ratios for each neuron first and then averaging
-        cur_spec_pow = data_bystim.(f_stim).neuron_spec_power;
+        cur_spec_pow = popul_data.neuron_spec_power;
     
         % Plot the starting time point for each neuron
-        sz = size(data_bystim.(f_stim).trace_timestamps);
+        sz = size(popul_data.trace_timestamps);
     
         % Loop throug each neuron
-        for i = 1:size(data_bystim.(f_stim).trace_timestamps, 2)
+        for i = 1:size(popul_data.trace_timestamps, 2)
             % Get the indices define the periods within in the trace
-            baseline_idx = find(data_bystim.(f_stim).trace_timestamps(:, i) < data_bystim.(f_stim).stim_timestamps(1, i));
-            stim_idx = find(data_bystim.(f_stim).trace_timestamps(:, i) >= data_bystim.(f_stim).stim_timestamps(1, i) & ...
-                            data_bystim.(f_stim).trace_timestamps(:, i) <= data_bystim.(f_stim).stim_timestamps(end, i));
+            baseline_idx = find(popul_data.trace_timestamps(:, i) < popul_data.stim_timestamps(1, i));
+            stim_idx = find(popul_data.trace_timestamps(:, i) >= popul_data.stim_timestamps(1, i) & ...
+                            popul_data.trace_timestamps(:, i) <= popul_data.stim_timestamps(end, i));
             %plot(baseline_idx, i*5, '.r');
             %hold on;
             base_power = nanmean(abs(cur_spec_pow(:, baseline_idx, i)), 2);
@@ -176,7 +206,7 @@ for f_region = fieldnames(region_data)'
         end
 
         surface(timeline, ... 
-                nanmean(data_bystim.(f_stim).neuron_spec_freq, 3), ...
+                nanmean(popul_data.neuron_spec_freq, 3), ...
                 nanmean(cur_spec_pow, 3), 'CDataMapping', 'scaled', 'FaceColor', 'texturemap', 'edgecolor', 'none');
         % Add DBS bar
         hold on;
@@ -211,8 +241,8 @@ for f_region = fieldnames(region_data)'
     for f_stim=stims'
         f_stim = f_stim{1};
         nexttile;
-        timeline = nanmean(data_bystim.(f_stim).trace_timestamps, 2)';
-        surface(timeline, nanmean(data_bystim.(f_stim).neuron_spec_freq, 3), nanmean(abs(data_bystim.(f_stim).neuron_spec_power), 3), 'CDataMapping', 'scaled', 'FaceColor', 'texturemap', 'edgecolor', 'none');
+        timeline = nanmean(popul_data.trace_timestamps, 2)';
+        surface(timeline, nanmean(popul_data.neuron_spec_freq, 3), nanmean(abs(popul_data.neuron_spec_power), 3), 'CDataMapping', 'scaled', 'FaceColor', 'texturemap', 'edgecolor', 'none');
         a = colorbar;
         a.Label.String = 'Power (A.U.)';
         hold on;
@@ -242,23 +272,23 @@ for f_region = fieldnames(region_data)'
         f_stim = f_stim{1};
         nexttile;
     
-        timeline = nanmean(data_bystim.(f_stim).trace_timestamps, 2)';
+        timeline = nanmean(popul_data.trace_timestamps, 2)';
 
-        cur_spec_pow = data_bystim.(f_stim).neuron_spec_power;
+        cur_spec_pow = popul_data.neuron_spec_power;
         % Plot the starting time point for each neuron
-        sz = size(data_bystim.(f_stim).trace_timestamps);
+        sz = size(popul_data.trace_timestamps);
     
         % Loop throug each neuron
-        for i = 1:size(data_bystim.(f_stim).trace_timestamps, 2)
+        for i = 1:size(popul_data.trace_timestamps, 2)
             cur_spec_pow(:, :, i) = zscore(abs(cur_spec_pow(:, :, i)), [], 2);
         end
 
-        surface(timeline, nanmean(data_bystim.(f_stim).neuron_spec_freq, 3), nanmean(cur_spec_pow, 3), 'CDataMapping', 'scaled', 'FaceColor', 'texturemap', 'edgecolor', 'none');
+        surface(timeline, nanmean(popul_data.neuron_spec_freq, 3), nanmean(cur_spec_pow, 3), 'CDataMapping', 'scaled', 'FaceColor', 'texturemap', 'edgecolor', 'none');
         a = colorbar;
         a.Label.String = 'Power (A.U.)';
     
         set(gca, 'color', 'none');
-        %avg_power = nanmean(data_bystim.(f_stim).neuron_spec_power, 3);
+        %avg_power = nanmean(popul_data.neuron_spec_power, 3);
         xlabel('Time from Stim onset(sec)');
         ylabel('Freq (Hz)');
         title(f_stim(3:end), 'Interpreter', 'none');
@@ -284,23 +314,23 @@ for f_region = fieldnames(region_data)'
         nexttile;
     
         % Get the trace timestamps
-        timeline = nanmean(data_bystim.(f_stim).trace_timestamps, 2)';
+        timeline = nanmean(popul_data.trace_timestamps, 2)';
 
-        cur_spec_pow = data_bystim.(f_stim).neuron_spec_power;
+        cur_spec_pow = popul_data.neuron_spec_power;
         % Plot the starting time point for each neuron
-        sz = size(data_bystim.(f_stim).trace_timestamps);
+        sz = size(popul_data.trace_timestamps);
     
         % Loop throug each neuron
-        for i = 1:size(data_bystim.(f_stim).trace_timestamps, 2)
+        for i = 1:size(popul_data.trace_timestamps, 2)
             cur_spec_pow(:, :, i) = zscore(abs(cur_spec_pow(:, :, i)), [], 1);
         end
 
-        surface(timeline, nanmean(data_bystim.(f_stim).neuron_spec_freq, 3), nanmean(cur_spec_pow, 3), 'CDataMapping', 'scaled', 'FaceColor', 'texturemap', 'edgecolor', 'none');
+        surface(timeline, nanmean(popul_data.neuron_spec_freq, 3), nanmean(cur_spec_pow, 3), 'CDataMapping', 'scaled', 'FaceColor', 'texturemap', 'edgecolor', 'none');
         a = colorbar;
         a.Label.String = 'Power (A.U.)';
     
         set(gca, 'color', 'none');
-        %avg_power = nanmean(data_bystim.(f_stim).neuron_spec_power, 3);
+        %avg_power = nanmean(popul_data.neuron_spec_power, 3);
         xlabel('Time from Stim onset(sec)');
         ylabel('Freq (Hz)');
         title(f_stim(3:end), 'Interpreter', 'none');
@@ -327,31 +357,31 @@ for f_region = fieldnames(region_data)'
         nexttile;
       
         % Get the trace timestamps
-        timeline = nanmean(data_bystim.(f_stim).trace_timestamps, 2)';
+        timeline = nanmean(popul_data.trace_timestamps, 2)';
         
         % Normalize ratio
         % First calculate by doing the ratios for each neuron first and then averaging
-        cur_spec_pow = data_bystim.(f_stim).neuron_spec_power;
+        cur_spec_pow = popul_data.neuron_spec_power;
     
         % Plot the starting time point for each neuron
-        sz = size(data_bystim.(f_stim).trace_timestamps);
+        sz = size(popul_data.trace_timestamps);
         
         base_spec = [];
         trans_spec = [];
         sus_spec = [];
 	offset_trans_spec = [];
         % Loop throug each neuron
-        for i = 1:size(data_bystim.(f_stim).trace_timestamps, 2)
+        for i = 1:size(popul_data.trace_timestamps, 2)
             % Get the indices define the periods within in the trace
-            baseline_idx = find(data_bystim.(f_stim).trace_timestamps(:, i) < data_bystim.(f_stim).stim_timestamps(1, i));
-	    stim_idx = find(data_bystim.(f_stim).trace_timestamps(:, i) >= data_bystim.(f_stim).stim_timestamps(1, i) & ...
-                            data_bystim.(f_stim).trace_timestamps(:, i) <= data_bystim.(f_stim).stim_timestamps(end, i));
-            trans_idx = find(data_bystim.(f_stim).trace_timestamps(:, i) >= trans_ped(1) & ...
-                            data_bystim.(f_stim).trace_timestamps(:, i) <= trans_ped(2)./1000);
-            sus_idx = find(data_bystim.(f_stim).trace_timestamps(:, i) > sus_ped(1)./1000 & ...
-                            data_bystim.(f_stim).trace_timestamps(:, i) <= sus_ped(2)./1000);
-            offset_trans_idx = find(data_bystim.(f_stim).trace_timestamps(:, i) > offset_trans_ped(1)./1000 & ...
-                            data_bystim.(f_stim).trace_timestamps(:, i) <= offset_trans_ped(2)./1000);
+            baseline_idx = find(popul_data.trace_timestamps(:, i) < popul_data.stim_timestamps(1, i));
+	    stim_idx = find(popul_data.trace_timestamps(:, i) >= popul_data.stim_timestamps(1, i) & ...
+                            popul_data.trace_timestamps(:, i) <= popul_data.stim_timestamps(end, i));
+            trans_idx = find(popul_data.trace_timestamps(:, i) >= trans_ped(1) & ...
+                            popul_data.trace_timestamps(:, i) <= trans_ped(2)./1000);
+            sus_idx = find(popul_data.trace_timestamps(:, i) > sus_ped(1)./1000 & ...
+                            popul_data.trace_timestamps(:, i) <= sus_ped(2)./1000);
+            offset_trans_idx = find(popul_data.trace_timestamps(:, i) > offset_trans_ped(1)./1000 & ...
+                            popul_data.trace_timestamps(:, i) <= offset_trans_ped(2)./1000);
             %plot(baseline_idx, i*5, '.r');
             %hold on;
             base_power = nanmean(abs(cur_spec_pow(:, baseline_idx, i)), 2);
@@ -365,7 +395,7 @@ for f_region = fieldnames(region_data)'
             offset_trans_spec = [offset_trans_spec, mean(cur_spec_pow(:, offset_trans_idx, i) , 2, 'omitnan')];
         end
 
-        freqs = nanmean(data_bystim.(f_stim).neuron_spec_freq, 3);
+        freqs = nanmean(popul_data.neuron_spec_freq, 3);
         
         % Average base frequency spectra
         %avg_base = mean(base_spec, 2, 'omitnan');
@@ -417,7 +447,7 @@ for f_region = fieldnames(region_data)'
         Multi_func.set_default_axis(gca);
         x = gca; x = x.YAxis;
         Multi_func.set_spacing_axis(x, 4, 2);
-        %avg_power = nanmean(data_bystim.(f_stim).neuron_spec_power, 3);
+        %avg_power = nanmean(popul_data.neuron_spec_power, 3);
         xlabel('Freq (Hz)');
         ylabel('Relative Power');
 	    %xlim([0 20]);
@@ -443,25 +473,25 @@ for f_region = fieldnames(region_data)'
         nexttile;
       
         % Get the trace timestamps
-        timeline = nanmean(data_bystim.(f_stim).trace_timestamps, 2)';
+        timeline = nanmean(popul_data.trace_timestamps, 2)';
         
         % Normalize ratio
         % First calculate by doing the ratios for each neuron first and then averaging
-        cur_spec_pow = data_bystim.(f_stim).neuron_spec_power;
+        cur_spec_pow = popul_data.neuron_spec_power;
     
         % Plot the starting time point for each neuron
-        sz = size(data_bystim.(f_stim).trace_timestamps);
+        sz = size(popul_data.trace_timestamps);
         
         base_spec = [];
         stim_spec = [];
         offset_spec = [];
         % Loop throug each neuron
-        for i = 1:size(data_bystim.(f_stim).trace_timestamps, 2)
+        for i = 1:size(popul_data.trace_timestamps, 2)
             % Get the indices define the periods within in the trace
-            baseline_idx = find(data_bystim.(f_stim).trace_timestamps(:, i) < data_bystim.(f_stim).stim_timestamps(1, i));
-            stim_idx = find(data_bystim.(f_stim).trace_timestamps(:, i) >= data_bystim.(f_stim).stim_timestamps(1, i) & ...
-                            data_bystim.(f_stim).trace_timestamps(:, i) <= data_bystim.(f_stim).stim_timestamps(end, i));
-            offset_idx = find(data_bystim.(f_stim).trace_timestamps(:, i) > data_bystim.(f_stim).stim_timestamps(end, i));
+            baseline_idx = find(popul_data.trace_timestamps(:, i) < popul_data.stim_timestamps(1, i));
+            stim_idx = find(popul_data.trace_timestamps(:, i) >= popul_data.stim_timestamps(1, i) & ...
+                            popul_data.trace_timestamps(:, i) <= popul_data.stim_timestamps(end, i));
+            offset_idx = find(popul_data.trace_timestamps(:, i) > popul_data.stim_timestamps(end, i));
             cur_spec_pow = abs(cur_spec_pow);
             % Store the baseline, stim, and offset spectrums
             base_spec = [base_spec, mean(cur_spec_pow(:, baseline_idx, i) , 2, 'omitnan')];
@@ -469,7 +499,7 @@ for f_region = fieldnames(region_data)'
             offset_spec = [base_spec, mean(cur_spec_pow(:, offset_idx, i) , 2, 'omitnan')];
         end
 
-        freqs = nanmean(data_bystim.(f_stim).neuron_spec_freq, 3);
+        freqs = nanmean(popul_data.neuron_spec_freq, 3);
         
         % Average base frequency spectra
         avg_base = mean(base_spec, 2, 'omitnan');
