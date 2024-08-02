@@ -160,7 +160,7 @@ for f_region = fieldnames(region_data)'
         ylabel('Freq (Hz)');
         title(f_stim(3:end), 'Interpreter', 'none');
     end
-    sgtitle([ f_region ' Time Series Spectra with (x - A)/(A + B) normalization individually'], 'Interpreter', 'none');
+    sgtitle([ f_region ' Time Series Spectra with (x - A)/(A + B) normalization individually ' nr_pop], 'Interpreter', 'none');
     
     saveas(gcf, [figure_path 'Spectra/' f_region '_' nr_pop '_A_B_Normalization_Time_Spectra.png']);
     saveas(gcf, [figure_path 'Spectra/' f_region '_' nr_pop '_A_B_Normalization_Time_Spectra.pdf']);
