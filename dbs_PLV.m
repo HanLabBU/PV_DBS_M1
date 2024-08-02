@@ -67,7 +67,7 @@ avg_Fs = mean(region_data.(field1{1}).f_40.framerate, 'omitnan');
 
 
 %% Loop through and calculate dbs-Vm PLV values for all region and conditions
-freqs = [1:200];
+freqs = Multi_func.entr_freqs;
 for f_region = fieldnames(region_data)'
     f_region = f_region{1};
     data_bystim = region_data.(f_region);
@@ -86,14 +86,20 @@ for f_region = fieldnames(region_data)'
         base_plvs_adjusted = [];
         stim_plvs_adjusted = [];
         
+        vm_phases = {};
+
         tic;
         %parfor (nr = 1:length(stim_data.all_trial_SubVm), 0)
         for nr = 1:length(stim_data.all_trial_SubVm)
+            % Function that waits for a whole signal to be passed then perform filtering 
+            %with constants freq and samp_freq
             filt_trial = @(trial) (angle(Multi_func.filt_data(trial, freqs, avg_Fs)));
             
+            % Function that waits for a function and matrix and then returns a function waiting for a column value
             applyFunToColi = @(func, mat) (@(col) func(mat(:, col)));
+            % Aply the filtering function with the whole trial matrix, so all is left is waiting for a column number
             partial_apply = applyFunToColi(filt_trial, stim_data.all_trial_SubVm{nr});
-            
+            % Iterate through each column trial and concatenate all o fthe results
             vm_phases{nr} = arrayfun(partial_apply, [1:size(stim_data.all_trial_SubVm{nr}, 2)]' , 'UniformOutput', false); 
             % 
             vm_phases{nr} = cat(3, vm_phases{nr}{:});
@@ -104,7 +110,7 @@ for f_region = fieldnames(region_data)'
             base_idx = find(time < Multi_func.base_ped(2)/1000);
             stim_idx = find(time >= Multi_func.stim_ped(1)/1000 & time <= Multi_func.stim_ped(2)/1000);
             
-            % Calculate stimulation raster
+            % Calculate stimulation raster points in trace timepoints
             nr_stim_time = reshape(stim_data.stim_timestamps(:, nr), 1, []);
             nr_frame_time = stim_data.trace_timestamps(:, nr);
             diffs = abs(nr_stim_time - nr_frame_time);
@@ -121,13 +127,13 @@ for f_region = fieldnames(region_data)'
             stim_rasters(stim_idx) = dbs_rasters(stim_idx);
             
             [PLV, PLV2, norm_vecs] = Multi_func.spike_field_PLV(vm_phases{nr}, base_rasters, 0, 10);             
-            base_plvs(nr, :) = PLV;
-            base_plvs_adjusted(nr, :) = PLV2;
+            base_plvs(:, nr) = PLV(:);
+            base_plvs_adjusted(:, nr) = PLV2(:);
             base_phase_vectors = [base_phase_vectors; norm_vecs];
 
             [PLV, PLV2, norm_vecs] = Multi_func.spike_field_PLV(vm_phases{nr}, stim_rasters, 0, 10);           
-            stim_plvs(nr, :) = PLV;
-            stim_plvs_adjusted(nr, :) = PLV2;
+            stim_plvs(:, nr) = PLV(:);
+            stim_plvs_adjusted(:, nr) = PLV2(:); %TODO I changed this to transpose the dimensions
             stim_phase_vectors = [stim_phase_vectors; norm_vecs];
         end
 
