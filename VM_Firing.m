@@ -131,6 +131,13 @@ for f_region = fieldnames(region_data)'
 end
 
 %% Compact population Subthreshold Vm
+
+% Flag to determine which populations to plot
+% The variable must be set from 'single_cell_mod'
+%nr_pop = 'all';
+nr_pop = 'etrain';
+%nr_pop = 'non';
+
 for f_region = fieldnames(region_data)'
     f_region = f_region{1};
     data_bystim = region_data.(f_region);
@@ -141,8 +148,25 @@ for f_region = fieldnames(region_data)'
     tiledlayout(1, length(stims), 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 20, 17.56, 2.80]);
     for f_stim=stims'
         f_stim = f_stim{1};
-        timeline = nanmean(data_bystim.(f_stim).trace_timestamps, 2);
-        norm_vms = data_bystim.(f_stim).neuron_Vm./data_bystim.(f_stim).neuron_spike_amp;
+        
+        popul_data = data_bystim.(f_stim);
+
+        % Check if there is an entrained field in the population data
+        try
+            switch nr_pop
+                case 'etrain'
+                    nr_idxs = find([popul_data.plv_mod_stats.mod] > 0);
+                case 'non'
+                    nr_idxs = find([popul_data.plv_mod_stats.mod] < 0);
+                case 'all'
+                    nr_idxs = 1:length(popul_data.plv_mod_stats);
+            end
+        catch ME
+            disp(ME.message);
+        end
+
+        timeline = nanmean(popul_data.trace_timestamps, 2);
+        norm_vms = popul_data.neuron_Vm(:, nr_idxs)./popul_data.neuron_spike_amp(nr_idxs);
         cur_Vm = mean(norm_vms, 2, 'omitnan');
         std_Vm = std(norm_vms, 0, 2, 'omitnan');
         num_neurons = size(norm_vms, 2);
@@ -186,8 +210,8 @@ for f_region = fieldnames(region_data)'
         xlabel('Time from stim onset (s)');
     end
     sgtitle([f_region(3:end) ' Average subthreshold Vm'], 'Interpreter', 'none');
-    saveas(gcf, [figure_path 'Average/' f_region '_Average_sub_thres.png']);
-    saveas(gcf, [figure_path 'Average/' f_region '_Average_sub_thres.pdf']);
+    saveas(gcf, [figure_path 'Average/' f_region '_' nr_pop '_Average_sub_thres.png']);
+    saveas(gcf, [figure_path 'Average/' f_region '_' nr_pop '_Average_sub_thres.pdf']);
     %saveas(gcf, [figure_path 'Average/' f_region '_Average_sub_thres.eps']);
 end
 
@@ -477,6 +501,13 @@ end
 
 
 %% Subthreshold Vm showing all DBS pulses
+
+% Flag to determine which populations to plot
+% The variable must be set from 'single_cell_mod'
+%nr_pop = 'all';
+%nr_pop = 'etrain';
+nr_pop = 'non';
+
 for f_region = fieldnames(region_data)'
     f_region = f_region{1};
     data_bystim = region_data.(f_region);
@@ -486,8 +517,25 @@ for f_region = fieldnames(region_data)'
     tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 20, 9, 5.23]);
     for f_stim=stims'
         f_stim = f_stim{1};
-        timeline = nanmean(data_bystim.(f_stim).trace_timestamps, 2);
-        norm_vms = data_bystim.(f_stim).neuron_Vm./data_bystim.(f_stim).neuron_spike_amp;
+    
+        popul_data = data_bystim.(f_stim);
+
+        % Check if there is an entrained field in the population data
+        try
+            switch nr_pop
+                case 'etrain'
+                    nr_idxs = find([popul_data.plv_mod_stats.mod] > 0);
+                case 'non'
+                    nr_idxs = find([popul_data.plv_mod_stats.mod] < 0);
+                case 'all'
+                    nr_idxs = 1:length(popul_data.plv_mod_stats);
+            end
+        catch ME
+            disp(ME.message);
+        end
+            
+        timeline = nanmean(popul_data.trace_timestamps, 2);
+        norm_vms = popul_data.neuron_Vm(:, nr_idxs)./popul_data.neuron_spike_amp(nr_idxs);
         cur_Vm = mean(norm_vms, 2, 'omitnan');
         std_Vm = std(norm_vms, 0, 2, 'omitnan');
         num_neurons = size(norm_vms, 2);
@@ -503,7 +551,7 @@ for f_region = fieldnames(region_data)'
         hold on;
         
         % Plot the DBS stimulation time pulses
-        stim_time = nanmedian(data_bystim.(f_stim).stim_timestamps, 2);
+        stim_time = nanmedian(popul_data.stim_timestamps, 2);
         xline(stim_time, 'Color', [170, 176, 97]./255, 'LineWidth', 0.5);
         hold on;
 
@@ -529,14 +577,21 @@ for f_region = fieldnames(region_data)'
         set(gca, 'color', 'none')
         title(f_stim(3:end), 'Interpreter', 'none');
     end
-    sgtitle([f_region(3:end) ' Average subthreshold Vm Showing all pulses'], 'Interpreter', 'none');
+    sgtitle([f_region(3:end) ' Average subthreshold Vm Showing all pulses ' nr_pop], 'Interpreter', 'none');
    
-    saveas(gcf, [figure_path 'Average/' f_region '_Display_All_Pulse_Vm.png']);
-    saveas(gcf, [figure_path 'Average/' f_region '_Display_All_Pulse_Vm.pdf']);
+    saveas(gcf, [figure_path 'Average/' f_region '_' nr_pop '_Display_All_Pulse_Vm.png']);
+    saveas(gcf, [figure_path 'Average/' f_region '_' nr_pop '_Display_All_Pulse_Vm.pdf']);
     %saveas(gcf, [figure_path 'Average/' f_region '_Display_All_Pulse_Vm.eps'], 'epsc');
 end
 
 %% Continuous firing rate showing all DBS pulses
+
+% Flag to determine which populations to plot
+% The variable must be set from 'single_cell_mod'
+%nr_pop = 'all';
+%nr_pop = 'etrain';
+nr_pop = 'non';
+
 for f_region = fieldnames(region_data)'
     f_region = f_region{1};
     data_bystim = region_data.(f_region);
@@ -545,12 +600,30 @@ for f_region = fieldnames(region_data)'
     figure('Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
     tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 20, 9.5, 5.0]);
     for f_stim=stims'
-        timeline = nanmean(data_bystim.(f_stim{1}).trace_timestamps, 2);
-        cur_srate = mean(data_bystim.(f_stim{1}).neuron_srate_3, 2, 'omitnan');
-        std_srate = std(data_bystim.(f_stim{1}).neuron_srate_3, 0, 2, 'omitnan');
-        num_neurons = size(data_bystim.(f_stim{1}).neuron_srate_3, 2);
+        f_stim = f_stim{1};
+        
+        popul_data = data_bystim.(f_stim);
+
+        % Check if there is an entrained field in the population data
+        try
+            switch nr_pop
+                case 'etrain'
+                    nr_idxs = find([popul_data.plv_mod_stats.mod] > 0);
+                case 'non'
+                    nr_idxs = find([popul_data.plv_mod_stats.mod] < 0);
+                case 'all'
+                    nr_idxs = 1:length(popul_data.plv_mod_stats);
+            end
+        catch ME
+            disp(ME.message);
+        end
+
+        timeline = nanmean(popul_data.trace_timestamps, 2);
+        cur_srate = mean(popul_data.neuron_srate_3(:, nr_idxs), 2, 'omitnan');
+        std_srate = std(popul_data.neuron_srate_3(:, nr_idxs), 0, 2, 'omitnan');
+        num_neurons = size(popul_data.neuron_srate_3(:, nr_idxs), 2);
         sem_srate = std_srate./sqrt(num_neurons);
-        %num_points = size(data_bystim.(f_stim{1}).neuron_srate, 1);
+        %num_points = size(popul_data.neuron_srate, 1);
         nexttile;
 
         % Plot the subthreshold srate
@@ -561,7 +634,7 @@ for f_region = fieldnames(region_data)'
         hold on;
         
         % Plot the DBS stimulation time pulses
-        stim_time = nanmean(data_bystim.(f_stim{1}).stim_timestamps, 2);
+        stim_time = nanmean(popul_data.stim_timestamps, 2);
         xline(stim_time, 'Color', [170, 176, 97]./255, 'LineWidth', 0.5);
         hold on;
 
@@ -585,11 +658,11 @@ for f_region = fieldnames(region_data)'
         a.XAxis.Visible = 'off';
         a.YAxis.Visible = 'off';
         set(gca, 'color', 'none')
-        title(f_stim{1}(3:end), 'Interpreter', 'none');
+        title(f_stim(3:end), 'Interpreter', 'none');
     end
-    sgtitle([f_region(3:end) ' Population Firing Rate Showing All Pulses'], 'Interpreter', 'none');
-    saveas(gcf, [figure_path 'Average/' f_region '_Display_All_Pulse_FR.png']);
-    saveas(gcf, [figure_path 'Average/' f_region '_Display_All_Pulse_FR.pdf']);
+    sgtitle([f_region(3:end) ' Population Firing Rate Showing All Pulses ' nr_pop], 'Interpreter', 'none');
+    saveas(gcf, [figure_path 'Average/' f_region '_' nr_pop '_Display_All_Pulse_FR.png']);
+    saveas(gcf, [figure_path 'Average/' f_region '_' nr_pop '_Display_All_Pulse_FR.pdf']);
     %saveas(gcf, [figure_path 'Average/' f_region '_Display_All_Pulse_Trig_FR.eps'], 'epsc');
 end
 
