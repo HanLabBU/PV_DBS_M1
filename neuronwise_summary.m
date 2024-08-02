@@ -119,7 +119,6 @@ for f_region = fieldnames(region_matfiles)'
                     trial_data = data.align.trial{tr_idx};
                     raw_trial_data = data.raw.trial{tr_idx};
 
-
                     % Store the camera framerate
                     all_Fs(end+1) = trial_data.camera_framerate;
                     cur_fov_Fs(end + 1) = trial_data.camera_framerate;
