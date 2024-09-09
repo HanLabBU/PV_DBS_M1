@@ -131,7 +131,6 @@ for f_region = fieldnames(region_data)'
         base_srate = mean(base_srate, 2, 'omitnan');
         std_baseline = std(base_srate, 0, 'omitnan');
         sig_idx = find(cur_srate > (2*std_baseline + mean(base_srate, 'omitnan')));
-        
 
         % Calculate a good height for the points
         thres = 0.2;
@@ -242,7 +241,7 @@ saveas(gcf, [figure_path 'Small_Res' f 'Onset_Overlay_Fr.pdf']);
 nr_pop = 'non';
 
 vm_trig_avg_time = struct();
-stats_log = [figure_path 'Small_Res' f '_Vm_pulse_triggered_time_to_final_average_' nr_pop];
+stats_log = [figure_path 'Small_Res' f 'Vm_pulse_triggered_time_to_final_average_' nr_pop];
 if exist(stats_log), delete(sprintf('%s', stats_log)), end;
 diary(stats_log);
 diary off
@@ -973,6 +972,7 @@ for f_region = fieldnames(region_data)'
         sig_idx(timeline(sig_idx) <= 0 | timeline(sig_idx) >= 1000*nr_avg_pulse_width_time) = [];
 
         peak_idx = find(sus_cur_srate == max(sus_cur_srate(timeline' >= 0 & timeline' <= nr_avg_pulse_width_time*1000))); % The messsy condition is for inside the pulse window and not the extra traces
+        peak_idx = peak_idx(find(timeline(peak_idx) >= 0 & timeline(peak_idx) <= nr_avg_pulse_width_time*1000)); % Keep only the idxs that are within in the time window
         if ~isempty(sig_idx)
             % DEBUG show the significant point
             xline([timeline(peak_idx(1)), timeline(sig_idx(1))], 'g');
