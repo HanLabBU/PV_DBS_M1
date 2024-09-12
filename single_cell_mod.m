@@ -111,7 +111,7 @@ end
 heatmap_color(heatmap_color > 1) = 1;
 heatmap_color(heatmap_color < 0) = 0;
 heatmap_color = flipud(heatmap_color);
-
+  
 for f_region = fieldnames(region_data)'
     f_region = f_region{1};
     data_bystim = region_data.(f_region);
@@ -534,7 +534,6 @@ for f_region = fieldnames(region_data)'
     end
 end
 
-
 %% Calculate modulation of spike rate in the sustained period
 % Loop through regions
 for f_region = fieldnames(region_data)'
@@ -716,6 +715,7 @@ for f_region = fieldnames(region_data)'
 end % Region loop
 
 %% Plot stuff based on stim-Vm PLV
+% To use 'stim_dbsvm_plvs_adj', need to run 'dbs_PLV.m' and the section on calculating dbs-Vm PLVs
 %plot_mode = 'pow'; % Use stimulation frequency power spectra for each neuron
 %plot_mode = 'Vm'; % Use the trial averaged Vm
 plot_mode = 'pulse'; % use Pulse-triggered average
@@ -1020,17 +1020,91 @@ for f_region = fieldnames(region_data)'
         ylim([1 size(plv_heatmap, 1) ]);
         xlabel('Frequency (Hz)');
         set(gca, 'XScale', 'log');
-        c.Label.String = 'DBS-Vm PLV (Z-scored)';
+        c.Label.String = 'DBS-Vm PLV';
 
         sgtitle([f_region ' ' f_stim], 'Interpreter', 'none');
         
         % Save figure stuff
-        saveas(gcf, [figure_path 'Neuronwise' f f_region '_' f_stim '_' num2str(wind_dist) '_stimVm_plv_mod_plots.png']);
+        saveas(gcf, [figure_path 'Neuronwise' f f_region '_' f_stim '_' num2str(wind_dist) '_stimVm_plv_mod_plots_mode' plot_mode '.png']);
         saveas(gcf, [figure_path 'Neuronwise' f f_region '_' f_stim '_' num2str(wind_dist) '_stimVm_plv_mod_plots_mode' plot_mode '.pdf']);
     end
 end
 
+%% Calculate the cross-correlation of the stimulation period for all neurons
 
+for f_region = fieldnames(region_data)'
+    f_region = f_region{1};
+    data_bystim = region_data.(f_region);
+    stims = fieldnames(data_bystim);
+
+    % Loop through stim frequencies
+    for f_stim = stims'
+        f_stim = f_stim{1};
+        popul_data = data_bystim.(f_stim);
+        
+        % Get average framerate
+        avg_Fs = mean(popul_data.framerate, 'omitnan');
+
+        % Figure for each condition
+        figure('Position', [0, 0, 800, 2000]);
+        tiledlayout(length(popul_data.neuron_name), 2, 'TileSpacing', 'none', 'Padding', 'none');
+
+        % Iterate through neurons
+        for nr=1:length(popul_data.neuron_name)
+            
+            % Grab the stimulation idxs
+            nr_timeline = popul_data.trace_timestamps(:, nr);
+            stim_idx = find(nr_timeline > 0 & nr_timeline < 1);
+
+            % De-mean and calculate the auto-correlation
+            de_mean = @(col_idx) xcorr(popul_data.all_trial_SubVm{nr}(stim_idx, col_idx) ...
+                                    - mean(popul_data.all_trial_SubVm{nr}(stim_idx, col_idx)));
+            
+
+            [corrs, lags] = arrayfun(de_mean, [1:size(popul_data.all_trial_SubVm{nr}, 2)], 'UniformOutput', false);
+            
+            % Calculate the average correlations and lags
+            avg_corrs = mean(cat(2, corrs{:}), 2);
+            avg_lags = mean(cat(1, lags{:})', 2);
+            sem_corrs = std(cat(2, corrs{:}), [], 2)./sqrt(length(corrs));
+
+            % Chop the data in half because it is symmetrical
+            avg_corrs = avg_corrs(ceil(length(avg_corrs)/2):end);
+            avg_lags = avg_lags(ceil(length(avg_lags))./2:end);
+            sem_corrs = sem_corrs(ceil(length(sem_corrs))./2:end);
+
+            % Calculate the fft of the average cross-correlation
+            fft_y = fft(avg_corrs);
+            sig_length = length(avg_corrs);
+            freq_domain = (avg_Fs/sig_length)*(0:sig_length - 1);
+
+            % Plot the auto-correlation
+            nexttile;
+            fill_h = fill([avg_lags; flip(avg_lags)], ...
+                [avg_corrs + sem_corrs; flipud(avg_corrs - sem_corrs)], ...
+                [0 0 1] , 'HandleVisibility', 'off');
+            Multi_func.set_fill_properties(fill_h);
+            hold on;
+            plot(avg_lags, avg_corrs);
+            xlim([-200 200]);
+
+            % Plot the fourier-transform
+            nexttile;
+            
+            % Check if the PLV mod is high or low
+            if popul_data.plv_mod_stats(nr).mod > 0
+                cur_color = 'g';
+            else
+                cur_color = 'r';
+            end
+            plot(freq_domain, abs(fft_y), 'Color', cur_color);
+            xlim([5 200]);
+        end
+
+        % Title of condition
+        sgtitle([f_region ' ' f_stim], 'Interpreter', 'none');
+    end
+end
 
 %% Display the number of modulated stuff
 for f_region = fieldnames(region_data)'
@@ -1070,7 +1144,7 @@ for f_region = fieldnames(region_data)'
     end
 end
 
-%% Display the number of neurons per modulation
+%% Save the number of neurons per modulation
 stats_t = table();
 for f_region = fieldnames(region_data)'
     f_region = f_region{1};
@@ -1130,9 +1204,9 @@ for f_region = fieldnames(region_data)'
         stats_t([f_region f_stim], 'Total Neurons') = {length([popul_data.plv_mod_stats.mod])};
 
         % Loop and create percentages
-        for row = stats_t.Properties.RowNames'
-            stats_t{row{1}, :} = stats_t{row{1}, :}*100 / stats_t{row{1}, 'Total Neurons'};
-        end
+        %for row = stats_t.Properties.RowNames'
+        %    stats_t{row{1}, :} = stats_t{row{1}, :}*100 / stats_t{row{1}, 'Total Neurons'};
+        %end
     end
 end
 disp(stats_t);
