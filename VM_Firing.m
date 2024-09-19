@@ -648,7 +648,7 @@ for f_region = fieldnames(region_data)'
         % Plot the srate scale
         poxs = .2;
         posy = 5;
-        srate_scale = 2;
+        srate_scale = 10;
         plot([posx, posx], [posy, posy + srate_scale], 'k', 'LineWidth', 0.5);
         text(posx - .01, posy, [num2str(srate_scale) ' FR (Hz)'], 'Rotation', 90, 'FontSize', 7);
 
