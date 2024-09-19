@@ -70,8 +70,8 @@ extra_trace = 3;
 % Flag to determine which populations to plot
 % The variable must be set from 'single_cell_mod'
 %nr_pop = 'all';
-nr_pop = 'etrain';
-%nr_pop = 'non';
+%nr_pop = 'etrain';
+nr_pop = 'non';
 
 Fr_onset_time = struct();
 stats_log = [figure_path 'Small_Res' f 'Fr_onset_sig_times_' nr_pop];
@@ -380,7 +380,9 @@ for f_region = fieldnames(region_data)'
         timeline = [ [0:size(all_pulse_vm, 1) - 1] - extra_trace]*1000./avg_Fs;
         
         fill_h = fill([timeline, flip(timeline)], [cur_subVm + sem_subVm; flipud(cur_subVm - sem_subVm)], [0.5 0.5 0.5]);
-        Multi_func.set_fill_properties(fill_h);
+        if ~isempty(fill_h)
+            Multi_func.set_fill_properties(fill_h);
+        end
         hold on;
         plot(timeline, cur_subVm, 'k', 'LineWidth', 1);
         hold on;
@@ -395,7 +397,9 @@ for f_region = fieldnames(region_data)'
         timeline = [ [0:size(trans_pulse_vm, 1) - 1] - extra_trace]*1000./avg_Fs;
         
         fill_h = fill([timeline, flip(timeline)], [trans_cur_subVm + trans_sem_subVm; flipud(trans_cur_subVm - trans_sem_subVm)], [0.5 0.5 0.5]);
-        Multi_func.set_fill_properties(fill_h);
+        if ~isempty(fill_h)
+            Multi_func.set_fill_properties(fill_h);
+        end
         hold on;
         plot(timeline, trans_cur_subVm, 'k', 'LineWidth', 1);
         hold on;
@@ -410,7 +414,9 @@ for f_region = fieldnames(region_data)'
         timeline = [ [0:size(sus_pulse_vm, 1) - 1] - extra_trace]*1000./avg_Fs;
         
         fill_h = fill([timeline, flip(timeline)], [sus_cur_subVm + sus_sem_subVm; flipud(sus_cur_subVm - sus_sem_subVm)], [0.5 0.5 0.5]);
-        Multi_func.set_fill_properties(fill_h);
+        if ~isempty(fill_h)
+            Multi_func.set_fill_properties(fill_h);
+        end
         hold on;
         plot(timeline, sus_cur_subVm, 'k', 'LineWidth', 1);
         hold on;
@@ -625,8 +631,8 @@ end
 % Flag to determine which populations to plot
 % The variable must be set from 'single_cell_mod'
 %nr_pop = 'all';
-nr_pop = 'etrain';
-%nr_pop = 'non';
+%nr_pop = 'etrain';
+nr_pop = 'non';
 
 fr_trig_avg_time = struct();
 stats_log = [figure_path 'Small_Res' f '_Fr_pulse_triggered_times_final_average_' nr_pop ];
@@ -748,7 +754,9 @@ for f_region = fieldnames(region_data)'
         
         nexttile(all_tt, tilenum);
         fill_h = fill([timeline, flip(timeline)], [cur_srate + sem_srate; flipud(cur_srate - sem_srate)], [0.5 0.5 0.5]);
-        Multi_func.set_fill_properties(fill_h);
+        if ~isempty(fill_h)
+            Multi_func.set_fill_properties(fill_h);
+        end
         hold on;
         plot(timeline, cur_srate, 'k', 'LineWidth', 1);
         hold on;
@@ -767,7 +775,9 @@ for f_region = fieldnames(region_data)'
         
         nexttile(all_tt, tilenum + 1);
         fill_h = fill([timeline, flip(timeline)], [trans_cur_srate + trans_sem_srate; flipud(trans_cur_srate - trans_sem_srate)], [0.5 0.5 0.5]);
-        Multi_func.set_fill_properties(fill_h);
+        if ~isempty(fill_h)
+            Multi_func.set_fill_properties(fill_h);
+        end
         hold on;
         plot(timeline, trans_cur_srate, 'k', 'LineWidth', 1);
         hold on;
@@ -786,7 +796,9 @@ for f_region = fieldnames(region_data)'
         
         nexttile(all_tt, tilenum + 2);
         fill_h = fill([timeline, flip(timeline)], [sus_cur_srate + sus_sem_srate; flipud(sus_cur_srate - sus_sem_srate)], [0.5 0.5 0.5]);
-        Multi_func.set_fill_properties(fill_h);
+        if ~isempty(fill_h)
+            Multi_func.set_fill_properties(fill_h);
+        end
         hold on;
         plot(timeline, sus_cur_srate, 'k', 'LineWidth', 1);
         hold on;
@@ -1009,8 +1021,8 @@ for f_region = fieldnames(region_data)'
         tilenum = tilenum + 3;
     end
     sgtitle([f_region(3:end) ' Firing Rate pulse-triggered average ' nr_pop], 'Interpreter', 'none');
-    saveas(gcf, [figure_path 'Small_Res' f f_region '_Pulse_Avg_FR.png']);
-    saveas(gcf, [figure_path 'Small_Res' f f_region '_Pulse_Avg_FR.pdf']);
+    saveas(gcf, [figure_path 'Small_Res' f f_region '_' nr_pop '_Pulse_Avg_FR.png']);
+    saveas(gcf, [figure_path 'Small_Res' f f_region '_' nr_pop '_Pulse_Avg_FR.pdf']);
     %saveas(gcf, [figure_path 'Average/' f_region '_All_Pulse_Avg_FR.eps'], 'epsc');
 end
 
