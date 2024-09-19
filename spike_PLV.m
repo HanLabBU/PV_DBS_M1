@@ -68,6 +68,11 @@ avg_Fs = mean(region_data.(field1{1}).f_40.framerate, 'omitnan');
 
 %% Loop through and calculate spike-Vm PLV values for all region and conditions
 freqs = [1:200];
+
+% Flag to use low frequency oscillation
+use_low_freq = 0;
+use_plv_low = 1;
+
 for f_region = fieldnames(region_data)'
     f_region = f_region{1};
     data_bystim = region_data.(f_region);
@@ -158,8 +163,8 @@ end
 % Flag to determine which populations to plot
 % The variable must be set from 'single_cell_mod'
 %nr_pop = 'all';
-nr_pop = 'etrain';
-%nr_pop = 'non';
+%nr_pop = 'etrain';
+nr_pop = 'non';
 
 %low_freqs = [1:50]; % Deprecated??
 
@@ -222,8 +227,13 @@ for f_region = fieldnames(region_data)'
         plot(freqs, stim_plvs_mean, 'color', Multi_func.stim_color);
         hold on;
         
-        set(gca,'Xscale','log');
-        xlabel('Frequency Log (Hz)');
+        % Log frequency scale
+        %set(gca,'Xscale','log');
+        %xlabel('Frequency Log (Hz)');
+        
+        % Linear frequency scale
+        xlabel('Frequency (Hz)');
+
         ylabel('Spike-Vm PLV^2');
         ylim([-0.07 0.5]);
         title([f_region(3:end) ' ' f_stim(3:end) ' ' nr_pop], 'Interpreter', 'none');
@@ -231,10 +241,10 @@ for f_region = fieldnames(region_data)'
         saveas(gcf, [figure_path 'PLV' f 'PLV_spike_vm_' f_region '_' nr_pop '_' f_stim '.pdf']);
         
         % Zoom in on the theta range and plot that
-        xlim([2, 10]);
-        
-        saveas(gcf, [figure_path 'PLV' f 'Theta_PLV_spike_vm_' f_region '_' nr_pop '_' f_stim '.png']);
-        saveas(gcf, [figure_path 'PLV' f 'Theta_PLV_spike_vm_' f_region '_' nr_pop '_' f_stim '.pdf']);
+        %xlim([2, 10]);
+        %
+        %saveas(gcf, [figure_path 'PLV' f 'Theta_PLV_spike_vm_' f_region '_' nr_pop '_' f_stim '.png']);
+        %saveas(gcf, [figure_path 'PLV' f 'Theta_PLV_spike_vm_' f_region '_' nr_pop '_' f_stim '.pdf']);
         
         % Grab single cell
         %num_neurons = size(popul_data.base_plvs_adjusted, 1);
