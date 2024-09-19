@@ -589,7 +589,7 @@ for f_region = fieldnames(region_data)'
 end
 
 %% Calculate single cell PLV as well as shuffled distribution
-num_iter = 500; 
+num_iter = 500; %change this back to 500
 wind_dist = 1000/1000; %ms
 % Loop through regions
 for f_region = fieldnames(region_data)'
@@ -603,18 +603,20 @@ for f_region = fieldnames(region_data)'
         popul_data = data_bystim.(f_stim);
         
         % Stim freq for PLV
-        plv_freq = str2num(erase(f_stim, 'f_'))
+        plv_freq = str2num(erase(f_stim, 'f_'));
         avg_Fs = mean(popul_data.framerate, 'omitnan');
         plv_mod_stats = struct;
 
-        figure('Position', [0, 0, 800, 1000]);
-        tiledlayout(length(popul_data.neuron_name), 2, 'TileSpacing', 'compact', 'Padding', 'compact');
+        figure('Position', [0, 0, 800, 1800]);
+        tiledlayout(length(popul_data.neuron_name), 2, 'TileSpacing', 'none', 'Padding', 'none');
 
         for nr=1:length(popul_data.neuron_name)
+
             nr_timeline = popul_data.trace_timestamps(:, nr);
             base_idx = find(nr_timeline > 0 - wind_dist & nr_timeline < 0);
             stim_idx = find(nr_timeline > 0 & nr_timeline < 0 + wind_dist);
 
+            % Get the vector of all phases for all trials at the stimulation frequency
             filt_trial = @(trial) (angle(Multi_func.filt_data(trial, plv_freq, avg_Fs)));
             
             % Function that waits for a function and matrix and then returns a function waiting for a column value
@@ -626,7 +628,7 @@ for f_region = fieldnames(region_data)'
             % 
             vm_phases = cat(3, vm_phases{:});
 
-            % Calculate stimulation raster with dimensions of the whole trace
+            % Calculate stimulation raster with the index of the whole trace
             nr_stim_time = reshape(popul_data.stim_timestamps(:, nr), 1, []);
             nr_frame_time = popul_data.trace_timestamps(:, nr);
             diffs = abs(nr_stim_time - nr_frame_time);
@@ -635,11 +637,12 @@ for f_region = fieldnames(region_data)'
             dbs_raster = zeros(size(nr_frame_time));
             dbs_raster(stim_idx_i) = 1;
             dbs_rasters = repmat(dbs_raster, 1, size(vm_phases, 3));
+                  
+            % DEBUG ensuring that the DBS pulses are properly shown (Its COrrect!)
+            %nexttile;
+            %plot(dbs_rasters + [1:size(dbs_rasters, 2)]);
 
-            stim_rasters = zeros(size(dbs_rasters));
-            stim_rasters(stim_idx) = dbs_rasters(stim_idx);
-            
-            [PLV, PLV2, norm_vecs] = Multi_func.spike_field_PLV(vm_phases, stim_rasters, 0, 10);             
+            [PLV, PLV2, norm_vecs] = Multi_func.spike_field_PLV(vm_phases, dbs_rasters, 0, 10);             
             obs_PLV = PLV;
             obs_PLV2 = PLV2;
             obs_norm_vecs= norm_vecs;
@@ -665,6 +668,7 @@ for f_region = fieldnames(region_data)'
                 
                 % Reset the starting stim_idx for each trial and keep the spacing between indices the same
                 rand_stim_idx = repmat(stim_idx_i' - stim_idx_i(1), 1, size(vm_phases, 3)) + onset_rand;
+                    
                 col_ind_mat = repmat(1:size(rand_stim_idx, 2), size(rand_stim_idx, 1), 1);
                 stim_rasters = zeros(size(dbs_rasters));   
                 stim_rasters(sub2ind(size(stim_rasters),...
@@ -680,8 +684,8 @@ for f_region = fieldnames(region_data)'
             high_prc = prctile(shuf_plv_adj, 95);
 
             % Plot the trial-averaged Vm
-            nexttile;
-            plot(nr_timeline, popul_data.neuron_Vm(:, nr));
+            %nexttile;
+            %plot(nr_timeline, popul_data.neuron_Vm(:, nr));
 
             % plot the shuffled distribution
             nexttile;
@@ -700,6 +704,23 @@ for f_region = fieldnames(region_data)'
                 plv_mod_stats(nr).mod = -1;
             end
 
+            % DEBUG plot the last randomized stim pulses
+            %nexttile;
+            %plot(dbs_raster);
+            %hold on;
+            %plot(stim_rasters + [1:size(stim_rasters, 2)])
+    
+            %DEBUG Plot the raw trials with spike phase information
+            nexttile;
+            all_trs = popul_data.all_trial_SubVm{nr};
+            all_trs = Multi_func.raw_filt(all_trs, plv_freq, avg_Fs);
+            norm_trs = Multi_func.norm_signals(all_trs);
+            plot(norm_trs + repmat(1:size(norm_trs, 2), size(norm_trs, 1), 1));
+            hold on;
+            xline(find(dbs_raster == 1));
+             %plot(find(dbs_raster == 1), 1.2.*size(norm_trs, 2).*ones(sum(dbs_raster), 1), '|');
+            xlim([700 800]);
+
             sgtitle([f_region ' ' f_stim], 'Interpreter', 'none');
 
             % Store the PLV data into the neuron structure
@@ -711,6 +732,218 @@ for f_region = fieldnames(region_data)'
         end %neuron loop
         % Add plv mod stats to structure
         region_data.(f_region).(f_stim).plv_mod_stats = plv_mod_stats;
+
+        % Save the figures
+        saveas(gcf, [figure_path 'Neuronwise' f f_region '_' f_stim '_stimPLV_shuf.png']);
+        saveas(gcf, [figure_path 'Neuronwise' f f_region '_' f_stim '_stimPLV_shuf.pdf']);
+
+    end % Stim freq loop
+end % Region loop
+
+%% Calculate significant stim-Vm PLV for both halves of the stimulation period
+num_iter = 500;
+end_point = 1000/1000; %ms
+start_point = 0/1000; %ms
+mid_point = 500/1000 %ms
+
+% Loop through regions
+for f_region = fieldnames(region_data)'
+    f_region = f_region{1};
+    data_bystim = region_data.(f_region);
+    stims = fieldnames(data_bystim);
+
+    % Loop through stim frequencies
+    for f_stim = stims'
+        f_stim = f_stim{1};
+        popul_data = data_bystim.(f_stim);
+        
+        % Stim freq for PLV
+        plv_freq = str2num(erase(f_stim, 'f_'))
+        avg_Fs = mean(popul_data.framerate, 'omitnan');
+        plv_mod_stats = struct; % TODO this should check if the struct already exists and preserve the fields that are already there
+
+        figure('Position', [0, 0, 800, 1000]);
+        tiledlayout(length(popul_data.neuron_name), 2, 'TileSpacing', 'none', 'Padding', 'none');
+
+        for nr=1:length(popul_data.neuron_name)
+            nr_timeline = popul_data.trace_timestamps(:, nr);
+            stim_f_idx = find(nr_timeline > start_point & nr_timeline < mid_point);
+            stim_l_idx = find(nr_timeline > mid_point & nr_timeline < end_point);
+
+            filt_trial = @(trial) (angle(Multi_func.filt_data(trial, plv_freq, avg_Fs)));
+            
+            % Function that waits for a function and matrix and then returns a function waiting for a column value
+            applyFunToColi = @(func, mat) (@(col) func(mat(:, col)));
+            % Aply the filtering function with the whole trial matrix, so all is left is waiting for a column number
+            partial_apply = applyFunToColi(filt_trial, popul_data.all_trial_SubVm{nr});
+            % Iterate through each column trial and concatenate all o fthe results
+            vm_phases = arrayfun(partial_apply, [1:size(popul_data.all_trial_SubVm{nr}, 2)]' , 'UniformOutput', false); 
+            % 
+            vm_phases = cat(3, vm_phases{:});
+
+            % Calculate stimulation raster with dimensions of the whole trace
+            nr_stim_time = reshape(popul_data.stim_timestamps(:, nr), 1, []);
+            nr_frame_time = popul_data.trace_timestamps(:, nr);
+            diffs = abs(nr_stim_time - nr_frame_time);
+            [~, stim_idx_i] = min(diffs, [], 1);
+            
+            dbs_raster = zeros(size(nr_frame_time));
+            dbs_raster(stim_idx_i) = 1;
+            dbs_rasters = repmat(dbs_raster, 1, size(vm_phases, 3));
+            
+            % Calculate PLVs for the first half of stimulation
+            %TODO I need to double check this is doing the proper thing
+            stim_rasters = zeros(size(dbs_rasters));
+            stim_f_idx = repmat(stim_f_idx, 1, size(vm_phases, 3));
+            col_ind_mat = repmat(1:size(stim_f_idx, 2), size(stim_f_idx, 1), 1);
+            stim_rasters(sub2ind(size(stim_rasters), ...
+                        stim_f_idx(:), ...
+                        col_ind_mat(:))) = ...
+            dbs_rasters(sub2ind(size(stim_rasters), ...
+                        stim_f_idx(:), ...
+                        col_ind_mat(:)));
+            
+            [PLV, PLV2, norm_vecs] = Multi_func.spike_field_PLV(vm_phases, stim_rasters, 0, 10);             
+            first_obs_PLV = PLV;
+            first_obs_PLV2 = PLV2;
+            first_obs_norm_vecs= norm_vecs;
+
+            % Calculate PLVs for the second half of stimulation
+            stim_rasters = zeros(size(dbs_rasters));
+            stim_l_idx = repmat(stim_l_idx, 1, size(vm_phases, 3));
+            col_ind_mat = repmat(1:size(stim_l_idx, 2), size(stim_l_idx, 1), 1);
+            stim_rasters(sub2ind(size(stim_rasters), ...
+                        stim_l_idx(:), ...
+                        col_ind_mat(:))) = ...
+            dbs_rasters(sub2ind(size(stim_rasters), ...
+                        stim_l_idx(:), ...
+                        col_ind_mat(:)));
+
+            [PLV, PLV2, norm_vecs] = Multi_func.spike_field_PLV(vm_phases, stim_rasters, 0, 10);             
+            last_obs_PLV = PLV;
+            last_obs_PLV2 = PLV2;
+            last_obs_norm_vecs= norm_vecs;
+
+            % Find the upper limit for randomization
+            filt_time = nr_frame_time(mid_point > nr_frame_time);
+            % Compute absolute differences
+            diffs = abs(filt_time - mid_point);
+            % Find index of minimum difference in filtered_array
+            [minDiff, minIndex] = min(diffs);
+            % Find index of corresponding element in original array
+            last_index = find(nr_frame_time == filt_time(minIndex), 1);
+
+            % Shuffled PLV data
+            shuf_plv = [];
+            shuf_plv_adj = [];
+
+            % Reset the starting stim_idx for each trial and keep the spacing between indices the same
+            stim_idx_i = stim_idx_i(ceil(length(stim_idx_i)/2):end);
+
+            % Shuffle the start of the dbs timepoints and recalculate the PLV
+            % Need to randomize where the DBS points are along the rasters
+            for i=1:num_iter
+                % Randomly select stim onset time
+                onset_rand = randi(last_index, 1, size(vm_phases, 3));
+                
+                
+                rand_stim_idx = repmat(stim_idx_i' - stim_idx_i(1), 1, size(vm_phases, 3)) + onset_rand;
+                col_ind_mat = repmat(1:size(rand_stim_idx, 2), size(rand_stim_idx, 1), 1);
+                stim_rasters = zeros(size(dbs_rasters));
+                stim_rasters(sub2ind(size(stim_rasters), ...
+                                     rand_stim_idx(:), ...
+                                     col_ind_mat(:))) = 1;
+            
+                [sh_PLV, sh_PLV2, norm_vecs] = Multi_func.spike_field_PLV(vm_phases, stim_rasters, 0, 10);            
+                shuf_plv(end + 1) = sh_PLV;
+                shuf_plv_adj(end + 1) = sh_PLV2;
+            end
+        
+            % Calculate the 95th percentile
+            high_prc = prctile(shuf_plv_adj, 95);
+
+            % Plot the trial-averaged Vm
+            %nexttile;
+            %plot(nr_timeline, popul_data.neuron_Vm(:, nr));
+
+            % plot the shuffled distribution
+            nexttile;
+            histogram(shuf_plv_adj, 1000);
+            hold on;
+            xline(high_prc, '-b');
+            hold on;
+            Multi_func.set_default_axis(gca);
+            
+            % Check if significant for the first half of stimulation
+            if first_obs_PLV2 > high_prc
+                xline(first_obs_PLV2, '-g');
+                plv_mod_stats(nr).first_mod = 1;
+            else
+                xline(first_obs_PLV2, '-r');
+                plv_mod_stats(nr).first_mod = -1;
+            end
+        
+            % Check if significant for the second half of stimulation
+            if last_obs_PLV2 > high_prc
+                xline(last_obs_PLV2, '--g');
+                plv_mod_stats(nr).last_mod = 1;
+            else
+                xline(last_obs_PLV2, '--r');
+                plv_mod_stats(nr).last_mod = -1;
+            end
+
+            % DEBUG plotting randomized stim within vectors
+            %nexttile;
+            %plot(dbs_raster);
+            %hold on;
+            %plot(stim_rasters + [1:size(stim_rasters, 2)]); % The original DBS pulses
+        
+            %DEBUG plotting the power spectra for each neuron
+            nexttile;
+
+            get_base_idxs = @(tr_tmstmp, stim_tmstp) find(tr_tmstmp < stim_tmstp(1));
+            get_stim_idxs = @(tr_tmstmp, stim_tmstp) find(tr_tmstmp >= stim_tmstp(1) & ...
+                                                       tr_tmstmp <= stim_tmstp(end));
+
+            calc_time_pow = @(trial_spec, time_idxs) mean(trial_spec(:, time_idxs, :), 2);
+            
+            calc_trial_spec = @(trial_spec, base_pow, stim_pow) (trial_spec - base_pow)./(base_pow + stim_pow);
+            
+            calc_nr_spec = @(trial_spec, tr_tmstmp, stim_tmstp) mean(calc_trial_spec(trial_spec, ...
+                    calc_time_pow(trial_spec, get_base_idxs(tr_tmstmp, stim_tmstp)),  ...
+                    calc_time_pow(trial_spec, get_stim_idxs(tr_tmstmp, stim_tmstp))), 3, 'omitnan');
+            
+            norm_spec = calc_nr_spec(popul_data.all_trial_power_spec{nr}, ...
+                                    popul_data.trace_timestamps(:, nr), ...
+                                    popul_data.stim_timestamps(:, nr));
+
+            %avg_spec = mean(popul_data.all_trial_power_spec{nr}, 3);
+            avg_freqs = mean(popul_data.all_trial_spec_freq{nr}, 3);
+            surface(nr_timeline, avg_freqs, norm_spec, ...
+            'CDataMapping', 'scaled', 'FaceColor', 'texturemap', 'edgecolor', 'none');
+            xlim([-0.75 2.02]);
+            hold on;
+            xline([0 0.5]);
+            sgtitle([f_region ' ' f_stim], 'Interpreter', 'none');
+
+            %TODO need to change for the half of the stimulation period values
+            % Store the PLV data into the neuron structure
+            plv_mod_stats(nr).first_obs_PLV = first_obs_PLV;
+            plv_mod_stats(nr).first_obs_PLV2 = first_obs_PLV2;
+            plv_mod_stats(nr).last_obs_PLV = last_obs_PLV;
+            plv_mod_stats(nr).last_obs_PLV2 = last_obs_PLV2;
+            plv_mod_stats(nr).half_shuf_PLV = sh_PLV;
+            plv_mod_stats(nr).half_shuf_PLV2 = sh_PLV2;
+
+        end %neuron loop
+        
+        % Add plv mod stats to structure
+        region_data.(f_region).(f_stim).plv_mod_stats = plv_mod_stats;
+            
+        % Save the figures
+        saveas(gcf, [figure_path 'Neuronwise' f f_region '_' f_stim '_stimPLV_half_shuf.png']);
+        saveas(gcf, [figure_path 'Neuronwise' f f_region '_' f_stim '_stimPLV_half_shuf.pdf']);
+
     end % Stim freq loop
 end % Region loop
 
