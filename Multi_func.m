@@ -193,6 +193,16 @@ classdef Multi_func
             filt_sig = hilbert(filtfilt(B,A,sig));
         end
 
+        % Filter each trial by given frequency
+        function [filt_sigs] = raw_filt(sigs, fr, FS)
+            Fn = FS/2;
+            FB = [fr*0.95 fr*1.05];
+            for i = 1:size(sigs, 2)
+                [B, A] = butter(2, [min(FB) max(FB)]./Fn);
+                filt_sigs(:, i) = filtfilt(B, A, sigs(:, i));
+            end
+        end
+
         % Filter and grab the hilbert transform for at each frequency in the specified range
         function [filt_sig]=filt_data(sig,frs, FS)
             Fn = FS/2;
@@ -365,6 +375,12 @@ classdef Multi_func
             end
         end
 
+        % Non-linearly normalize each trial in the matrix, this function also assumes that the trials
+        % are columnwise
+        function [result] = norm_signals(x)
+            result = (x - min(x, [], 1))./(max(x, [], 1) - min(x, [], 1));
+        end
+
         %TODO change the data_bystim part of the struct
         % Combine all regions into a single 'region' structure called 'f_combined'
         function [combine_struct] = combine_regions(region_data)
@@ -471,7 +487,7 @@ classdef Multi_func
             result = filter(trans_coeff, 1, impulse_raster);
             result(1:wind - 1) = [];
             % This method unforunately created weird edges
-            %% Calculate the front edge with smaller window sizes
+            % Calculate the front edge with smaller window sizes
             %edge_rate = Multi_func.recurse_filter(impulse_raster(1:wind - 1));
             %result(1:wind - 1) = edge_rate;
         end
