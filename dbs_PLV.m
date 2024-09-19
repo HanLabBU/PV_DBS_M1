@@ -78,6 +78,8 @@ for f_region = fieldnames(region_data)'
         f_stim = f_stim{1};
         stim_data = data_bystim.(f_stim);
         
+        avg_Fs = mean(stim_data.framerate, 'omitnan');
+
         % Loop through each neuron
         base_plvs = [];
         stim_plvs = [];
