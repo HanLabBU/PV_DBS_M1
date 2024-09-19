@@ -149,6 +149,7 @@ for f_region = fieldnames(region_data)'
         % Only have color bar for 40Hz
         if strcmp(f_stim, 'f_40') == 1
             a = colorbar;
+            set(a, 'TickDirection', 'out');
             a.Ticks = linspace(a.Limits(1), a.Limits(2), 5);
             a.TickLabels = num2cell(round(linspace(a.Limits(1), a.Limits(2), 5), 1));
             a.Label.String = 'Relative Power';
