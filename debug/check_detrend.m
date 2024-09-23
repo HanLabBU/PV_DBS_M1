@@ -62,9 +62,6 @@ all_matfiles = {ses.name};
 [region_matfiles] = Multi_func.find_region(all_matfiles);
 region_data = struct();
 all_Fs = [];
-all_base_only_vm = [];
-all_base_offset_vm = [];
-all_filt_vm = [];
 for f_region = fieldnames(region_matfiles)'
     f_region = f_region{1};
 
@@ -83,6 +80,17 @@ for f_region = fieldnames(region_matfiles)'
         f_stim = f_stim{1};
         matfiles = matfile_stim.(f_stim).names;    
 
+        all_base_only_exp_vm = [];
+        all_base_offset_exp_vm = [];
+        all_filt_vm = [];
+        all_base_off_filt_vm = [];
+        all_base_lin_vm = [];
+        
+        all_base_only_exp_fit = [];
+        all_base_offset_exp_fit = [];
+        all_filter_fit = [];
+        all_base_offset_filter_fit = [];
+        all_base_lin_fit = [];
 
         for matfile = matfiles %(1:2) % Testing only a few
             matfile = matfile{1};
@@ -90,7 +98,6 @@ for f_region = fieldnames(region_matfiles)'
             data = load([pv_data_path matfile]);
             trial_idxs = find(~cellfun(@isempty, data.align.trial));
             trial_data = data.align.trial{trial_idxs(1)};    
-            
 
             % Loop through each ROI
             for roi_idx=1:size(trial_data.detrend_traces, 2)
@@ -135,52 +142,164 @@ for f_region = fieldnames(region_matfiles)'
                     
                     %cur_trace_ws = trial_data.spike_info375.trace_ws(roi_idx, front_frame_drop:back_frame_drop);
                         
-                    [base_offset, coeff] = Multi_func.exp_fit_Fx(cur_trace_ws', round(trial_data.camera_framerate));
+                    [base_offset_exp, coeff] = Multi_func.exp_fit_Fx(cur_trace_ws', round(trial_data.camera_framerate));
 
-                    [base_only, coeff] = exp_fit_new(cur_trace_ws', round(trial_data.camera_framerate));
+                    [base_only_exp, coeff] = exp_fit_new(cur_trace_ws', round(trial_data.camera_framerate));
                     
-                    base_filter = fastsmooth(cur_trace_ws, 2000, 1, 1);
+                    [base_only_lin_fit] = lin_fit(cur_trace_ws, round(trial_data.camera_framerate));
+
+                    trace_filter = fastsmooth(cur_trace_ws, 2000, 1, 1);
+                    
+                    base_offset_filter = mov_avg_adj(cur_trace_ws, round(trial_data.camera_framerate));
 
                     % Test different detrending methods
                     figure('Position', [1, 1, 1000, 900]);
-                    tiledlayout(4, 1, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters');
+                    tiledlayout(5, 1, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters');
                     nexttile;
                     plot(cur_trace_time, cur_trace_ws); % Raw trial
                     hold on;
-                    plot(cur_trace_time, baseline, 'DisplayName', 'Old detrending method');
+                    
+                    plot(cur_trace_time, base_offset_exp, 'DisplayName', 'Base and Offset exponential');
                     hold on;
-                    plot(cur_trace_time, base_new, 'DisplayName', 'New detrending method');
+                    plot(cur_trace_time, base_only_lin_fit, 'DisplayName', 'Base only linear fit');
+
+                    % Plotting the exponential fit from just the baseline
+                    %plot(cur_trace_time, base_only_exp, 'DisplayName', 'Baseline only exponential');
                     hold on;
-                    plot(cur_trace_time, base_filter, 'g', 'DisplayName', 'Filter detrending method');
+                    plot(cur_trace_time, trace_filter, 'g', 'DisplayName', 'Filter detrending method');
+                    hold on;
+                    plot(cur_trace_time, base_offset_filter, 'm', 'DisplayName', 'Filtering around points method');
                     legend();
                     title([f_region ' ' f_stim ' ' matfile], 'Interpreter', 'none');
+                    
+
                     nexttile;
-                    base_offset_detrend_trace = cur_trace_ws - base_offset;
-                    plot(cur_trace_time, base_offset_detrend_trace);
+                    base_offset_exp_detrend_trace = cur_trace_ws - base_offset_exp;
+                    plot(cur_trace_time, base_offset_exp_detrend_trace);
                     title('Old method (baseline and offset points)');
+                    
                     nexttile;
-                    base_only_detrend_trace = cur_trace_ws - base_only;
-                    plot(cur_trace_time, base_only_detrend_trace);
-                    title('New method (baseline only points)');
+                    base_only_lin_detrend_trace = cur_trace_ws - base_only_lin_fit;
+                    plot(cur_trace_time, base_only_lin_detrend_trace);
+                    title('Linear fit method (baseline points)');
+ 
+                    % Baseline only exponential fit
+                    base_only_exp_detrend_trace = cur_trace_ws - base_only_exp;
+                    %plot(cur_trace_time, base_only_exp_detrend_trace);
+                    %title('New method (baseline only points)');
+                    
                     nexttile;
-                    filt_detrend_trace = cur_trace_ws - base_filter;
+                    filt_detrend_trace = cur_trace_ws - trace_filter;
                     plot(cur_trace_time, filt_detrend_trace);
                     title('Filter method (all points)');
+
+                    nexttile;
+                    base_off_filt_detrend_trace = cur_trace_ws - base_offset_filter;
+                    plot(cur_trace_time, base_offset_exp_detrend_trace);
+                    title('Filter method (base and offset points)');
 
                     % Save to specific location to check on all matfiles
                     saveas(gcf, [save_path 'raw_' matfile '_roi' num2str(roi_idx) '_tr' num2str(tr_idx) '.png']);
                 
                     % Save all of the Vms to respective arrays
-                    all_base_only_vm = horzcat_pad(all_base_only_vm, base_only_detrend_trace(:));
-                    all_base_offset_vm = horzcat_pad(all_base_only_vm, base_offset_detrend_trace(:));
+                    all_base_only_exp_vm = horzcat_pad(all_base_only_exp_vm, base_only_exp_detrend_trace(:));
+                    all_base_offset_exp_vm = horzcat_pad(all_base_offset_exp_vm, base_offset_exp_detrend_trace(:));
                     all_filt_vm = horzcat_pad(all_filt_vm, filt_detrend_trace(:));
+                    all_base_off_filt_vm = horzcat_pad(all_base_off_filt_vm, base_off_filt_detrend_trace(:));
+                    all_base_lin_vm = horzcat_pad(all_base_lin_vm, base_only_lin_detrend_trace(:));
+
+                    all_base_only_exp_fit = horzcat_pad(all_base_only_exp_fit, base_only_exp(:));
+                    all_base_offset_exp_fit = horzcat_pad(all_base_offset_exp_fit, base_offset_exp(:));
+                    all_filter_fit = horzcat_pad(all_filter_fit, trace_filter(:));
+                    all_base_offset_filter_fit = horzcat_pad(all_base_offset_filter_fit, base_offset_filter(:));
+
+                    all_base_lin_fit = horzcat_pad(all_base_lin_fit, base_only_lin_fit(:));
+			
                 end % End looping through trial
             end % End looping through ROI
         end % End looping through individual FOVS
+        
+        data_bystim.(f_stim).all_base_only_exp_vm = all_base_only_exp_vm;
+        data_bystim.(f_stim).all_base_offset_exp_vm = all_base_offset_exp_vm;
+        data_bystim.(f_stim).all_filt_vm = all_filt_vm;
+        data_bystim.(f_stim).all_base_off_filt_vm = all_base_off_filt_vm;
+        data_bystim.(f_stim).all_base_lin_vm = all_base_lin_vm;
+
+        data_bystim.(f_stim).all_base_only_exp_fit = all_base_only_exp_fit;
+        data_bystim.(f_stim).all_base_offset_exp_fit = all_base_offset_exp_fit;
+        data_bystim.(f_stim).all_filter_fit = all_filter_fit;
+        data_bystim.(f_stim).all_base_offset_filter_fit = all_base_offset_filter_fit;
+        data_bystim.(f_stim).all_base_lin_fit = all_base_lin_fit;
+
     end % End looping stim conditions
+    region_data.(f_region) = data_bystim;
 end % End looping through regions
+save('detrend_debug.mat', 'region_data');
+
+%% Plot all of the photobleach averages
+figure;
+tiledlayout(4, 1, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters');
+nexttile;
+base_avg = mean(all_base_only_exp_vm, 2, 'omitnan');
+base_std = std(all_base_only_exp_vm, 0, 2, 'omitnan');
+num_vm = size(all_base_only_exp_vm, 2);
+base_sem = base_std./sqrt(num_vm);
+timeline = [1:size(all_base_only_exp_vm, 1)]';
+fill_h = fill([timeline; flip(timeline)], [base_avg + base_sem; flipud(base_avg - base_sem)], [0.5 0.5 0.5]);
+Multi_func.set_fill_properties(fill_h);
+hold on;
+plot(timeline, base_avg, 'k', 'LineWidth', 0.3);
+
+nexttile;
+base_avg = mean(all_base_offset_exp_vm, 2, 'omitnan');
+base_std = std(all_base_offset_exp_vm, 0, 2, 'omitnan');
+num_vm = size(all_base_offset_exp_vm, 2);
+base_sem = base_std./sqrt(num_vm);
+timeline = [1:size(all_base_offset_exp_vm, 1)]';
+fill_h = fill([timeline; flip(timeline)], [base_avg + base_sem; flipud(base_avg - base_sem)], [0.5 0.5 0.5]);
+Multi_func.set_fill_properties(fill_h);
+hold on;
+plot(timeline, base_avg, 'k', 'LineWidth', 0.3);
 
 
+nexttile;
+base_avg = mean(all_filt_vm, 2, 'omitnan');
+base_std = std(all_filt_vm, 0, 2, 'omitnan');
+num_vm = size(all_filt_vm, 2);
+base_sem = base_std./sqrt(num_vm);
+timeline = [1:size(all_filt_vm, 1)]';
+fill_h = fill([timeline; flip(timeline)], [base_avg + base_sem; flipud(base_avg - base_sem)], [0.5 0.5 0.5]);
+Multi_func.set_fill_properties(fill_h);
+hold on;
+plot(timeline, base_avg, 'k', 'LineWidth', 0.3);
+
+saveas(gcf, 'Raw_Avg_SEM_Traces.png');
+%%
+function [ fitbaseline]=mov_avg_adj(v,FS)    
+    v1=v;    
+    v1([FS-10:FS*2+20])= mean([ v([FS-40:FS-20 2*FS+20:2*FS+40 ])]);    
+    v1(1)=v1(2);
+
+    figure('Position', [400, 400, 800, 500]);
+    plot(v, 'DisplayName', 'Original Trace');
+    hold on;
+    plot(v1, 'DisplayName', 'Stimulation period Interpolated');
+    legend();
+
+    fitbaseline = fastsmooth(v1, 2000, 1, 1);
+end
+
+function [baseline] = lin_fit(v, Fs)
+    t = 1:length(v);
+    tsel = t(1:Fs);
+    
+    %
+    p = polyfit(t(tsel), v(tsel), 1);
+    slope = p(1);
+    intercept = p(2);
+
+    baseline = slope.*t + intercept;
+end
 
 function [ fitbaseline, coeff]=exp_fit_new(v,FS)    
     %% fits an expoential to estimate the photobleaching    
