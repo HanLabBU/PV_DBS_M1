@@ -70,12 +70,18 @@ def get_violin_opts():
 
 # %%
 # Population average power spectra
+
+# Determine which neuron population to plot here
+#nr_pop = 'all'
+#nr_pop = 'inc_power'
+nr_pop = 'dec_power'
+
 samp_freq = 500
-freq_limit = [1, 60]
+freq_limit = [1, 60] 
 freq_nums = 3*(freq_limit[1] - freq_limit[0])
 wavelet = 'morl'
 
-test_freqs = df['stim_freq'].unique()
+test_freqs = df['stim_freq'].unique() # [40c] 
 for stim_freq in test_freqs:
     stim_df = df[df['stim_freq'] == stim_freq]
     
@@ -100,11 +106,18 @@ for stim_freq in test_freqs:
         # Skip if dataframe is empty()
         if fov_df.empty:
             continue
+
+        # Determine which neuron population to analyze
+        if nr_pop == 'inc_power' and fov_df['Power_Delta'].unique() == 0:
+            continue
+        elif nr_pop == 'dec_power' and fov_df['Power_Delta'].unique() == 1:
+            continue
+
         flicker_start = fov_df[fov_df['flicker_raster'] == 1]['interp_time'].values[0]
         # Timeline for all
         timeline = fov_df[fov_df['trial_id'] == fov_df['trial_id'].unique()[0]]['interp_time'].values - flicker_start
         
-        #Calculate each trials normalized spike amplitude and set it as a new column
+        #Calculate each trials normalized spike amplitude Vm and set it as a new column
         # in the FOV dataframe
         nr_power_spec_df = pd.DataFrame()
         for tr_val in fov_df['trial_id'].unique():
@@ -148,16 +161,28 @@ for stim_freq in test_freqs:
         #Z-score across time
         #nr_norm_vals_df = nr_norm_vals_df.apply(lambda row: zscore(row, ddof=0), axis=1)
         
-        #TODO lmao good luck doing this in a data frame
         # (x - B)/(A + B) normalization where 
-        # B is the 1 sec flicker period
-        # A is the 1 sec electrical stimulation
-        #print(power_vals.shape)
-        #flicker_base = power_vals[:, np.where((timeline > 0) & (timeline <=1))[0]]
-        #stim_period = power_vals[:, np.where((timeline > 1) & (timeline <=2))[0]]
-        #avg_flicker_base = np.mean(flicker_base, axis=1).reshape((-1, 1))
-        #avg_stim_period = np.mean(stim_period, axis=1).reshape((-1, 1))
-        #norm_vals = (power_vals - avg_flicker_base)/(avg_flicker_base + avg_stim_period)
+        # Set the time limits for power normalization
+        #base_limit = [0, 1] # Flicker only baseline period
+        #stim_limit = [1, 2] # Estim period
+
+        base_limit = [-1, 0] # Base only period 
+        stim_limit = [0, 1] # Flicker only period
+
+        # Calculate the flicker baseline average across frequencies
+        base_flicker_time_mask = (nr_norm_vals_df.columns > base_limit[0]) & (nr_norm_vals_df.columns < base_limit[1])
+        base_flicker_pow_df = nr_norm_vals_df[nr_norm_vals_df.columns[base_flicker_time_mask]]
+        base_flicker_pow_avg = base_flicker_pow_df.mean(axis=1)
+
+        # Calculate the stimulation period average across frequencies
+        stim_time_mask = (nr_norm_vals_df.columns > stim_limit[0]) & (nr_norm_vals_df.columns < stim_limit[1])
+        stim_pow_df = nr_norm_vals_df[nr_norm_vals_df.columns[stim_time_mask]]
+        stim_pow_avg = stim_pow_df.mean(axis=1)
+
+        # Normalize the 
+        summed_periods = base_flicker_pow_avg + stim_pow_avg
+        nr_norm_vals_df = (nr_norm_vals_df.sub(base_flicker_pow_avg, axis=0))\
+                        .div(summed_periods, axis=0)
 
         # Setup the dataframe to be concatenated for the neuron population
         nr_norm_vals_df = nr_norm_vals_df.stack()
@@ -179,12 +204,14 @@ for stim_freq in test_freqs:
 
     # Get the 2D average of the heatmap
     avg_power_spec = power_spec_df.groupby(['timeline', 'freq_spec'])['power'].mean()
+    
     #TODO need to figure out how to pivot back with the indices in the above Series
     heatmap_df = avg_power_spec.unstack(level='timeline')
             
     cm = 1/2.54
     plt.figure(figsize=(10.5 * 10* cm, 7 * 10* cm))
-    surf_p = plt.pcolormesh(timeline, heatmap_df.index.values, heatmap_df.values) #, vmin=-1, vmax=1
+    plt.rcParams['font.size'] = 40
+    surf_p = plt.pcolormesh(timeline, heatmap_df.index.values, heatmap_df.values, cmap='jet') #, vmin=-1, vmax=1
         
     # Plot the stimultion protocol
     plt.plot(timeline, 2*trial_df['flicker_raster'] + 13 + np.max(heatmap_df.index.values), '-b')
@@ -200,7 +227,7 @@ for stim_freq in test_freqs:
     #Labels
     plt.xlabel('Time from flicker onset (s)')
     plt.ylabel('Frequency (Hz)')
-    plt.title(stim_freq)
+    plt.title(nr_pop + ' Spectra ' + str(stim_freq))
 
     # Add colorbar axis
     fig = plt.gcf()
@@ -208,6 +235,7 @@ for stim_freq in test_freqs:
     cbar = fig.colorbar(surf_p, label='Power', cax=cbar_ax)
 
     save_filename = savefig_path + 'Population_Flicker_Stim_Lesion_' +\
+            nr_pop + '_' +\
             str(stim_df['stim_freq'].unique()[0]) + 'Hz'
     
     plt.savefig(save_filename + '.svg', format='svg')
@@ -253,8 +281,34 @@ for stim_freq in test_freqs:
     flicker_only_period_data = flicker_only_period_data.groupby(['neuron']).mean()
     dbs_flicker_data = dbs_flicker_data.groupby(['neuron']).mean()
 
+    # Determine if the neuron has an increase or decrease in flicker entrainment
+    for nr_name, row in base_period_data.iterrows():
+        flicker_point = flicker_only_period_data.loc[nr_name, 'power']
+        dbs_flicker_point = dbs_flicker_data.loc[nr_name, 'power']
+
+        # Parse out neuron id fields
+        vals = nr_name.split('_')
+        cur_mouse_id = "_".join(vals[0:3])
+        cur_session_id = vals[3]
+        cur_fov_id = int(vals[4].replace("fov", ""))
+        cur_stim_freq = int(vals[5].replace('stim', ''))
+
+        mask = (df['stim_freq'] == cur_stim_freq) & \
+                (df['mouse_id'] == cur_mouse_id) & \
+                (df['session_id'] == cur_session_id) & \
+                (df['fov_id'] == cur_fov_id)
+
+        # Determine if neurons have a higher or lower entrainment 8Hz during stimulation
+        # when compared to flicker stimulation during baseline
+        
+        if dbs_flicker_point > flicker_point:            
+            df.loc[mask, 'Power_Delta'] = 1
+            
+        elif dbs_flicker_point < flicker_point:
+            df.loc[mask, 'Power_Delta'] = 0
+            
     data = [base_period_data['power'].values, flicker_only_period_data['power'].values, dbs_flicker_data['power'].values]
-    labels = ['Base', 'Flicker', 'ESTIM+Flicker']
+    labels = ['Base', 'Flicker', 'ESTIM+Flicker']        
 
     # Perform statistical tests to determine if the 8 Hz is actually reduced
     statistic, p_val = stats.kruskal(data[0], data[1], data[2])
@@ -342,8 +396,8 @@ for stim_freq in test_freqs:
     eng.workspace['freq'] = stim_freq
     matlab_exp += "title([num2str(freq) ' Hz' ], 'Interpreter', 'none');\n"
     eng.workspace['savefig_path'] = savefig_path
-    matlab_exp += "saveas(gcf, [savefig_path '8Hz_Vm_Power_violin_' num2str(freq) 'Hz.png']);\n"
-    matlab_exp += "saveas(gcf, [savefig_path '8Hz_Vm_Power_violin_' num2str(freq) 'Hz.svg']);\n"
+    matlab_exp += "saveas(gcf, [savefig_path '8Hz_Vm_Power_violin_" + nr_pop + "_' num2str(freq) 'Hz.png']);\n"
+    matlab_exp += "saveas(gcf, [savefig_path '8Hz_Vm_Power_violin_" + nr_pop + "_' num2str(freq) 'Hz.svg']);\n"
 
     eng.eval(matlab_exp, nargout=0)
     
@@ -360,10 +414,15 @@ for stim_freq in test_freqs:
 
     plt.show()
 
+# Set the column as a category
+df['Power_Delta'] = df['Power_Delta'].astype('category')
 
 # %%
 plt.close('all')
 eng.eval("close all", nargout=0)
+
+# %% Save the updated dataframe to pickle file
+df.to_pickle(interm_data_path)
 
 # %%
 # Plot the power spectra for each neuron
