@@ -29,7 +29,7 @@ importlib.reload(consts)
 
 from open_ephys.analysis import Session
 
-%matplotlib tk
+%matplotlib inline
 
 f = os.sep
 
@@ -42,6 +42,7 @@ print(df.columns)
 
 # Specify default values
 cm = 0.394
+samp_freq = 500
 
 # %%
 # 140 Hz example
@@ -77,19 +78,30 @@ exam_df = df[(df['mouse_id'] == '109558_Vb_male') & \
                 (df['fov_id'] == 3)]
 
 exam_df = exam_df[exam_df['stim_freq'] == 140]
-trial_df = exam_df[exam_df['trial_id'] == exam_df['trial_id'].unique()[3]] # Unique 3 and 1 are pretty good
+trial_i = 3
+trial_df = exam_df[exam_df['trial_id'] == exam_df['trial_id'].unique()[trial_i]] # Unique 1, 3, 5, 6 are pretty good
 
 # %%
 # Plot individual cell trials
+low_freq = 8*0.05
+high_freq = 8*0.95
+#low_freq = 7
+#high_freq = 9
+
 fig, axs = plt.subplots(3, sharex=True)
 fig.set_size_inches(8.308 * cm, 8.394 * cm)
 timeline = trial_df['interp_time'].values
 stim_raster = trial_df['stim_raster'].values
-spike_raster = trial_df['interp_spike_raster'].values
+spike_raster = trial_df['spike_raster'].values
 flicker_start = trial_df[trial_df['flicker_raster'] == 1]['interp_time'].values[0]
 timeline = timeline - flicker_start
-trace_sbr = trial_df['interp_raw_detrend_trace'].values/trial_df['trace_noise'].values
+trace_sbr = trial_df['detrend_trace'].values/trial_df['trace_noise'].values
 axs[0].plot(timeline, trace_sbr, 'k', linewidth=0.3)
+
+# Plot the 8 Hz flicker signal
+filt_sig8 = consts.fir_filt(trace_sbr,
+                            low_freq, high_freq, samp_freq, numtaps=30000)
+axs[0].plot(timeline, filt_sig8, 'b', linewidth=0.2)
 
 # Plot the spikes detected in the trial
 spike_idx = np.where(spike_raster == 1)[0]
@@ -117,8 +129,8 @@ axs[0].spines['right'].set_visible(False)
 axs[0].set_yticks([])
 
 # Plot the trials heatpmap
-exam_df['interp_trace_sbr'] = exam_df['interp_raw_detrend_trace'] / exam_df['trace_noise']
-plot_df = exam_df.pivot(index='trial_id', columns='interp_time', values='interp_trace_sbr')
+exam_df['trace_sbr'] = exam_df['detrend_trace'] / exam_df['trace_noise']
+plot_df = exam_df.pivot(index='trial_id', columns='interp_time', values='trace_sbr')
 axs[1].spines['top'].set_visible(False)
 axs[1].spines['right'].set_visible(False)
 surf_p = axs[1].pcolormesh(timeline, 1 + np.arange(0, plot_df.index.nunique()), plot_df.values)
@@ -152,7 +164,7 @@ save_filename = savefig_path + exam_df['mouse_id'].unique()[0] +\
             '_' + exam_df['session_id'].unique()[0] +\
             '_fov' + str(exam_df['fov_id'].unique()[0]) +\
             '_' + str(exam_df['stim_freq'].unique()[0]) +\
-            'Hz'
+            'Hz_trial' + str(trial_i)
 plt.savefig(save_filename + '.svg', format='svg')
 plt.savefig(save_filename + '.png', format='png')
 
@@ -164,25 +176,31 @@ plt.show()
 # Plot the zoomins on single traces
 
 # Specify  the zoom-in time ranges
-flicker_trange = np.array([0.2, 0.7])
-stim_trange = np.array([1.4, 1.9])
+#flicker_trange = np.array([0.2, 0.7])
+#stim_trange = np.array([1.4, 1.9])
+flicker_trange = np.array([0, 1])
+stim_trange = np.array([1, 2])
 
 # Setup the figure size
 fig, axs = plt.subplots(1, 2)
-fig.set_size_inches(15 * cm, 7 * cm)
+fig.set_size_inches(15 * cm, 2 * cm)
 
 # Grab all of the stimulation time stuff
 timeline = trial_df['interp_time'].values
 stim_raster = trial_df['stim_raster'].values
-spike_raster = trial_df['interp_spike_raster'].values
+spike_raster = trial_df['spike_raster'].values
 flicker_start = trial_df[trial_df['flicker_raster'] == 1]['interp_time'].values[0]
 timeline = timeline - flicker_start
 
 #-- Flicker period zoom in ---
 
 # Plot the trace with SBR units
-trace_sbr = trial_df['interp_raw_detrend_trace'].values/trial_df['trace_noise'].values
+trace_sbr = trial_df['detrend_trace'].values/trial_df['trace_noise'].values
 axs[0].plot(timeline, trace_sbr, 'k', linewidth=0.3)
+
+filt_sig8 = consts.fir_filt(trace_sbr,
+                            low_freq, high_freq, samp_freq, numtaps=30000)
+axs[0].plot(timeline, filt_sig8, 'b', linewidth=0.2)
 
 # Plot the spikes detected in the trial
 spike_idx = np.where(spike_raster == 1)[0]
@@ -227,8 +245,9 @@ axs[0].text(.07 + flicker_trange[0], -4.7, str(time_length) + ' ms')
 # -- Plot the estim period zoom in --
 
 # Plot the trace with SBR units
-trace_sbr = trial_df['interp_raw_detrend_trace'].values/trial_df['trace_noise'].values
+trace_sbr = trial_df['detrend_trace'].values/trial_df['trace_noise'].values
 axs[1].plot(timeline, trace_sbr, 'k', linewidth=0.3)
+axs[1].plot(timeline, filt_sig8, 'b', linewidth=0.2)
 
 # Plot the spikes detected in the trial
 spike_idx = np.where(spike_raster == 1)[0]
@@ -273,7 +292,7 @@ save_filename = savefig_path + exam_df['mouse_id'].unique()[0] +\
             '_' + exam_df['session_id'].unique()[0] +\
             '_fov' + str(exam_df['fov_id'].unique()[0]) +\
             '_' + str(exam_df['stim_freq'].unique()[0]) +\
-            'Hz_zoomins'
+            'Hz_zoomins_trial' + str(trial_i)
 
 plt.savefig(save_filename + '.svg', format='svg')
 plt.savefig(save_filename + '.png', format='png')
@@ -311,11 +330,11 @@ for values in pairings:
     
     timeline = trial_df['interp_time'].values
     stim_raster = trial_df['stim_raster'].values
-    spike_raster = trial_df['interp_spike_raster'].values
+    spike_raster = trial_df['spike_raster'].values
     flicker_start = trial_df[trial_df['flicker_raster'] == 1]['interp_time'].values[0]
     
     timeline = timeline - flicker_start
-    trace_sbr = trial_df['interp_raw_detrend_trace'].values/trial_df['trace_noise'].values
+    trace_sbr = trial_df['detrend_trace'].values/trial_df['trace_noise'].values
     axs[0].plot(timeline, trace_sbr, 'k', linewidth=0.3)
 
     # Plot the spikes detected in the trial
@@ -351,8 +370,8 @@ for values in pairings:
              linewidth=20,  color=consts.pulse_color)
 
     # Plot the trials heatpmap
-    exam_df['interp_trace_sbr'] = exam_df['interp_raw_detrend_trace'] / exam_df['trace_noise']
-    plot_df = exam_df.pivot(index='trial_id', columns='interp_time', values='interp_trace_sbr')
+    exam_df['trace_sbr'] = exam_df['detrend_trace'] / exam_df['trace_noise']
+    plot_df = exam_df.pivot(index='trial_id', columns='interp_time', values='trace_sbr')
     
     
     axs[1].spines['top'].set_visible(False)
