@@ -236,9 +236,9 @@ saveas(gcf, [figure_path 'Small_Res' f 'Onset_Overlay_Fr.pdf']);
 
 % Flag to determine which populations to plot
 % The variable must be set from 'single_cell_mod'
-%nr_pop = 'all';
+nr_pop = 'all';
 %nr_pop = 'etrain';
-nr_pop = 'non';
+%nr_pop = 'non';
 
 vm_trig_avg_time = struct();
 stats_log = [figure_path 'Small_Res' f 'Vm_pulse_triggered_time_to_final_average_' nr_pop];
@@ -631,7 +631,7 @@ end
 % Flag to determine which populations to plot
 % The variable must be set from 'single_cell_mod'
 %nr_pop = 'all';
-%nr_pop = 'etrain';
+nr_pop = 'etrain';
 nr_pop = 'non';
 
 fr_trig_avg_time = struct();
@@ -1193,7 +1193,7 @@ end
 saveas(gcf, [figure_path 'Small_Res' f 'Violin_Fr_Heights_ca1_vs_m1.png']);
 saveas(gcf, [figure_path 'Small_Res' f 'Violin_Fr_Heights_ca1_vs_m1.pdf']);
 
-%% Time to peak Vm between CA1 and M1
+%% Time to peak Vm during pulse-triggered average 
 stats_log = [figure_path 'Small_Res' f 'Vm_neuronwise_pulse_triggered_region_times'];
 if exist(stats_log), delete(sprintf('%s', stats_log)), end;
 diary(stats_log);
@@ -1253,6 +1253,8 @@ for f_stim = stims'
     [p, h, stats] = kruskalwallis(stats_data.(f_stim).data, stats_data.(f_stim).reg_order)
     disp('Group Columns');
     disp(stats.gnames');
+    disp('The first two columns indicate the pairs to compare between regions as indicated above.');
+    disp('Last column is the p-value');
     c = multcompare(stats, 'CriticalValueType', 'dunn-sidak')
     diary off;
 end
