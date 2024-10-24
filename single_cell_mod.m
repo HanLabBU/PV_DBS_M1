@@ -195,7 +195,7 @@ for f_region = fieldnames(region_data)'
         if display_names == 1
             i=1;
             for nr=[act_i, non_i, sup_i]
-                text(2.2, i, [num2str(popul_data.Vm_mod_stats(nr).mod) ' '...
+                text(2.2, i, [num2str(popul_data.Vm_trans_mod_stats(nr).mod) ' '...
                             popul_data.neuron_name{nr}], ...
                             'Interpreter', 'none');
                 i = i+1;
@@ -308,7 +308,6 @@ for f_region = fieldnames(region_data)'
         region_data.(f_region).(f_stim).Vm_sus_mod_stats = Vm_sus_mod_stats;
     end
 end
-
 
 %% Calculate modulation of spike rate in the transient period
 % Loop through regions
@@ -605,7 +604,13 @@ for f_region = fieldnames(region_data)'
         % Stim freq for PLV
         plv_freq = str2num(erase(f_stim, 'f_'));
         avg_Fs = mean(popul_data.framerate, 'omitnan');
-        plv_mod_stats = struct;
+ 
+        % Check if plv_mod_stats already exists
+        try
+            plv_mod_stats = popul_data.plv_mod_stats;
+        catch ME
+            plv_mod_stats = struct;
+        end
 
         figure('Position', [0, 0, 800, 1800]);
         tiledlayout(length(popul_data.neuron_name), 2, 'TileSpacing', 'none', 'Padding', 'none');
@@ -760,7 +765,13 @@ for f_region = fieldnames(region_data)'
         % Stim freq for PLV
         plv_freq = str2num(erase(f_stim, 'f_'))
         avg_Fs = mean(popul_data.framerate, 'omitnan');
-        plv_mod_stats = struct; % TODO this should check if the struct already exists and preserve the fields that are already there
+        
+        % Check if plv_mod_stats already exists
+        try
+            plv_mod_stats = popul_data.plv_mod_stats;
+        catch ME
+            plv_mod_stats = struct;
+        end
 
         figure('Position', [0, 0, 800, 1000]);
         tiledlayout(length(popul_data.neuron_name), 2, 'TileSpacing', 'none', 'Padding', 'none');
@@ -893,40 +904,40 @@ for f_region = fieldnames(region_data)'
             end
 
             % DEBUG plotting randomized stim within vectors
-            %nexttile;
-            %plot(dbs_raster);
-            %hold on;
-            %plot(stim_rasters + [1:size(stim_rasters, 2)]); % The original DBS pulses
+            nexttile;
+            plot(dbs_raster);
+            hold on;
+            plot(stim_rasters + [1:size(stim_rasters, 2)]); % The original DBS pulses
         
             %DEBUG plotting the power spectra for each neuron
-            nexttile;
+            %nexttile;
 
-            get_base_idxs = @(tr_tmstmp, stim_tmstp) find(tr_tmstmp < stim_tmstp(1));
-            get_stim_idxs = @(tr_tmstmp, stim_tmstp) find(tr_tmstmp >= stim_tmstp(1) & ...
-                                                       tr_tmstmp <= stim_tmstp(end));
+            %get_base_idxs = @(tr_tmstmp, stim_tmstp) find(tr_tmstmp < stim_tmstp(1));
+            %get_stim_idxs = @(tr_tmstmp, stim_tmstp) find(tr_tmstmp >= stim_tmstp(1) & ...
+            %                                           tr_tmstmp <= stim_tmstp(end));
 
-            calc_time_pow = @(trial_spec, time_idxs) mean(trial_spec(:, time_idxs, :), 2);
-            
-            calc_trial_spec = @(trial_spec, base_pow, stim_pow) (trial_spec - base_pow)./(base_pow + stim_pow);
-            
-            calc_nr_spec = @(trial_spec, tr_tmstmp, stim_tmstp) mean(calc_trial_spec(trial_spec, ...
-                    calc_time_pow(trial_spec, get_base_idxs(tr_tmstmp, stim_tmstp)),  ...
-                    calc_time_pow(trial_spec, get_stim_idxs(tr_tmstmp, stim_tmstp))), 3, 'omitnan');
-            
-            norm_spec = calc_nr_spec(popul_data.all_trial_power_spec{nr}, ...
-                                    popul_data.trace_timestamps(:, nr), ...
-                                    popul_data.stim_timestamps(:, nr));
+            %calc_time_pow = @(trial_spec, time_idxs) mean(trial_spec(:, time_idxs, :), 2);
+            %
+            %calc_trial_spec = @(trial_spec, base_pow, stim_pow) (trial_spec - base_pow)./(base_pow + stim_pow);
+            %
+            %calc_nr_spec = @(trial_spec, tr_tmstmp, stim_tmstp) mean(calc_trial_spec(trial_spec, ...
+            %        calc_time_pow(trial_spec, get_base_idxs(tr_tmstmp, stim_tmstp)),  ...
+            %        calc_time_pow(trial_spec, get_stim_idxs(tr_tmstmp, stim_tmstp))), 3, 'omitnan');
+            %
+            %norm_spec = calc_nr_spec(popul_data.all_trial_power_spec{nr}, ...
+            %                        popul_data.trace_timestamps(:, nr), ...
+            %                        popul_data.stim_timestamps(:, nr));
 
-            %avg_spec = mean(popul_data.all_trial_power_spec{nr}, 3);
-            avg_freqs = mean(popul_data.all_trial_spec_freq{nr}, 3);
-            surface(nr_timeline, avg_freqs, norm_spec, ...
-            'CDataMapping', 'scaled', 'FaceColor', 'texturemap', 'edgecolor', 'none');
-            xlim([-0.75 2.02]);
-            hold on;
-            xline([0 0.5]);
+            % %avg_spec = mean(popul_data.all_trial_power_spec{nr}, 3);
+            %avg_freqs = mean(popul_data.all_trial_spec_freq{nr}, 3);
+            %surface(nr_timeline, avg_freqs, norm_spec, ...
+            %'CDataMapping', 'scaled', 'FaceColor', 'texturemap', 'edgecolor', 'none');
+            %xlim([-0.75 2.02]);
+            %hold on;
+            %xline([0 0.5]);
+
             sgtitle([f_region ' ' f_stim], 'Interpreter', 'none');
 
-            %TODO need to change for the half of the stimulation period values
             % Store the PLV data into the neuron structure
             plv_mod_stats(nr).first_obs_PLV = first_obs_PLV;
             plv_mod_stats(nr).first_obs_PLV2 = first_obs_PLV2;
@@ -1350,20 +1361,20 @@ for f_region = fieldnames(region_data)'
         f_stim = f_stim{1};
         popul_data = data_bystim.(f_stim);
         
-        disp([f_region ' ' f_stim ' ' num2str(length([popul_data.Vm_mod_stats.mod]))]);
+        disp([f_region ' ' f_stim ' ' num2str(length([popul_data.Vm_trans_mod_stats.mod]))]);
 
         % Display the modulation of Vm
         disp('Vm');
-        disp(['Activated: ' num2str(length(find([popul_data.Vm_mod_stats.mod] > 0 )))]);
-        disp(['Non-modulated: ' num2str(length(find([popul_data.Vm_mod_stats.mod] == 0 )))]);
-        disp(['Suppression: ' num2str(length(find([popul_data.Vm_mod_stats.mod] < 0 )))]);
+        disp(['Activated: ' num2str(length(find([popul_data.Vm_trans_mod_stats.mod] > 0 )))]);
+        disp(['Non-modulated: ' num2str(length(find([popul_data.Vm_trans_mod_stats.mod] == 0 )))]);
+        disp(['Suppression: ' num2str(length(find([popul_data.Vm_trans_mod_stats.mod] < 0 )))]);
         fprintf('\n');
         
         % Display the modulation of Firing Rate
         disp('Firing Rate');
-        disp(['Activated: ' num2str(length(find([popul_data.fr_mod_stats.mod] > 0 )))]);
-        disp(['Non-modulated: ' num2str(length(find([popul_data.fr_mod_stats.mod] == 0 )))]);
-        disp(['Suppression: ' num2str(length(find([popul_data.fr_mod_stats.mod] < 0 )))]);
+        disp(['Activated: ' num2str(length(find([popul_data.fr_trans_mod_stats.mod] > 0 )))]);
+        disp(['Non-modulated: ' num2str(length(find([popul_data.fr_trans_mod_stats.mod] == 0 )))]);
+        disp(['Suppression: ' num2str(length(find([popul_data.fr_trans_mod_stats.mod] < 0 )))]);
         fprintf('\n');
     
         % Display the modulation of Firing Rate
@@ -1371,6 +1382,14 @@ for f_region = fieldnames(region_data)'
         disp(['Entrained: ' num2str(length(find([popul_data.plv_mod_stats.mod] > 0 )))]);
         disp(['Non-entrained: ' num2str(length(find([popul_data.plv_mod_stats.mod] < 0 )))]);
         fprintf('\n');
+
+        % Display the number of neurons that have first and second half PLV entrainment
+        disp('Stimulation Split PLV');
+        disp(['First half entrained: ' num2str(length(find([popul_data.plv_mod_stats.first_mod] > 0 )))]);
+        disp(['First half not entrained: ' num2str(length(find([popul_data.plv_mod_stats.first_mod] < 0 )))]);
+        
+        disp(['Second half entrained: ' num2str(length(find([popul_data.plv_mod_stats.last_mod] > 0 )))]);
+        disp(['Second half not entrained: ' num2str(length(find([popul_data.plv_mod_stats.last_mod] < 0 )))]);
 
         fprintf('\n');
         fprintf('\n');
@@ -1457,14 +1476,14 @@ for f_region = fieldnames(region_data)'
         popul_data = data_bystim.(f_stim);
         
         % Grab the neuron number of each Vm positive modulation
-        vm_act_nr = find([popul_data.Vm_mod_stats.mod] > 0);
-        vm_non_nr = find([popul_data.Vm_mod_stats.mod] == 0);
-        vm_sup_nr = find([popul_data.Vm_mod_stats.mod] < 0);
+        vm_act_nr = find([popul_data.Vm_trans_mod_stats.mod] > 0);
+        vm_non_nr = find([popul_data.Vm_trans_mod_stats.mod] == 0);
+        vm_sup_nr = find([popul_data.Vm_trans_mod_stats.mod] < 0);
 
         % Grab the firing rate modulated data
-        fr_act_nr = find([popul_data.fr_mod_stats.mod] > 0);
-        fr_non_nr = find([popul_data.fr_mod_stats.mod] == 0);
-        fr_sup_nr = find([popul_data.fr_mod_stats.mod] < 0);
+        fr_act_nr = find([popul_data.fr_trans_mod_stats.mod] > 0);
+        fr_non_nr = find([popul_data.fr_trans_mod_stats.mod] == 0);
+        fr_sup_nr = find([popul_data.fr_trans_mod_stats.mod] < 0);
 
         % Grab the PLV modulation
         etrain_nr = find([popul_data.plv_mod_stats.mod] > 0);
@@ -1475,6 +1494,74 @@ for f_region = fieldnames(region_data)'
 
         setLabels = {'Vm activated', 'Vm non-modul', 'Vm suppr', 'FR activated',...
             'FR non-modul', 'FR suppr', 'Entrained', 'Non-entrained'};
-        DrawVennDiag(length(sets), sets, setLabels);
+
+        DrawVennDiag(length(sets), sets, setLabels, colors);
     end
 end
+
+%% Entrained full stim and each halves in a Venn Diagram
+for f_region = fieldnames(region_data)'
+    f_region = f_region{1};
+    data_bystim = region_data.(f_region);
+    stims = fieldnames(data_bystim);
+
+    % Loop through stim frequencies
+    for f_stim = stims'
+        f_stim = f_stim{1};
+        popul_data = data_bystim.(f_stim);
+
+        % Define the sets from each entrainment method
+        nr_full_etrain = [popul_data.plv_mod_stats.mod] > 0;
+        nr_full_nonetrain = [popul_data.plv_mod_stats.mod] < 0;
+        
+        nr_first_etrain = [popul_data.plv_mod_stats.first_mod] > 0;
+        nr_first_nonetrain = [popul_data.plv_mod_stats.first_mod] < 0;
+
+        nr_last_etrain = [popul_data.plv_mod_stats.last_mod] > 0;
+        nr_last_nonetrain = [popul_data.plv_mod_stats.last_mod] < 0;
+
+        sets = {nr_full_etrain, nr_first_etrain, ...
+            nr_last_etrain, nr_full_nonetrain, ...
+            nr_first_nonetrain, nr_last_nonetrain };
+        
+        labels = {'Full Etrain', 'First Etrain', 'Last etrain', 'Full Non-etrain',...
+            'First non-etrain', 'Last non-etrain'};
+
+        % Visualize using a table
+        T = table();
+
+        % Loop through each entrainment method
+        for var=1:round(length(sets)/2) % Only use the entraind population
+            T = addvars(T, string(transpose(sets{var})), 'NewVariableNames', labels{var});     
+        end
+        
+        % Loop through each column without using each name
+        for i=1:width(T)
+            col = T.Properties.VariableNames{i};
+            T.(col)(T.(col) == 'true') = 'X';
+            T.(col)(T.(col) == 'false') = ' ';
+        end
+        
+        % Display the table
+        writetable(T, [figure_path 'Neuronwise' f 'Entrainment_Stats' f ...
+            f_region '_' f_stim '_entrain_table.csv']); 
+        
+        % DEBUG for specific conditions
+        %if strcmp(f_region, 'r_M1') && strcmp(f_stim, 'f_40')
+        %    T(:, 1)
+        %    return;
+        %end
+
+    end
+end
+
+%% DEBUG venn digram
+
+sets = {[1, 2, 3, 5, 6, 7], [3, 5, 5, 7, 8, 9]}
+
+labels = {'Set 1', 'Set 2'};
+circle_size = [length(sets{1}), length(sets{2})];
+
+cols = {[1, 0, 0], [1, 0, 1]};
+
+DrawVennDiag(length(circle_size), sets, labels, circle_size, cols);
