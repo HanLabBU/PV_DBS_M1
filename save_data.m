@@ -111,7 +111,8 @@ for f_region = fieldnames(region_matfiles)'
         % Trace stuff
         data_bystim.(f_stim).framerate = [];
         data_bystim.(f_stim).all_trial_SubVm = {};
-        data_bystim.(f_stim).neuron_Vm = [];
+        data_bystim.(f_stim).neuron_SubVm = [];
+        data_bystim.(f_stim).neuron_RawVm = [];
         data_bystim.(f_stim).all_trial_rawVm = {};
         data_bystim.(f_stim).all_trial_trace_noise = {};
 
@@ -438,9 +439,17 @@ for f_region = fieldnames(region_matfiles)'
                 data_bystim.(f_stim).all_trial_SubVm{end + 1} = cur_roi_subVm;
 
                 % Save each neuron's average sub vm
-                temp = data_bystim.(f_stim).neuron_Vm;
-                data_bystim.(f_stim).neuron_Vm = horzcat_pad(temp, mean(cur_roi_subVm, 2));
+                temp = data_bystim.(f_stim).neuron_SubVm;
+                data_bystim.(f_stim).neuron_SubVm = horzcat_pad(temp, mean(cur_roi_subVm, 2));
                 
+                % Save all trial raw traces
+                temp = data_bystim.(f_stim).all_trial_rawVm;
+                data_bystim.(f_stim).all_trial_rawVm{end + 1} = cur_roi_rawtraces;
+
+                % Save each neuron's average raw vm
+                temp = data_bystim.(f_stim).neuron_RawVm;
+                data_bystim.(f_stim).neuron_RawVm = horzcat_pad(temp, mean(cur_roi_rawtraces, 2));
+
                 % Store average spike rate for each neuron
                 temp = data_bystim.(f_stim).neuron_srate_100;
                 data_bystim.(f_stim).neuron_srate_100 = horzcat_pad(temp, nanmean(cur_roi_srate_100, 2));
@@ -465,10 +474,6 @@ for f_region = fieldnames(region_matfiles)'
                 temp = data_bystim.(f_stim).all_trial_spike_rasters;
                 data_bystim.(f_stim).all_trial_spike_rasters{end + 1} = cur_roi_raster;
 
-                % Save all trial raw traces
-                temp = data_bystim.(f_stim).all_trial_rawVm;
-                data_bystim.(f_stim).all_trial_rawVm{end + 1} = cur_roi_rawtraces;
-                
                 % Save all the trial trace noises
                 temp = data_bystim.(f_stim).all_trial_trace_noise;
                 data_bystim.(f_stim).all_trial_trace_noise{end + 1} = cur_roi_tracenoises;

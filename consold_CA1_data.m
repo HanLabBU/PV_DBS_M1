@@ -88,7 +88,8 @@ for f_region = regions'
         % Trace stuff
         data_bystim.(f_stim).framerate = [];
         data_bystim.(f_stim).all_trial_SubVm = {};
-        data_bystim.(f_stim).neuron_Vm = [];
+        data_bystim.(f_stim).neuron_SubVm = [];
+        data_bystim.(f_stim).neuron_RawVm = [];
         data_bystim.(f_stim).all_trial_rawVm = {};
         data_bystim.(f_stim).all_trial_trace_noise = {};
 
@@ -380,9 +381,13 @@ for f_region = regions'
             data_bystim.(f_stim).all_trial_SubVm{end + 1} = cur_fov_subVm;
 
             % Save each neuron's average sub vm
-            temp = data_bystim.(f_stim).neuron_Vm;
-            data_bystim.(f_stim).neuron_Vm = horzcat_pad(temp, mean(cur_fov_subVm, 2, 'omitnan'));
-            
+            temp = data_bystim.(f_stim).neuron_SubVm;
+            data_bystim.(f_stim).neuron_SubVm = horzcat_pad(temp, mean(cur_fov_subVm, 2, 'omitnan'));
+ 
+            % Save each neuron's average raw vm
+            temp = data_bystim.(f_stim).neuron_RawVm;
+            data_bystim.(f_stim).neuron_RawVm = horzcat_pad(temp, mean(cur_fov_rawtraces, 2, 'omitnan'));
+
             % Store average spike rate for each neuron
             temp = data_bystim.(f_stim).neuron_srate_100;
             data_bystim.(f_stim).neuron_srate_100 = horzcat_pad(temp, nanmean(cur_fov_srate_100, 2));
