@@ -130,11 +130,16 @@ for f_region = fieldnames(region_matfiles)'
         data_bystim.(f_stim).neuron_spike_amp = [];
 
         % Power spectra stuff
-        data_bystim.(f_stim).neuron_spec_power = [];
-        data_bystim.(f_stim).neuron_spec_freq = [];
-        data_bystim.(f_stim).neuron_hilbfilt = {};
-        data_bystim.(f_stim).all_trial_power_spec = {};        
-        data_bystim.(f_stim).all_trial_spec_freq = {};        
+        data_bystim.(f_stim).neuron_subvm_spec_power = [];
+        data_bystim.(f_stim).neuron_subvm_spec_freq = [];
+        data_bystim.(f_stim).neuron_rawvm_spec_power = [];
+        data_bystim.(f_stim).neuron_rawvm_spec_freq = [];
+        data_bystim.(f_stim).neuron_subvm_hilbfilt = {};
+        data_bystim.(f_stim).neuron_rawvm_hilbfilt = {};
+        data_bystim.(f_stim).all_trial_subvm_power_spec = {};        
+        data_bystim.(f_stim).all_trial_subvm_spec_freq = {};        
+        data_bystim.(f_stim).all_trial_rawvm_power_spec = {};        
+        data_bystim.(f_stim).all_trial_rawvm_spec_freq = {};        
 
         % Store transient information    
         data_bystim.(f_stim).neuron_trans_Vm = [];      
@@ -217,10 +222,14 @@ for f_region = fieldnames(region_matfiles)'
                 cur_roi_stim_time = [];
                 cur_roi_trace_time = [];
 
-                cur_roi_wt = [];
-                cur_roi_f = [];
+                cur_roi_subvm_wt = [];
+                cur_roi_subvm_f = [];
+            
+                cur_roi_rawvm_wt = [];
+                cur_roi_rawvm_f = [];
 
-                cur_roi_hilbfilt = [];
+                cur_roi_subvm_hilbfilt = [];
+                cur_roi_rawvm_hilbfilt = [];
 
                 % Loop through each trial                
                 for tr_idx=trial_idxs        
@@ -266,12 +275,12 @@ for f_region = fieldnames(region_matfiles)'
                     detrend_subVm = cur_trace_ws - baseline;
                     cur_roi_subVm = horzcat_pad(cur_roi_subVm, detrend_subVm');
 
-                    % Grab hilbert transform coefficients
+                    % Grab hilbert transform coefficients of subthreshold Vm
                     [filt_sig] = Multi_func.filt_data(detrend_subVm', [1:1:200], mean(cur_roi_Fs));
-                    cur_roi_hilbfilt(:, :, end + 1) = filt_sig;
+                    cur_roi_subvm_hilbfilt(:, :, end + 1) = filt_sig;
+
 
                     % Grab the spike idxs
-                    %TODO need to adjust for the interpolated traces
                     cur_spike_idx = trial_data.spike_info375.spike_idx{roi_idx};
                     cur_raster = trial_data.spike_info375.roaster(roi_idx, :);
                     if isfield(trial_data, 'interp_time')
@@ -304,6 +313,10 @@ for f_region = fieldnames(region_matfiles)'
                     detrend_Vm = cur_raw_trace - baseline';
                     cur_roi_rawtraces = horzcat_pad(cur_roi_rawtraces, detrend_Vm);
                     
+                    % Grab hilbert transform coefficients of all Vm
+                    [filt_sig] = Multi_func.filt_data(detrend_Vm', [1:1:200], mean(cur_roi_Fs));
+                    cur_roi_rawvm_hilbfilt(:, :, end + 1) = filt_sig;
+
                     %if isfield(trial_data, 'interp_time')
                     %    figure;
                     %    plot(cur_raster);
@@ -417,10 +430,15 @@ for f_region = fieldnames(region_matfiles)'
                     cur_roi_sus_FR = horzcat_pad(cur_roi_sus_FR, sum(cur_raster(sus_idx))./(diff(sus_ped)./1000)');
                     cur_roi_stim_FR = horzcat_pad(cur_roi_stim_FR, sum(cur_raster(stim_idx))./(diff(stim_ped)./1000)');
 
-                    % Calculate the power spectra for each trial
+                    % Calculate the power spectra for each trial of subthreshold vm
                     [trial_wt, trial_f] = get_power_spec(detrend_subVm', nanmean(cur_roi_Fs));
-                    cur_roi_wt = cat(3, cur_roi_wt, abs(trial_wt));
-                    cur_roi_f = cat(3, cur_roi_f, trial_f);
+                    cur_roi_subvm_wt = cat(3, cur_roi_subvm_wt, abs(trial_wt));
+                    cur_roi_subvm_f = cat(3, cur_roi_subvm_f, trial_f);
+
+                    % Calculate the power spectra for each trial of raw vm
+                    [trial_wt, trial_f] = get_power_spec(detrend_Vm', nanmean(cur_roi_Fs));
+                    cur_roi_rawvm_wt = cat(3, cur_roi_rawvm_wt, abs(trial_wt));
+                    cur_roi_rawvm_f = cat(3, cur_roi_rawvm_f, trial_f);
 
                 end % End looping through trials
 
@@ -500,36 +518,50 @@ for f_region = fieldnames(region_matfiles)'
                 data_bystim.(f_stim).framerate(end + 1) = mean(cur_roi_Fs);
                     
                 % Save all of the transient and sustained information
-                temp = data_bystim.(f_stim).neuron_trans_Vm;
-                data_bystim.(f_stim).neuron_trans_Vm = horzcat_pad(temp, mean(cur_roi_trans_Vm) - mean(cur_roi_base_Vm));
-                temp = data_bystim.(f_stim).neuron_sus_Vm;
-                data_bystim.(f_stim).neuron_sus_Vm = horzcat_pad(temp, mean(cur_roi_sus_Vm) - mean(cur_roi_base_Vm));
-                temp = data_bystim.(f_stim).neuron_stim_Vm;
-                data_bystim.(f_stim).neuron_stim_Vm = horzcat_pad(temp, mean(cur_roi_stim_Vm) - mean(cur_roi_base_Vm));
+                %temp = data_bystim.(f_stim).neuron_trans_Vm;
+                %data_bystim.(f_stim).neuron_trans_Vm = horzcat_pad(temp, mean(cur_roi_trans_Vm) - mean(cur_roi_base_Vm));
+                %temp = data_bystim.(f_stim).neuron_sus_Vm;
+                %data_bystim.(f_stim).neuron_sus_Vm = horzcat_pad(temp, mean(cur_roi_sus_Vm) - mean(cur_roi_base_Vm));
+                %temp = data_bystim.(f_stim).neuron_stim_Vm;
+                %data_bystim.(f_stim).neuron_stim_Vm = horzcat_pad(temp, mean(cur_roi_stim_Vm) - mean(cur_roi_base_Vm));
                 
-                temp = data_bystim.(f_stim).neuron_trans_FR;
-                data_bystim.(f_stim).neuron_trans_FR = horzcat_pad(temp, mean(cur_roi_trans_FR) - mean(cur_roi_base_FR));
-                temp = data_bystim.(f_stim).neuron_sus_FR;
-                data_bystim.(f_stim).neuron_sus_FR = horzcat_pad(temp, mean(cur_roi_sus_FR) - mean(cur_roi_base_FR));
-                temp = data_bystim.(f_stim).neuron_stim_FR;
-                data_bystim.(f_stim).neuron_stim_FR = horzcat_pad(temp, mean(cur_roi_stim_FR) - mean(cur_roi_base_FR));
+                %temp = data_bystim.(f_stim).neuron_trans_FR;
+                %data_bystim.(f_stim).neuron_trans_FR = horzcat_pad(temp, mean(cur_roi_trans_FR) - mean(cur_roi_base_FR));
+                %temp = data_bystim.(f_stim).neuron_sus_FR;
+                %data_bystim.(f_stim).neuron_sus_FR = horzcat_pad(temp, mean(cur_roi_sus_FR) - mean(cur_roi_base_FR));
+                %temp = data_bystim.(f_stim).neuron_stim_FR;
+                %data_bystim.(f_stim).neuron_stim_FR = horzcat_pad(temp, mean(cur_roi_stim_FR) - mean(cur_roi_base_FR));
 
                 % Calculate and save frequency data
                 % Old way of just using the neuron average Vm to start the Spectra calculation
                 %[wt, f] = get_power_spec(nanmean(cur_roi_subVm, 2)', nanmean(cur_roi_Fs));
 
-                temp = data_bystim.(f_stim).neuron_spec_power;
-                data_bystim.(f_stim).neuron_spec_power = cat(3, temp, mean(cur_roi_wt, 3));
-                temp = data_bystim.(f_stim).neuron_spec_freq;   
-                data_bystim.(f_stim).neuron_spec_freq = cat(3, temp, mean(cur_roi_f, 3));
+                % Save power spectrum of subthreshold vm
+                temp = data_bystim.(f_stim).neuron_subvm_spec_power;
+                data_bystim.(f_stim).neuron_subvm_spec_power = cat(3, temp, mean(cur_roi_subvm_wt, 3));
+                temp = data_bystim.(f_stim).neuron_subvm_spec_freq;   
+                data_bystim.(f_stim).neuron_subvm_spec_freq = cat(3, temp, mean(cur_roi_subvm_f, 3));
 
-                % Add individual power spectra data
-                data_bystim.(f_stim).all_trial_power_spec{end + 1} = cur_roi_wt;
-                data_bystim.(f_stim).all_trial_spec_freq{end + 1} = cur_roi_f;
+                % Save the power spectrum of all Vm
+                temp = data_bystim.(f_stim).neuron_rawvm_spec_power;
+                data_bystim.(f_stim).neuron_rawvm_spec_power = cat(3, temp, mean(cur_roi_rawvm_wt, 3));
+                temp = data_bystim.(f_stim).neuron_rawvm_spec_freq;   
+                data_bystim.(f_stim).neuron_rawvm_spec_freq = cat(3, temp, mean(cur_roi_rawvm_f, 3));
+
+                % Individual trial subthreshold power spectra
+                data_bystim.(f_stim).all_trial_subvm_power_spec{end + 1} = cur_roi_subvm_wt;
+                data_bystim.(f_stim).all_trial_subvm_spec_freq{end + 1} = cur_roi_subvm_f;
+
+                % Individual trial all Vm power spectra
+                data_bystim.(f_stim).all_trial_rawvm_power_spec{end + 1} = cur_roi_rawvm_wt;
+                data_bystim.(f_stim).all_trial_rawvm_spec_freq{end + 1} = cur_roi_rawvm_f;
 
                 % Save the hilbert frequency data
-                cur_roi_hilbfilt(:, :, 1) = []; % Remove empty first element
-                data_bystim.(f_stim).neuron_hilbfilt{end + 1} = cur_roi_hilbfilt;
+                cur_roi_subvm_hilbfilt(:, :, 1) = []; % Remove empty first element
+                data_bystim.(f_stim).neuron_subvm_hilbfilt{end + 1} = cur_roi_subvm_hilbfilt;
+
+                cur_roi_rawvm_hilbfilt(:, :, 1) = []; % Remove empty first element
+                data_bystim.(f_stim).neuron_rawvm_hilbfilt{end + 1} = cur_roi_rawvm_hilbfilt;
 
             end % End looping through each ROI
         end % End looping through FOVs 
