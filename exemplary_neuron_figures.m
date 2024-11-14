@@ -52,9 +52,10 @@ end
 save_all_data_file = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Interm_Data' f 'pv_data_ex200.mat'];
 %Load the data
 load(save_all_data_file);
+
+%% Read in data for M1
 f_region = 'r_M1';
 data_bystim = region_data.(f_region);
-
 %% Info for a 140Hz neuron regular polarized
 neuron = '617100_M1_rec20211110_FOV4_140_60';
 trial_num = 3;
@@ -76,6 +77,20 @@ neuron_data = data_bystim.f_40;
 %% Info for a 40Hz example with delta
 neuron = '617100_M1_rec20211110_FOV3_40_60';
 trial_num = 4;
+nr_idx = find(contains(data_bystim.f_40.neuron_name, neuron));
+neuron_data = data_bystim.f_40;
+
+%% Read in data for V1
+f_region = 'r_V1';
+data_bystim = region_data.(f_region);
+%% Info for a 140Hz reguarly depolarized neuron
+neuron = '109558_V1_rec20240110_FOV1_140_90.mat_3';
+trial_num = 1; %5;
+nr_idx = find(contains(data_bystim.f_140.neuron_name, neuron));
+neuron_data = data_bystim.f_140;
+%% Info for a 40Hz hyperpolarized neuron
+neuron = '96334_V1_rec20231120_FOV1_40_150.mat_1';
+trial_num = 10;
 nr_idx = find(contains(data_bystim.f_40.neuron_name, neuron));
 neuron_data = data_bystim.f_40;
 
@@ -101,9 +116,9 @@ hold on;
 
 % Plot the stim pulses
 stim_idx = neuron_data.stim_timestamps(:, nr_idx);
-plot(stim_idx, ones(size(stim_idx))*(max(raw_tr(spike_idx)./tr_noise) + 3), '|k');
+plot(stim_idx, ones(size(stim_idx))*(max(raw_tr(spike_idx)./tr_noise) + 3.5), '|k');
 hold on;
-plot(timeline, ones(size(timeline))*(max(raw_tr(spike_idx)./tr_noise) + 3), '-k');
+plot(timeline, ones(size(timeline))*(max(raw_tr(spike_idx)./tr_noise) + 3.5), '-k');
 hold on;
 
 plot([min(timeline) min(timeline)], [-5 0], 'b', 'LineWidth', 2)
@@ -783,7 +798,7 @@ title('2nd Exemplary M1 140 Hz trace');
 saveas(gcf, [savefig_path 'Exemplary' f 'M1_140Hz_Trace2.png']);
 saveas(gcf, [savefig_path 'Exemplary' f 'M1_140Hz_Trace2.pdf']);
 
-%% Get exemplary trace at 40 for V1
+%% Get exemplary trace at 40 Hz for V1
 example_matfile = [pv_data_path '23072_V1_rec20220217_FOV3_40_220_.mat'];
 data = load(example_matfile);
 trial_idx = 3;
