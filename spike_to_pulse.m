@@ -24,6 +24,228 @@ figure_path = [server_root_path 'Pierre Fabris' f 'PV Project' f 'Plots' f];
 ignore_trial_dict = Multi_func.csv_to_struct([local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f ...
                                        'Stim Recordings' f 'Data_Config' f 'byvis_ignore.csv']);
 
+%% Loop through each region
+for f_region = fieldnames(region_data)'
+    f_region = f_region{1};
+    data_bystim = region_data.(f_region);
+    stims = fieldnames(data_bystim);
+    
+    for f_stim=stims'
+        f_stim = f_stim{1};
+        
+        popul_data = data_bystim.(f_stim);
+
+        % Grab only modulated neurons
+        nr_idxs = find(sum(popul_data.mod_matrix, 2) > 0);
+
+        % Setup figure plot
+        figure('Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
+        tiledlayout(length(nr_idxs), 1, 'TileSpacing', 'none', 'Padding', 'none');
+        %tiledlayout(length(nr_idxs), 1, 'TileSpacing', 'compact', 'Padding', 'compact',...
+        %    'Units', 'centimeters', 'InnerPosition', [4, 20, 3.5, 5]);
+        
+        % Loop through each neuron
+        axes = [];
+        for nr=nr_idxs'
+            nr_stim_time = popul_data.stim_timestamps(:, nr);
+            trace_time = popul_data.trace_timestamps(:, nr);
+            nr_rasters =popul_data.all_trial_spike_rasters{nr}; 
+            
+            temp = nexttile;
+            axes(end + 1) = temp;
+
+            % Plot all of the DBS pulse times
+            xline(nr_stim_time);
+            hold on;
+
+            plot(trace_time, nr_rasters.*[1:size(nr_rasters, 2)], '.');
+
+            % Set the limits to better see the spike rasters
+            xlim([0, 1]);
+            ylim([.1, size(nr_rasters, 2)]);
+            
+        end
+        linkaxes(axes);
+        % Set the title
+        sgtitle([f_region ' ' f_stim], 'Interpreter', 'none');
+
+    end
+end
+
+%% This section will loop through each pulse 
+for f_region = fieldnames(region_data)' % {'r_V1'} %
+    f_region = f_region{1};
+    data_bystim = region_data.(f_region);
+    stims = fieldnames(data_bystim);
+    
+    for f_stim=stims'
+        f_stim = f_stim{1};
+        
+        popul_data = data_bystim.(f_stim);
+
+        % Grab only modulated neurons
+        nr_idxs = find(sum(popul_data.mod_matrix, 2) > 0);
+
+        % Setup figure plot
+        %figure('Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
+        %tiledlayout(length(nr_idxs), 1, 'TileSpacing', 'none', 'Padding', 'none');
+        %tiledlayout(length(nr_idxs), 1, 'TileSpacing', 'compact', 'Padding', 'compact',...
+        %    'Units', 'centimeters', 'InnerPosition', [4, 20, 3.5, 5]);
+        
+        all_lats = cell(1, size(popul_data.stim_timestamps, 1) - 1);
+
+        % Loop through each neuron
+        figure;
+        for nr=nr_idxs'
+            nr_stim_time = popul_data.stim_timestamps(:, nr);
+            trace_time = popul_data.trace_timestamps(:, nr);
+            nr_rasters = popul_data.all_trial_spike_rasters{nr};
+            nr_rasters(nr_rasters == 0) = NaN;
+            nr_rast_wtime = nr_rasters.*trace_time;
+
+            %Convert spike raster into an array where each spike point is equal to the tracetimepoint
+            % Maybe there is a way to sift through that to get the spike time for each spike in that raster
+            % Keep the zeroes in this raster to keep window placement
+            
+            get_time_diff = @(diff_t_mat, pulse_diff) ...
+                diff_t_mat(find(diff_t_mat >= 0 & diff_t_mat < pulse_diff));
+            
+            apply_diff = @(p_idx) get_time_diff(nr_rast_wtime - nr_stim_time(p_idx), ...
+                nr_stim_time(p_idx + 1) - nr_stim_time(p_idx) );
+            
+            % Note this will only get number of stim points - 1 to store
+            nr_spike_lats = arrayfun(apply_diff, 1:size(nr_stim_time, 1) - 1, 'UniformOutput', false);
+            all_lats = cellfun(@(x, y) [x; y], all_lats, nr_spike_lats, 'UniformOutput', false);
+            
+            % DEBUG plot spikes for each neuron
+            for p_num=1:size(nr_stim_time, 1) - 1
+                if ~isempty(nr_spike_lats{p_num})
+                    plot(p_num, nr_spike_lats{p_num}*1000, '.');
+                    hold on;
+                    %pause;
+                end
+            end
+        end
+        
+        sgtitle([f_region ' ' f_stim], 'Interpreter', 'none');
+        ylabel('Latency (ms)');
+        xlabel('Pulse Number');
+
+       
+        %TODO do a per neuron approach with each neuron's trial-averaged firing rate
+
+        % Plot polar plots for both transient and sustained
+        % figure;
+        % tiledlayout(1, 2);
+        % p_width = 1000*mean(diff(nr_stim_time, 1));
+        % interv = floor(100/p_width);
+        % for p_num=[1, 1+interv]  %1:interv:size(nr_stim_time, 1) - 1
+        %     p_num
+        %     if p_num+interv > size(nr_stim_time, 1) - 1
+        %         interv =size(nr_stim_time, 1) - 1 - p_num;
+        %     end
+        %     
+        %     conct_spikes = cat(1, all_lats{p_num:p_num+interv});
+        %     if ~isempty(conct_spikes)
+        %         nexttile;
+        %         polarhistogram(2*pi*1000*conct_spikes/p_width, 50);
+        %         title(num2str(p_num));
+        %     end
+        % end
+        % sgtitle([f_region ' ' f_stim], 'Interpreter', 'none');
+
+
+        % Group by transient and sustained
+        %figure;
+        %data = [];
+        %labels = [];
+        %p_width = 1000*mean(diff(nr_stim_time, 1));
+        %interv = floor(100/p_width);
+        %for p_num=[1, 1+interv]  %1:interv:size(nr_stim_time, 1) - 1
+        %    p_num
+        %    if p_num+interv > size(nr_stim_time, 1) - 1
+        %        interv =size(nr_stim_time, 1) - 1 - p_num;
+        %    end
+        %    
+        %    conct_spikes = cat(1, all_lats{p_num:p_num+interv});
+        %    if ~isempty(conct_spikes)
+        %        data = cat(2, data, conct_spikes');
+        %        labels = [labels, repmat({num2str(p_num+interv)}, 1, ...
+        %            length(conct_spikes))];
+        %    end
+        %    interv = size(nr_stim_time, 1);
+        %end
+        %ViolinOpts = Multi_func.get_default_violin();
+        %ViolinOpts.QuartileStyle = 'shadow';
+        %group_order = unique(labels, 'stable');
+        %violins = violinplot(data, labels, 'GroupOrder', group_order, ViolinOpts);
+
+
+
+        % Group by time block
+        figure;
+        sgtitle([f_region ' ' f_stim], 'Interpreter', 'none');
+        ylabel('Latency (ms)');
+        xlabel('Pulse Number');
+        %interv = floor(1000*mean(diff(nr_stim_time, 1))/2);
+        interv = floor(size(nr_stim_time, 1)/10);
+        %interv = 40;
+        data = [];
+        labels = [];
+        for p_num=1:interv:size(nr_stim_time, 1) - 1
+            if p_num+interv > size(nr_stim_time, 1) - 1
+                interv =size(nr_stim_time, 1) - 1 - p_num;
+            end
+
+            conct_spikes = cat(1, all_lats{p_num:p_num+interv});
+            if ~isempty(conct_spikes)
+                %errorbar(mean(p_num + interv), mean(conct_spikes*1000), ...
+                %    std(conct_spikes*1000));
+                %hold on;
+                %plot(mean(p_num + interv), conct_spikes*1000, '.');
+                %hold on;
+
+                data = cat(2, data, conct_spikes');
+                labels = [labels, repmat({[num2str(p_num) '-' num2str(p_num + interv)]}, 1, ...
+                    length(conct_spikes))];
+            end
+        end
+        ViolinOpts = Multi_func.get_default_violin();
+        ViolinOpts.QuartileStyle = 'shadow';
+        group_order = unique(labels, 'stable');
+        violins = violinplot(data, labels, 'GroupOrder', group_order, ViolinOpts);
+
+
+        % Plot each latency point without the box plots
+        %figure;
+        %for p_num=1:size(nr_stim_time, 1) - 1
+        %    if ~isempty(all_lats{p_num})
+        %        plot(p_num, all_lats{p_num}*1000, '.');
+        %        hold on;
+        %    end
+        %end
+
+        % Plot the timelines
+        % figure;
+        % data = [cat(1, all_lats{:})].*1000; % Converted to ms
+        % % Constructing labels variable
+        % labels = arrayfun(@(x) repmat({num2str(x)}, 1, length(all_lats{x})), ...
+        %     1:size(nr_stim_time, 1) - 1, 'UniformOutput', false);
+
+        % labels = [cat(2, labels{:})];
+        % ViolinOpts = Multi_func.get_default_violin();
+        % group_order = arrayfun(@(x) num2str(x), 1:size(nr_stim_time, 1) - 1, 'UniformOutput', false);
+        % violins = violinplot(data, labels, 'GroupOrder', group_order, ViolinOpts);
+        
+        % ylabel('Latency (ms)');
+        % xlabel('Pulse Number');
+        % % Set the title
+        % sgtitle([f_region ' ' f_stim], 'Interpreter', 'none');
+
+    end
+end
+
+
 % Parameter to determine how much before and after a stimulation pulse to take the average
 trace_sur = 10; % This is ~6ms before and after stim pulse
 
