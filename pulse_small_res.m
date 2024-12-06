@@ -34,6 +34,12 @@ ignore_trial_dict = Multi_func.csv_to_struct([local_root_path 'Pierre Fabris' f 
 % Do all region
 all_region = 0;
 
+% How many points to include beyond the pulse window
+extra_trace = 3;
+
+% The number of times to shuffle
+num_iter = 1000;
+
 %%% END Modification
 
 % Seed number for random number generation
@@ -63,7 +69,6 @@ avg_Fs = mean(region_data.(field1).f_40.framerate, 'omitnan');
 timeline = ( (4+(front_frame_drop:back_frame_drop) )./avg_Fs) - 1;
 
 % Determine how much of extra Vm to use in the all pulse averaging
-extra_trace = 3;
 
 %% Spike rate showing first few pulses
 
@@ -235,9 +240,6 @@ saveas(gcf, [figure_path 'Small_Res' f 'Onset_Overlay_Fr.pdf']);
 %% All Vm pulse-triggered averaged across all pulses
 % This calculates a shuffled distribution 
 
-extra_trace = 3;
-num_iter = 1;
-
 % Flag to determine which populations to plot
 % The variable must be set from 'single_cell_mod'
 %nr_pop = 'all';
@@ -245,8 +247,8 @@ nr_pop = 'etrain';
 %nr_pop = 'non_entr';
 
 % Flag for which statistical method to use
-%stat_met = 'shuff';
-stat_met = 'sign';
+stat_met = 'shuff';
+%stat_met = 'sign';
 
 % Flag for removing non-modulated neurons from analysis
 remove_nonmod_nrs = 1;
@@ -264,8 +266,8 @@ for f_region = fieldnames(region_data)'
     % Set up all of the figures
     all_pulse_fig = figure('Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 30.59 27.94]);
     %all_tt = tiledlayout(all_pulse_fig, length(stims), 3, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 20, 3*3.62, 5.16]); % Use for fourth of a figure
-    %all_tt = tiledlayout(all_pulse_fig, length(stims), 3, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 20, 3*2.27, 5.16]); % Use for a sixth of a figure
-    all_tt = tiledlayout(all_pulse_fig, length(stims), 3, 'TileSpacing', 'compact', 'Padding', 'compact'); % Use to help with zooming in
+    all_tt = tiledlayout(all_pulse_fig, length(stims), 3, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 20, 3*2.27, 5.16]); % Use for a sixth of a figure
+    %all_tt = tiledlayout(all_pulse_fig, length(stims), 3, 'TileSpacing', 'compact', 'Padding', 'compact'); % Use to help with zooming in
     
     tilenum = 1;
 
@@ -381,6 +383,7 @@ for f_region = fieldnames(region_data)'
         % Save all of the pulse triggered Vm 
 
         % -- Plotting the whole period pulse average
+        % Note: the is variable says subVm, but is actually all_vm
         cur_subVm = mean(all_pulse_vm, 2, 'omitnan');
         std_subVm = std(all_pulse_vm, 0, 2, 'omitnan');
         
@@ -498,41 +501,69 @@ for f_region = fieldnames(region_data)'
                 hold on;
 
                 % Plotting the significant time and peak
+                % Find Vm that is significantly higher than the shuffled
                 sig_idx = find(cur_subVm > high_perc);
+                % Find Vm that is significantly lower than the shuffled
+                sig_idx = [find(cur_subVm < low_perc); sig_idx ];
                 sig_idx(timeline(sig_idx) <= 0 | timeline(sig_idx) >= 1000*nr_avg_pulse_width_time) = [];
 
-                peak_idx = find(cur_subVm == max(cur_subVm(timeline' >= 0 & timeline' <= nr_avg_pulse_width_time*1000))); % The messsy condition is for inside the pulse window and not the extra traces
+                peak_idx = find(cur_subVm == max(cur_subVm(timeline' >= 0 & ...
+                    timeline' <= nr_avg_pulse_width_time*1000))); 
+                % The messsy condition is for inside the pulse window and not the extra traces
+                
+                trough_idx = find(cur_subVm == min(cur_subVm(timeline' >= 0 & ...
+                    timeline' <= nr_avg_pulse_width_time*1000)))
+                
+                % Remove significant points from outside the window
+                peak_idx(timeline(peak_idx) < 0| ...
+                    timeline(peak_idx) > nr_avg_pulse_width_time*1000 ) = [];
+                               
+                trough_idx(timeline(trough_idx) < 0 | ...
+                    timeline(trough_idx) > nr_avg_pulse_width_time*1000 ) = [];
+            
+
                 if ~isempty(sig_idx)
-                    % DEBUG show the significant point
-                    xline([timeline(peak_idx(1)), timeline(sig_idx(1))], 'g');
                     
+                    % Plot the line to show when the max amplitudes are
+                    if ~isempty(peak_idx), xline(timeline(peak_idx(1)), 'g'), end;
+                    hold on;
+                    if ~isempty(trough_idx), xline(timeline(trough_idx(1)), 'g'), end;
+                    hold on;
+                    
+                    % Plot siginificant points with larger markerSizes
+                    plot(timeline(sig_idx), cur_subVm(sig_idx), 'b.', 'MarkerSize', 10);
+                    hold on;
+
                     diary on;
                     fprintf('\n\n');
                     disp([f_region ' ' f_stim]);
-                    disp(['Sig Vm all pulse at ' num2str(timeline(sig_idx(1))) 'ms']);
-                    disp(['Peak Vm all pulse at ' num2str(timeline(peak_idx(1))) 'ms']);
-                    fprintf('\n\n');
+                    if ~isempty(peak_idx)
+                        disp(['Peak Vm all pulse at ' num2str(timeline(peak_idx(1))) 'ms']);
+                    end
+                    if ~isempty(trough_idx)
+                        disp(['Trough Vm all pulse at ' num2str(timeline(trough_idx(1))) 'ms']);
+                    end
+                        fprintf('\n\n');
                     diary off;
 
                     % Save the peak time for the region and stimulation
-                    region_data.(f_region).(f_stim).all_pulse_vm_pk_time = timeline(peak_idx(1));
+                    %region_data.(f_region).(f_stim).all_pulse_vm_pk_time = timeline(peak_idx(1));
                 end
         
             case 'sign'
                 nexttile(all_tt, tilenum);
                 
+                % Testing entrained signtest
                 % Alpha is 0.05, even for two tailed
                 adj_alpha = 0.05/size(all_pulse_vm, 1);
                 p_vals = arrayfun(@(row) signtest(all_pulse_vm(row, :) ) , 1:size(all_pulse_vm, 1));
-                
+            
                 sig_idx = find(p_vals < adj_alpha);
                 hold on;
 
-                plot(timeline(sig_idx), max(cur_subVm + sem_subVm)*ones(size(sig_idx)), ...
-                    'r.', 'MarkerSize', 6)
-                hold on;
+                % Save significant idxs for 'all_pulse_vm'
+                region_data.(f_region).(f_stim).(nr_pop).all_pulse_vm_sig_idx = sig_idx;
         end
-
 
         % Plot the DBS stimulation time pulses
         xline([0:nr_avg_pulse_width_time*1000:nr_avg_pulse_width_time*1000], 'Color', Multi_func.pulse_color, 'LineWidth', 2);
@@ -566,19 +597,47 @@ for f_region = fieldnames(region_data)'
                 hold on;
 
                 % Plotting the significant time and peak
-                sig_idx = find(sus_cur_subVm > high_perc);
+                % Find Vm that is significantly higher than the shuffled
+                sig_idx = find(trans_cur_subVm  > high_perc);
+                % Find Vm that is significantly lower than the shuffled
+                sig_idx = [find(trans_cur_subVm < low_perc); sig_idx ];
                 sig_idx(timeline(sig_idx) <= 0 | timeline(sig_idx) >= 1000*nr_avg_pulse_width_time) = [];
 
-                peak_idx = find(trans_cur_subVm == max(trans_cur_subVm(timeline' >= 0 & timeline' <= nr_avg_pulse_width_time*1000))); % The messsy condition is for inside the pulse window and not the extra traces
+                peak_idx = find(trans_cur_subVm == max(trans_cur_subVm(timeline' >= 0 & ...
+                    timeline' <= nr_avg_pulse_width_time*1000))); 
+                % The messsy condition is for inside the pulse window and not the extra traces
+                
+                trough_idx = find(trans_cur_subVm == min(trans_cur_subVm(timeline' >= 0 & ...
+                    timeline' <= nr_avg_pulse_width_time*1000)))
+                
+                % Remove significant points from outside the window
+                peak_idx(timeline(peak_idx) < 0| ...
+                    timeline(peak_idx) > nr_avg_pulse_width_time*1000 ) = [];
+                               
+                trough_idx(timeline(trough_idx) < 0 | ...
+                    timeline(trough_idx) > nr_avg_pulse_width_time*1000 ) = [];
+                
+
                 if ~isempty(sig_idx)
-                    % DEBUG show the significant point
-                    xline([timeline(peak_idx(1)), timeline(sig_idx(1))], 'g');
+                    % Plot the line to show when the max amplitudes are
+                    if ~isempty(peak_idx), xline(timeline(peak_idx(1)), 'g'), end;
+                    hold on;
+                    if ~isempty(trough_idx), xline(timeline(trough_idx(1)), 'g'), end;
+                    hold on;
+                    
+                    % Plot siginificant points with larger markerSizes
+                    plot(timeline(sig_idx), trans_cur_subVm(sig_idx), 'b.', 'MarkerSize', 10);
+                    hold on;
                     
                     diary on;
                     fprintf('\n\n');
                     disp([f_region ' ' f_stim ' for the transient period']);
-                    disp(['Sig Vm all pulse at ' num2str(timeline(sig_idx(1))) 'ms']);
-                    disp(['Peak Vm all pulse at ' num2str(timeline(peak_idx(1))) 'ms']);
+                    if ~isempty(peak_idx)
+                        disp(['Peak Vm all pulse at ' num2str(timeline(peak_idx(1))) 'ms']);
+                    end
+                    if ~isempty(trough_idx)
+                        disp(['Trough Vm all pulse at ' num2str(timeline(trough_idx(1))) 'ms']);
+                    end
                     fprintf('\n\n');
                     diary off;
 
@@ -597,6 +656,9 @@ for f_region = fieldnames(region_data)'
                 plot(timeline(sig_idx), max(trans_cur_subVm + trans_sem_subVm)*ones(size(sig_idx)), ...
                     'r.', 'MarkerSize', 6)
                 hold on;
+                
+                % Save the significant points for 'trans_pulse_vm'
+                %region_data.(f_region).(f_stim).(nr_pop).trans_pulse_vm_sig_idx = sig_idx;
         end
 
         % Plot the DBS stimulation time pulses
@@ -631,25 +693,53 @@ for f_region = fieldnames(region_data)'
                 plot(timeline, shuf_mean, 'Color', Multi_func.shuf_color);
                 hold on;
 
+
                 % Plotting the significant time and peak
+                % Find Vm that is significantly higher than the shuffled
                 sig_idx = find(sus_cur_subVm > high_perc);
+                % Find Vm that is significantly lower than the shuffled
+                sig_idx = [find(sus_cur_subVm < low_perc); sig_idx ];
                 sig_idx(timeline(sig_idx) <= 0 | timeline(sig_idx) >= 1000*nr_avg_pulse_width_time) = [];
 
-                peak_idx = find(sus_cur_subVm == max(sus_cur_subVm(timeline' >= 0 & timeline' <= nr_avg_pulse_width_time*1000))); % The messsy condition is for inside the pulse window and not the extra traces
+                peak_idx = find(sus_cur_subVm == max(sus_cur_subVm(timeline' >= 0 & ...
+                    timeline' <= nr_avg_pulse_width_time*1000))); 
+                % The messsy condition is for inside the pulse window and not the extra traces
+                
+                trough_idx = find(sus_cur_subVm == min(sus_cur_subVm(timeline' >= 0 & ...
+                    timeline' <= nr_avg_pulse_width_time*1000)))
+                
+                % Remove significant points from outside the window
+                peak_idx(timeline(peak_idx) < 0| ...
+                    timeline(peak_idx) > nr_avg_pulse_width_time*1000 ) = [];
+                               
+                trough_idx(timeline(trough_idx) < 0 | ...
+                    timeline(trough_idx) > nr_avg_pulse_width_time*1000 ) = [];
                 if ~isempty(sig_idx)
-                    % DEBUG show the significant point
-                    xline([timeline(peak_idx(1)), timeline(sig_idx(1))], 'g');
+                    
+                    % Plot the line to show when the max amplitudes are
+                    if ~isempty(peak_idx), xline(timeline(peak_idx(1)), 'g'), end;
+                    hold on;
+                    if ~isempty(trough_idx), xline(timeline(trough_idx(1)), 'g'), end;
+                    hold on;
+                    
+                    % Plot siginificant points with larger markerSizes
+                    plot(timeline(sig_idx), sus_cur_subVm(sig_idx), 'b.', 'MarkerSize', 10);
+                    hold on;
                     
                     diary on;
                     fprintf('\n\n');
                     disp([f_region ' ' f_stim ' for the sustained period']);
-                    disp(['Sig Vm all pulse at ' num2str(timeline(sig_idx(1))) 'ms']);
-                    disp(['Peak Vm all pulse at ' num2str(timeline(peak_idx(1))) 'ms']);
+                    if ~isempty(peak_idx)
+                        disp(['Peak Vm all pulse at ' num2str(timeline(peak_idx(1))) 'ms']);
+                    end
+                    if ~isempty(trough_idx)
+                        disp(['Trough Vm all pulse at ' num2str(timeline(trough_idx(1))) 'ms']);
+                    end
                     fprintf('\n\n');
                     diary off;
 
                     % Save the peak time for the region and stimulation
-                    region_data.(f_region).(f_stim).sus_pulse_vm_pk_time = timeline(peak_idx(1));
+                    %region_data.(f_region).(f_stim).sus_pulse_vm_pk_time = timeline(peak_idx(1));
                 end
             case 'sign'
                 nexttile(all_tt, tilenum + 2);
@@ -663,6 +753,9 @@ for f_region = fieldnames(region_data)'
                 plot(timeline(sig_idx), max(sus_cur_subVm + sus_sem_subVm)*ones(size(sig_idx)), ...
                     'r.', 'MarkerSize', 6)
                 hold on;
+
+                % Save significant idxs for 'sus_pulse_vm'
+                region_data.(f_region).(f_stim).(nr_pop).sus_pulse_vm_sig_idx = sig_idx;
         end
 
         % Plot the DBS stimulation time pulses
@@ -697,6 +790,7 @@ for f_region = fieldnames(region_data)'
         region_data.(f_region).(f_stim).(nr_pop).shuf_all_trig_Vm = shuf_val_dist;
         region_data.(f_region).(f_stim).(nr_pop).shuf_trans_trig_Vm = shuf_trans_dist;
         region_data.(f_region).(f_stim).(nr_pop).shuf_sus_trig_Vm = shuf_sus_dist;
+        region_data.(f_region).(f_stim).nr_avg_pulse_width_time = nr_avg_pulse_width_time;
 
         % DO I need to save this???
         %region_data.(f_region).(f_stim).all_pulse_trig_Vm.(nr_pop) = all_pulse_vm;
@@ -704,7 +798,7 @@ for f_region = fieldnames(region_data)'
         %region_data.(f_region).(f_stim).all_pulse_width_time.(nr_pop) = all_pulse_width_time;
     end
 
-    sgtitle([f_region(3:end) ' Sub Vm Pulse-triggered average ' nr_pop], 'Interpreter', 'none');
+    sgtitle([f_region(3:end) ' Vm Pulse-triggered ' nr_pop ' iter:' num2str(num_iter)], 'Interpreter', 'none');
     saveas(gcf, [figure_path 'Small_Res' f f_region '_' nr_pop '_Pulse_Avg_Vm.png']);
     saveas(gcf, [figure_path 'Small_Res' f f_region '_' nr_pop '_Pulse_Avg_Vm.pdf']);
     saveas(gcf, [figure_path 'Small_Res' f f_region '_' nr_pop '_Pulse_Avg_Vm.eps'], 'epsc');
@@ -716,6 +810,13 @@ end
 %nr_pop = 'all';
 nr_pop = 'etrain';
 %nr_pop = 'non_entr';
+
+% Flag for which statistical method to use
+stat_met = 'shuff';
+%stat_met = 'sign';
+
+% Flag for removing non-modulated neurons from analysis
+remove_nonmod_nrs = 1;
 
 fr_trig_avg_time = struct();
 stats_log = [figure_path 'Small_Res' f '_Fr_pulse_triggered_times_final_average_' nr_pop ];
@@ -751,11 +852,16 @@ for f_region = fieldnames(region_data)'
             disp(ME.message);
         end
 
+        % Filter out the neurons that were non-modulated at all
+        if remove_nonmod_nrs == 1
+            non_mod_nr = find(sum(popul_data.mod_matrix, 2) == 0);
+            nr_idxs = nr_idxs(~ismember(nr_idxs, non_mod_nr));
+        end
+
         timeline = nanmean(popul_data.trace_timestamps, 2);
         
         num_neurons = length(nr_idxs);
         FR_avg = [];
-        extra_trace = 3;
         all_pulse_fr = [];
         all_pulse_fr_by_neuron = cell(num_neurons, 1);
             
@@ -820,15 +926,6 @@ for f_region = fieldnames(region_data)'
                 end
             end
         end
-        
-        %TODO save individual neurons transient and sustained stuff
-        %TODO save the two entrained and non-entrained pulse triggered to show in the single cell heatemaps
-
-        % Save the all pulse stuff to region data
-        region_data.(f_region).(f_stim).all_pulse_trig_fr = all_pulse_fr;
-        region_data.(f_region).(f_stim).trans_pulse_trig_fr = trans_pulse_fr;
-        region_data.(f_region).(f_stim).sus_pulse_trig_fr = sus_pulse_fr;
-        
 
         % -- Plotting the whole period pulse average
         cur_srate = mean(all_pulse_fr, 2, 'omitnan');
@@ -893,92 +990,142 @@ for f_region = fieldnames(region_data)'
         hold on;
         % -- End plotting the sustained pulse average    
 
-        
-        %Shuffling data for significance testing
-        wind_size = size(all_pulse_fr, 1);
-        shuf_val_dist = [];
-        shuf_trans_dist = [];
-        shuf_sus_dist = [];
-        tic;
-        for i=1:1000
-            iter_wind = [];
-            iter_trans_wind = [];
-            iter_sus_wind = [];
-
-            for j=1:size(all_pulse_fr, 2)
+        switch stat_met
+            case 'shuff'
                 
-                % Grab a neuron
-                rand_nr = randi([1, length(all_pulse_fr_by_neuron)]);
-                
-                % Grab a window sample
-                rand_win_start = randi([1, length(all_pulse_fr_by_neuron{rand_nr}) - wind_size]);
-                iter_wind = horzcat_pad(iter_wind, ...
-                    all_pulse_fr_by_neuron{rand_nr}(rand_win_start:rand_win_start + wind_size - 1)' ... 
-                    - all_pulse_fr_by_neuron{rand_nr}(rand_win_start + extra_trace));
-                
-                % Same as above, but for both stimulation periods, can use the same neuron by the way
-                % transient
-                trans_rand_win_start = randi([1,...
-                    length(trans_pulse_fr_by_neuron{rand_nr}) - wind_size]);
-                iter_trans_wind = horzcat_pad(iter_trans_wind, ...
-                    trans_pulse_fr_by_neuron{rand_nr}(trans_rand_win_start:trans_rand_win_start+wind_size - 1)' ...
-                    - trans_pulse_fr_by_neuron{rand_nr}(trans_rand_win_start + extra_trace));
-                
-                % sustained
-                sus_rand_win_start = randi([1,...
-                    length(sus_pulse_fr_by_neuron{rand_nr}) - wind_size]);
-                iter_sus_wind = horzcat_pad(iter_sus_wind, ...
-                    sus_pulse_fr_by_neuron{rand_nr}(sus_rand_win_start:sus_rand_win_start+wind_size - 1)' ...
-                    - sus_pulse_fr_by_neuron{rand_nr}(sus_rand_win_start + extra_trace));
+                % Shuffling data for significance testing
+                wind_size = size(all_pulse_fr, 1);
+                shuf_val_dist = [];
+                shuf_trans_dist = [];
+                shuf_sus_dist = [];
+                tic;
+                for i=1:num_iter
+                    iter_wind = [];
+                    iter_trans_wind = [];
+                    iter_sus_wind = [];
 
-            end
-            end_iter = toc;
-            shuf_val_dist = horzcat_pad(shuf_val_dist, mean(iter_wind, 2));
-            shuf_trans_dist = horzcat_pad(shuf_trans_dist, mean(iter_trans_wind, 2));
-            shuf_sus_dist = horzcat_pad(shuf_sus_dist, mean(iter_sus_wind, 2));
-        end
-        end_shuf = toc;
+                    for j=1:size(all_pulse_fr, 2)
+                        
+                        % Grab a neuron
+                        rand_nr = randi([1, length(all_pulse_fr_by_neuron)]);
+                        
+                        % Grab a window sample
+                        rand_win_start = randi([1, length(all_pulse_fr_by_neuron{rand_nr}) - wind_size]);
+                        iter_wind = horzcat_pad(iter_wind, ...
+                            all_pulse_fr_by_neuron{rand_nr}(rand_win_start:rand_win_start + wind_size - 1)' ... 
+                            - all_pulse_fr_by_neuron{rand_nr}(rand_win_start + extra_trace));
+                        
+                        % Same as above, but for both stimulation periods, can use the same neuron by the way
+                        % transient
+                        trans_rand_win_start = randi([1,...
+                            length(trans_pulse_fr_by_neuron{rand_nr}) - wind_size]);
+                        iter_trans_wind = horzcat_pad(iter_trans_wind, ...
+                            trans_pulse_fr_by_neuron{rand_nr}(trans_rand_win_start:trans_rand_win_start+wind_size - 1)' ...
+                            - trans_pulse_fr_by_neuron{rand_nr}(trans_rand_win_start + extra_trace));
+                        
+                        % sustained
+                        sus_rand_win_start = randi([1,...
+                            length(sus_pulse_fr_by_neuron{rand_nr}) - wind_size]);
+                        iter_sus_wind = horzcat_pad(iter_sus_wind, ...
+                            sus_pulse_fr_by_neuron{rand_nr}(sus_rand_win_start:sus_rand_win_start+wind_size - 1)' ...
+                            - sus_pulse_fr_by_neuron{rand_nr}(sus_rand_win_start + extra_trace));
 
-        % Save the firing rate shuffled distribution values
-        region_data.(f_region).(f_stim).fr_shuf_val_dist = shuf_val_dist;
+                    end
+                    end_iter = toc;
+                    shuf_val_dist = horzcat_pad(shuf_val_dist, mean(iter_wind, 2));
+                    shuf_trans_dist = horzcat_pad(shuf_trans_dist, mean(iter_trans_wind, 2));
+                    shuf_sus_dist = horzcat_pad(shuf_sus_dist, mean(iter_sus_wind, 2));
+                end
+                end_shuf = toc;
 
-        % -- Plotting the all pulse shuffled data
-        % Calculate percentile values
-        low_perc = prctile(shuf_val_dist, 2.5, 2);
-        high_perc = prctile(shuf_val_dist, 97.5, 2);
-        shuf_mean = mean(shuf_val_dist, 2);
+                % Save the firing rate shuffled distribution values
+                region_data.(f_region).(f_stim).fr_shuf_val_dist = shuf_val_dist;
+
+                % -- Plotting the all pulse shuffled data
+                % Calculate percentile values
+                low_perc = prctile(shuf_val_dist, 2.5, 2);
+                high_perc = prctile(shuf_val_dist, 97.5, 2);
+                shuf_mean = mean(shuf_val_dist, 2);
     
-        nexttile(all_tt, tilenum);
-        % Plot the shuffled values
-        % Plotting using dashed lines
-        plot(timeline, [low_perc, high_perc], '--', 'Color', Multi_func.shuf_color);
-        hold on;
-        plot(timeline, shuf_mean, 'Color', Multi_func.shuf_color);
-        hold on;
+                nexttile(all_tt, tilenum);
+                % Plot the shuffled values
+                % Plotting using dashed lines
+                plot(timeline, [low_perc, high_perc], '--', 'Color', Multi_func.shuf_color);
+                hold on;
+                plot(timeline, shuf_mean, 'Color', Multi_func.shuf_color);
+                hold on;
 
-        %shade_yvals = [repmat(high_perc, 1, length(timeline)), repmat(low_perc, 1, length(timeline))];
-        %f = fill([timeline, flip(timeline)], shade_yvals, [0.62 0.71 1]);
-        %Multi_func.set_fill_properties(f);
-        %hold on;
-        %yline(shuf_mean, '--');
+                %shade_yvals = [repmat(high_perc, 1, length(timeline)), repmat(low_perc, 1, length(timeline))];
+                %f = fill([timeline, flip(timeline)], shade_yvals, [0.62 0.71 1]);
+                %Multi_func.set_fill_properties(f);
+                %hold on;
+                %yline(shuf_mean, '--');
 
-        % Plotting the significant time and peak
-        sig_idx = find(cur_srate > high_perc);
-        sig_idx(sig_idx <= extra_trace) = [];
-        if ~isempty(sig_idx)
-            peak_idx = find(cur_srate == max(cur_srate(sig_idx)));
-            % DEBUG show the significant point
-            xline([timeline(peak_idx(1)), timeline(sig_idx(1))], 'g');
+                % Plotting the significant time and peak
+                % Find Vm that is significantly higher than the shuffled
+                sig_idx = find(cur_srate > high_perc);
+                % Find Vm that is significantly lower than the shuffled
+                sig_idx = [find(cur_srate < low_perc); sig_idx ];
+                sig_idx(timeline(sig_idx) <= 0 | ...
+                    timeline(sig_idx) >= 1000*nr_avg_pulse_width_time) = [];
+
+                peak_idx = find(cur_srate == max(cur_srate(timeline' >= 0 & ...
+                    timeline' <= nr_avg_pulse_width_time*1000))); 
+                % The messsy condition is for inside the pulse window and not the extra traces
+                
+                trough_idx = find(cur_srate == min(cur_srate(timeline' >= 0 & ...
+                    timeline' <= nr_avg_pulse_width_time*1000)))
+                
+                % Remove significant points from outside the window
+                peak_idx(timeline(peak_idx) < 0| ...
+                    timeline(peak_idx) > nr_avg_pulse_width_time*1000 ) = [];
+                               
+                trough_idx(timeline(trough_idx) < 0 | ...
+                    timeline(trough_idx) > nr_avg_pulse_width_time*1000 ) = [];
+
+                if ~isempty(sig_idx)
+                    % Plot the line to show when the max amplitudes are
+                    if ~isempty(peak_idx), xline(timeline(peak_idx(1)), 'g'), end;
+                    hold on;
+                    if ~isempty(trough_idx), xline(timeline(trough_idx(1)), 'g'), end;
+                    hold on;
+                    
+                    % Plot siginificant points with larger markerSizes
+                    plot(timeline(sig_idx), cur_srate(sig_idx), 'b.', 'MarkerSize', 10);
+                    hold on;
+                    
+                    diary on;
+                    fprintf('\n\n');
+                    disp([f_region ' ' f_stim]);
+
+                    if ~isempty(peak_idx)
+                        disp(['Sig FR all pulse at ' num2str(timeline(sig_idx(1))) 'ms']);
+                    end
+                    if ~isempty(trough_idx)
+                        disp(['Peak FR all pulse at ' num2str(timeline(peak_idx(1))) 'ms']);
+                    end
+
+                    fprintf('\n\n');
+                    diary off;
+
+                    %region_data.(f_region).(f_stim).all_pulse_trig_fr_pk_time = timeline(peak_idx(1));
+                end
+                % -- End plotting the all pulse shuffled data
             
-            diary on;
-            fprintf('\n\n');
-            disp([f_region ' ' f_stim]);
-            disp(['Sig FR all pulse at ' num2str(timeline(sig_idx(1))) 'ms']);
-            disp(['Peak FR all pulse at ' num2str(timeline(peak_idx(1))) 'ms']);
-            fprintf('\n\n');
-            diary off;
+            case 'sign'
+                nexttile(all_tt, tilenum);
+                
+                % Testing entrained signtest
+                % Alpha is 0.05, even for two tailed
+                adj_alpha = 0.05/size(all_pulse_fr, 1);
+            
+                p_vals = arrayfun(@(row) signtest(all_pulse_fr(row, :) ) , 1:size(all_pulse_fr, 1));
+            
+                sig_idx = find(p_vals < adj_alpha);
+                hold on;
 
-            region_data.(f_region).(f_stim).all_pulse_trig_fr_pk_time = timeline(peak_idx(1));
+                % Save significant idxs for 'all_pulse_fr'
+                region_data.(f_region).(f_stim).(nr_pop).all_pulse_fr_sig_idx = sig_idx;
         end
 
         % Plot the DBS stimulation time pulses
@@ -996,46 +1143,92 @@ for f_region = fieldnames(region_data)'
         x = gca; x = x.XAxis;
         %Multi_func.set_spacing_axis(x, 6, 1);
         Multi_func.set_default_axis(gca);
-        ylabel('Firing Rate(Hz)');
+        ylabel('Normalized Fr');
         xlabel('Time from pulse(ms)');
         
         %ylim([-1 10]);
 
         title([f_stim(3:end) ' all'], 'Interpreter', 'none');
-        % -- End plotting the all pulse shuffled data
 
-        % -- Plotting the trans pulse shuffled data
-        % Calculate percentile values
-        low_perc = prctile(shuf_trans_dist, 2.5, 2);
-        high_perc = prctile(shuf_trans_dist, 97.5, 2);
-        shuf_mean = mean(shuf_trans_dist, 2);
-        
-        nexttile(all_tt, tilenum + 1);
-        % Plot the shuffled values as dashed horizontal lines
-        plot(timeline, [low_perc, high_perc], '--', 'Color', Multi_func.shuf_color); 
-        hold on;
-        plot(timeline, shuf_mean, 'Color', Multi_func.shuf_color);
-        hold on;
+        switch stat_met
+            case 'shuff'
 
-        % Plotting the significant time and peak
-        sig_idx = find(trans_cur_srate > high_perc);
-        sig_idx(timeline(sig_idx) <= 0 | timeline(sig_idx) >= 1000*nr_avg_pulse_width_time) = [];
+                % -- Plotting the trans pulse shuffled data
+                % Calculate percentile values
+                low_perc = prctile(shuf_trans_dist, 2.5, 2);
+                high_perc = prctile(shuf_trans_dist, 97.5, 2);
+                shuf_mean = mean(shuf_trans_dist, 2);
+                
+                nexttile(all_tt, tilenum + 1);
+                % Plot the shuffled values as dashed horizontal lines
+                plot(timeline, [low_perc, high_perc], '--', 'Color', Multi_func.shuf_color); 
+                hold on;
+                plot(timeline, shuf_mean, 'Color', Multi_func.shuf_color);
+                hold on;
 
-        peak_idx = find(trans_cur_srate == max(trans_cur_srate(timeline' >= 0 & timeline' <= nr_avg_pulse_width_time*1000))); % The messsy condition is for inside the pulse window and not the extra traces
-        if ~isempty(sig_idx)
-            % DEBUG show the significant point
-            xline([timeline(peak_idx(1)), timeline(sig_idx(1))], 'g');
-            
-            diary on;
-            fprintf('\n\n');
-            disp([f_region ' ' f_stim ' for the transient period']);
-            disp(['Sig Fr all pulse at ' num2str(timeline(sig_idx(1))) 'ms']);
-            disp(['Peak Fr all pulse at ' num2str(timeline(peak_idx(1))) 'ms']);
-            fprintf('\n\n');
-            diary off;
+                % Plotting the significant time and peak
+                % Find Vm that is significantly higher than the shuffled
+                sig_idx = find(trans_cur_srate > high_perc);
+                % Find Vm that is significantly lower than the shuffled
+                sig_idx = [find(trans_cur_srate < low_perc); sig_idx ];
+                sig_idx(timeline(sig_idx) <= 0 | ...
+                    timeline(sig_idx) >= 1000*nr_avg_pulse_width_time) = [];
 
-            % Save the peak time for the region and stimulation
-            region_data.(f_region).(f_stim).trans_pulse_fr_pk_time = timeline(peak_idx(1));
+                peak_idx = find(trans_cur_srate == max(trans_cur_srate(timeline' >= 0 & ...
+                    timeline' <= nr_avg_pulse_width_time*1000))); 
+                % The messsy condition is for inside the pulse window and not the extra traces
+                
+                trough_idx = find(trans_cur_srate == min(trans_cur_srate(timeline' >= 0 & ...
+                    timeline' <= nr_avg_pulse_width_time*1000)))
+                
+                % Remove significant points from outside the window
+                peak_idx(timeline(peak_idx) < 0| ...
+                    timeline(peak_idx) > nr_avg_pulse_width_time*1000 ) = [];
+                               
+                trough_idx(timeline(trough_idx) < 0 | ...
+                    timeline(trough_idx) > nr_avg_pulse_width_time*1000 ) = [];
+                if ~isempty(sig_idx)
+                    % DEBUG show the significant point
+                    % Plot the line to show when the max amplitudes are
+                    if ~isempty(peak_idx), xline(timeline(peak_idx(1)), 'g'), end;
+                    hold on;
+                    if ~isempty(trough_idx), xline(timeline(trough_idx(1)), 'g'), end;
+                    hold on;
+                    
+                    % Plot siginificant points with larger markerSizes
+                    plot(timeline(sig_idx), trans_cur_srate(sig_idx), 'b.', 'MarkerSize', 10);
+                    hold on;
+                    
+                    diary on;
+                    fprintf('\n\n');
+                    disp([f_region ' ' f_stim ' for the transient period']);
+                    if ~isempty(peak_idx)
+                        disp(['Sig FR all pulse at ' num2str(timeline(sig_idx(1))) 'ms']);
+                    end
+                    if ~isempty(trough_idx)
+                        disp(['Peak FR all pulse at ' num2str(timeline(peak_idx(1))) 'ms']);
+                    end
+                    fprintf('\n\n');
+                    diary off;
+
+                    % Save the peak time for the region and stimulation
+                    %region_data.(f_region).(f_stim).trans_pulse_fr_pk_time = timeline(peak_idx(1));
+                end
+            case 'sign'
+                nexttile(all_tt, tilenum + 1);
+
+                % Alpha is 0.05, even for two tailed
+                adj_alpha = 0.05/size(trans_pulse_fr, 1);
+                p_vals = arrayfun(@(row) signtest(trans_pulse_fr(row, :) ) , 1:size(trans_pulse_fr, 1));
+                
+                sig_idx = find(p_vals < adj_alpha);
+                %hold on; would need to change to fr stuff
+                %plot(timeline(sig_idx), max(trans_cur_subVm + trans_sem_subVm)*ones(size(sig_idx)), ...
+                %    'r.', 'MarkerSize', 6)
+                hold on;
+                
+                % Save the significant points for 'trans_pulse_fr'
+                region_data.(f_region).(f_stim).(nr_pop).trans_pulse_fr_sig_idx = sig_idx;
         end
 
         % Plot the DBS stimulation time pulses
@@ -1054,42 +1247,86 @@ for f_region = fieldnames(region_data)'
         title([f_stim(3:end) ' transient'], 'Interpreter', 'none');
         % -- End plotting the trans pulse shuffled data
 
-        
-        % -- Plotting the sus pulse shuffled data
-        % Calculate percentile values
-        low_perc = prctile(shuf_sus_dist, 2.5, 2);
-        high_perc = prctile(shuf_sus_dist, 97.5, 2);
-        shuf_mean = mean(shuf_sus_dist, 2);
-        
-        nexttile(all_tt, tilenum + 2);
-        % Plot the shuffled values as dashed horizontal lines
-        plot(timeline, [low_perc, high_perc], '--', 'Color', Multi_func.shuf_color); 
-        hold on;
-        plot(timeline, shuf_mean, 'Color', Multi_func.shuf_color);
-        hold on;
+        switch stat_met
+            case 'shuff'
+                % -- Plotting the sus pulse shuffled data
+                % Calculate percentile values
+                low_perc = prctile(shuf_sus_dist, 2.5, 2);
+                high_perc = prctile(shuf_sus_dist, 97.5, 2);
+                shuf_mean = mean(shuf_sus_dist, 2);
+                
+                nexttile(all_tt, tilenum + 2);
+                % Plot the shuffled values as dashed horizontal lines
+                plot(timeline, [low_perc, high_perc], '--', 'Color', Multi_func.shuf_color); 
+                hold on;
+                plot(timeline, shuf_mean, 'Color', Multi_func.shuf_color);
+                hold on;
 
-        % Plotting the significant time and peak
-        sig_idx = find(sus_cur_srate > high_perc);
-        sig_idx(timeline(sig_idx) <= 0 | timeline(sig_idx) >= 1000*nr_avg_pulse_width_time) = [];
+                % Plotting the significant time and peak
+                % Find Vm that is significantly higher than the shuffled
+                sig_idx = find(sus_cur_srate > high_perc);
+                % Find Vm that is significantly lower than the shuffled
+                sig_idx = [find(sus_cur_srate < low_perc); sig_idx ];
+                sig_idx(timeline(sig_idx) <= 0 | ...
+                    timeline(sig_idx) >= 1000*nr_avg_pulse_width_time) = [];
 
-        peak_idx = find(sus_cur_srate == max(sus_cur_srate(timeline' >= 0 & timeline' <= nr_avg_pulse_width_time*1000))); % The messsy condition is for inside the pulse window and not the extra traces
-        peak_idx = peak_idx(find(timeline(peak_idx) >= 0 & timeline(peak_idx) <= nr_avg_pulse_width_time*1000)); % Keep only the idxs that are within in the time window
-        if ~isempty(sig_idx)
-            % DEBUG show the significant point
-            xline([timeline(peak_idx(1)), timeline(sig_idx(1))], 'g');
-            
-            diary on;
-            fprintf('\n\n');
-            disp([f_region ' ' f_stim ' for the sustained period']);
-            disp(['Sig Fr all pulse at ' num2str(timeline(sig_idx(1))) 'ms']);
-            disp(['Peak Fr all pulse at ' num2str(timeline(peak_idx(1))) 'ms']);
-            fprintf('\n\n');
-            diary off;
+                peak_idx = find(sus_cur_srate == max(sus_cur_srate(timeline' >= 0 & ...
+                    timeline' <= nr_avg_pulse_width_time*1000))); 
+                % The messsy condition is for inside the pulse window and not the extra traces
+                
+                trough_idx = find(sus_cur_srate == min(sus_cur_srate(timeline' >= 0 & ...
+                    timeline' <= nr_avg_pulse_width_time*1000)))
+                
+                % Remove significant points from outside the window
+                peak_idx(timeline(peak_idx) < 0| ...
+                    timeline(peak_idx) > nr_avg_pulse_width_time*1000 ) = [];
+                               
+                trough_idx(timeline(trough_idx) < 0 | ...
+                    timeline(trough_idx) > nr_avg_pulse_width_time*1000 ) = [];
+                
+                if ~isempty(sig_idx)
+                    % Plot the line to show when the max amplitudes are
+                    if ~isempty(peak_idx), xline(timeline(peak_idx(1)), 'g'), end;
+                    hold on;
+                    if ~isempty(trough_idx), xline(timeline(trough_idx(1)), 'g'), end;
+                    hold on;
+                    
+                    % Plot siginificant points with larger markerSizes
+                    plot(timeline(sig_idx), sus_cur_srate(sig_idx), 'b.', 'MarkerSize', 10);
+                    hold on;
+                    
+                    diary on;
+                    fprintf('\n\n');
+                    disp([f_region ' ' f_stim ' for the sustained period']);
+                    if ~isempty(peak_idx)
+                        disp(['Sig FR all pulse at ' num2str(timeline(sig_idx(1))) 'ms']);
+                    end
+                    if ~isempty(trough_idx)
+                        disp(['Peak FR all pulse at ' num2str(timeline(peak_idx(1))) 'ms']);
+                    end
+                    fprintf('\n\n');
+                    diary off;
 
-            % Save the peak time for the region and stimulation
-            region_data.(f_region).(f_stim).sus_pulse_fr_pk_time = timeline(peak_idx(1));
+                    % Save the peak time for the region and stimulation
+                    %region_data.(f_region).(f_stim).sus_pulse_fr_pk_time = timeline(peak_idx(1));
+                end
+            case 'sign'
+                nexttile(all_tt, tilenum + 2);
+                
+                % Alpha is 0.05, even for two tailed
+                adj_alpha = 0.05/size(sus_pulse_fr, 1);
+                p_vals = arrayfun(@(row) signtest(sus_pulse_fr(row, :) ) , 1:size(sus_pulse_fr, 1));
+                
+                sig_idx = find(p_vals < adj_alpha);
+                %hold on;
+                %plot(timeline(sig_idx), max(sus_cur_subVm + sus_sem_subVm)*ones(size(sig_idx)), ...
+                %    'r.', 'MarkerSize', 6)
+                %hold on;
+
+                % Save significant idxs for 'sus_pulse_fr'
+                region_data.(f_region).(f_stim).(nr_pop).sus_pulse_fr_sig_idx = sig_idx;
         end
-
+                
         % Plot the DBS stimulation time pulses
         xline([0:nr_avg_pulse_width_time*1000:nr_avg_pulse_width_time*1000], 'Color', Multi_func.pulse_color, 'LineWidth', 2);
         hold on;
@@ -1108,6 +1345,12 @@ for f_region = fieldnames(region_data)'
 
         % Increase the tile number indicator
         tilenum = tilenum + 3;
+
+        % Save the two entrained and non-entrained pulse triggered to show in the single cell heatemaps
+        region_data.(f_region).(f_stim).all_pulse_trig_fr = all_pulse_fr;
+        region_data.(f_region).(f_stim).trans_pulse_trig_fr = trans_pulse_fr;
+        region_data.(f_region).(f_stim).sus_pulse_trig_fr = sus_pulse_fr;
+        
     end
     sgtitle([f_region(3:end) ' Firing Rate pulse-triggered average ' nr_pop], 'Interpreter', 'none');
     
