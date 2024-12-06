@@ -39,9 +39,6 @@ ignore_trial_dict = Multi_func.csv_to_struct([local_root_path 'Pierre Fabris' f 
 % Parameter to determine whether to combine all regions as one data
 all_regions = 0;
 
-% This is mostly for debugging purposes
-display_names = 0;
-
 %% END Modification
 
 %% Check that the server path exists
@@ -60,7 +57,18 @@ end
 %Load the data
 load(save_all_data_file);
 
-%% Calculate the Vm modulation stats from onset
+% Be careful if you current amplitude data saved
+%%% Only use when other variables are saved to the region data
+%save(save_all_data_file, 'region_data', '-v7.3');
+
+
+%% Setup the color variables
+[heatmap_color] = (cbrewer('div', 'RdBu',500));
+heatmap_color(heatmap_color > 1) = 1;
+heatmap_color(heatmap_color < 0) = 0;
+heatmap_color = flipud(heatmap_color);
+
+%% Calculate the Vm modulation stats from onset, transient period
 wind_dist = 100/1000; % numerator in ms, window from onset to include for baseline and stim comparison
 % Loop through regions
 for f_region = fieldnames(region_data)'
@@ -81,8 +89,8 @@ for f_region = fieldnames(region_data)'
             stim_idx = find(nr_timeline > 0 & nr_timeline < 0 + wind_dist);
             
             % Calculate the average amplitude Vm for each trial
-            Vm_mean_pre = mean(popul_data.all_trial_SubVm{nr}(base_idx, :), 1);
-            Vm_mean_stim = mean(popul_data.all_trial_SubVm{nr}(stim_idx, :), 1);
+            Vm_mean_pre = mean(popul_data.all_trial_rawVm{nr}(base_idx, :), 1);
+            Vm_mean_stim = mean(popul_data.all_trial_rawVm{nr}(stim_idx, :), 1);
 
             [p_sign, ~, stats] = signrank(Vm_mean_pre, Vm_mean_stim);
             
@@ -107,11 +115,12 @@ end
 
 
 %% Plot the Vm modulation heatmap and modulated averages based on the transient phase
-[heatmap_color] = (cbrewer('div', 'RdBu',500));
-heatmap_color(heatmap_color > 1) = 1;
-heatmap_color(heatmap_color < 0) = 0;
-heatmap_color = flipud(heatmap_color);
-  
+
+%TODO make the same plot but with the sustained period
+
+display_names = 0;
+remove_nonmod_nrs = 1;
+
 for f_region = fieldnames(region_data)'
     f_region = f_region{1};
     data_bystim = region_data.(f_region);
@@ -127,24 +136,32 @@ for f_region = fieldnames(region_data)'
         nr_sup = find([popul_data.Vm_trans_mod_stats.mod] < 0);
         nr_non = find([popul_data.Vm_trans_mod_stats.mod] == 0);
 
+        % Filter out the neurons that were non-modulated at all
+        if remove_nonmod_nrs == 1
+            non_mod_nr = find(sum(popul_data.mod_matrix, 2) == 0);
+            nr_non = nr_non(~ismember(nr_non, non_mod_nr));
+        end
+
         % Grab idxs for different parts of the signal
         base_idx = find(mean(popul_data.trace_timestamps, 2) < 0);
 
         stim_idx = find(mean(popul_data.trace_timestamps, 2) > 0 &...
                     mean(popul_data.trace_timestamps, 2) < 0 + wind_dist);
+            %TODO this needs to be the sustained period values!!!!!
+ 
 
-        % Need to sort across each groups
-        [~, act_i] = sort(mean(popul_data.neuron_Vm(stim_idx, nr_act), 1), 'descend');
-        [~, sup_i] = sort(mean(popul_data.neuron_Vm(stim_idx, nr_sup), 1), 'descend');
-        [~, non_i] = sort(mean(popul_data.neuron_Vm(stim_idx, nr_non), 1), 'descend');
+                % Need to sort across each groups
+        [~, act_i] = sort(mean(popul_data.neuron_RawVm(stim_idx, nr_act), 1), 'descend');
+        [~, sup_i] = sort(mean(popul_data.neuron_RawVm(stim_idx, nr_sup), 1), 'descend');
+        [~, non_i] = sort(mean(popul_data.neuron_RawVm(stim_idx, nr_non), 1), 'descend');
         act_i = nr_act(act_i);
         sup_i = nr_sup(sup_i);
         non_i = nr_non(non_i);
 
         % Save the trial-averaged neuron Vm
-        pop_act_vm = popul_data.neuron_Vm(:, act_i);
-        pop_non_vm = popul_data.neuron_Vm(:, non_i);
-        pop_sup_vm = popul_data.neuron_Vm(:, sup_i);
+        pop_act_vm = popul_data.neuron_RawVm(:, act_i);
+        pop_non_vm = popul_data.neuron_RawVm(:, non_i);
+        pop_sup_vm = popul_data.neuron_RawVm(:, sup_i);
 
         % Zscore all of the trial-averaged neuron Vm
         pop_act_vm = zscore(pop_act_vm, [], 1);
@@ -221,7 +238,7 @@ for f_region = fieldnames(region_data)'
 
         fill_h.EdgeAlpha = 0;
         hold on;
-        plot(timeline, non_Vm_avg, 'DisplayName', 'Non-modulated', 'Color', Multi_func.non_color);
+        plot(timeline, non_Vm_avg, 'DisplayName', 'Non-Responsive Vm', 'Color', Multi_func.non_color);
         hold on;
 
         fill_h = fill([timeline; flip(timeline)], ...
@@ -285,8 +302,8 @@ for f_region = fieldnames(region_data)'
             stim_idx = find(nr_timeline > per_start & nr_timeline < per_stop);
             
             % Calculate the average amplitude Vm for each trial
-            Vm_mean_pre = mean(popul_data.all_trial_SubVm{nr}(base_idx, :), 1);
-            Vm_mean_stim = mean(popul_data.all_trial_SubVm{nr}(stim_idx, :), 1);
+            Vm_mean_pre = mean(popul_data.all_trial_rawVm{nr}(base_idx, :), 1);
+            Vm_mean_stim = mean(popul_data.all_trial_rawVm{nr}(stim_idx, :), 1);
 
             [p_sign, ~, stats] = signrank(Vm_mean_pre, Vm_mean_stim);
             
@@ -587,9 +604,15 @@ for f_region = fieldnames(region_data)'
     end
 end
 
-%% Calculate single cell PLV as well as shuffled distribution
+%% Calculate single cell DBS-PLV as well as shuffled distribution
+% This is used to determine between entrained and non-entrained neurons
+
 num_iter = 500; %change this back to 500
 wind_dist = 1000/1000; %ms
+
+% Determine whether or not to show figures
+show_figures = 1;
+
 % Loop through regions
 for f_region = fieldnames(region_data)'
     f_region = f_region{1};
@@ -608,12 +631,15 @@ for f_region = fieldnames(region_data)'
         % Check if plv_mod_stats already exists
         try
             plv_mod_stats = popul_data.plv_mod_stats;
+            continue;
         catch ME
             plv_mod_stats = struct;
         end
 
-        figure('Position', [0, 0, 800, 1800]);
-        tiledlayout(length(popul_data.neuron_name), 2, 'TileSpacing', 'none', 'Padding', 'none');
+        if show_figures == 1
+            figure('Position', [0, 0, 800, 1800]);
+            tiledlayout(length(popul_data.neuron_name), 2, 'TileSpacing', 'none', 'Padding', 'none');
+        end
 
         for nr=1:length(popul_data.neuron_name)
 
@@ -627,9 +653,9 @@ for f_region = fieldnames(region_data)'
             % Function that waits for a function and matrix and then returns a function waiting for a column value
             applyFunToColi = @(func, mat) (@(col) func(mat(:, col)));
             % Aply the filtering function with the whole trial matrix, so all is left is waiting for a column number
-            partial_apply = applyFunToColi(filt_trial, popul_data.all_trial_SubVm{nr});
+            partial_apply = applyFunToColi(filt_trial, popul_data.all_trial_rawVm{nr});
             % Iterate through each column trial and concatenate all o fthe results
-            vm_phases = arrayfun(partial_apply, [1:size(popul_data.all_trial_SubVm{nr}, 2)]' , 'UniformOutput', false); 
+            vm_phases = arrayfun(partial_apply, [1:size(popul_data.all_trial_rawVm{nr}, 2)]' , 'UniformOutput', false); 
             % 
             vm_phases = cat(3, vm_phases{:});
 
@@ -687,25 +713,31 @@ for f_region = fieldnames(region_data)'
         
             % Calculate the 95th percentile
             high_prc = prctile(shuf_plv_adj, 95);
-
-            % Plot the trial-averaged Vm
-            %nexttile;
-            %plot(nr_timeline, popul_data.neuron_Vm(:, nr));
-
-            % plot the shuffled distribution
-            nexttile;
-            histogram(shuf_plv_adj, 1000);
-            hold on;
-            xline(high_prc, '-b');
-            hold on;
-            Multi_func.set_default_axis(gca);
             
+            if show_figures == 1
+                % Plot the trial-averaged Vm
+                %nexttile;
+                %plot(nr_timeline, popul_data.neuron_RawVm(:, nr));
+        
+                % plot the shuffled distribution
+                nexttile;
+                histogram(shuf_plv_adj, 1000);
+                hold on;
+                xline(high_prc, '-b');
+                hold on;
+                Multi_func.set_default_axis(gca);
+            end
+
             % Check if significant
             if obs_PLV2 > high_prc
-                xline(obs_PLV2, '-g');
+                if show_figures == 1
+                    xline(obs_PLV2, '-g');
+                end
                 plv_mod_stats(nr).mod = 1;
             else
-                xline(obs_PLV2, '-r');
+                if show_figures == 1
+                    xline(obs_PLV2, '-r');
+                end
                 plv_mod_stats(nr).mod = -1;
             end
 
@@ -715,18 +747,21 @@ for f_region = fieldnames(region_data)'
             %hold on;
             %plot(stim_rasters + [1:size(stim_rasters, 2)])
     
-            %DEBUG Plot the raw trials with spike phase information
-            nexttile;
-            all_trs = popul_data.all_trial_SubVm{nr};
-            all_trs = Multi_func.raw_filt(all_trs, plv_freq, avg_Fs);
-            norm_trs = Multi_func.norm_signals(all_trs);
-            plot(norm_trs + repmat(1:size(norm_trs, 2), size(norm_trs, 1), 1));
-            hold on;
-            xline(find(dbs_raster == 1));
-             %plot(find(dbs_raster == 1), 1.2.*size(norm_trs, 2).*ones(sum(dbs_raster), 1), '|');
-            xlim([700 800]);
+    
+            if show_figures == 1
+                %DEBUG Plot the raw trials with spike phase information
+                nexttile;
+                all_trs = popul_data.all_trial_rawVm{nr};
+                all_trs = Multi_func.raw_filt(all_trs, plv_freq, avg_Fs);
+                norm_trs = Multi_func.norm_signals(all_trs);
+                plot(norm_trs + repmat(1:size(norm_trs, 2), size(norm_trs, 1), 1));
+                hold on;
+                xline(find(dbs_raster == 1));
+                 %plot(find(dbs_raster == 1), 1.2.*size(norm_trs, 2).*ones(sum(dbs_raster), 1), '|');
+                xlim([700 800]);
 
-            sgtitle([f_region ' ' f_stim], 'Interpreter', 'none');
+                sgtitle([f_region ' ' f_stim], 'Interpreter', 'none');
+            end
 
             % Store the PLV data into the neuron structure
             plv_mod_stats(nr).obs_PLV = obs_PLV;
@@ -737,11 +772,12 @@ for f_region = fieldnames(region_data)'
         end %neuron loop
         % Add plv mod stats to structure
         region_data.(f_region).(f_stim).plv_mod_stats = plv_mod_stats;
-
-        % Save the figures
-        saveas(gcf, [figure_path 'Neuronwise' f f_region '_' f_stim '_stimPLV_shuf.png']);
-        saveas(gcf, [figure_path 'Neuronwise' f f_region '_' f_stim '_stimPLV_shuf.pdf']);
-
+        
+        if show_figures == 1
+            % Save the figures
+            saveas(gcf, [figure_path 'Neuronwise' f f_region '_' f_stim '_stimPLV_shuf.png']);
+            saveas(gcf, [figure_path 'Neuronwise' f f_region '_' f_stim '_stimPLV_shuf.pdf']);
+        end
     end % Stim freq loop
 end % Region loop
 
@@ -875,7 +911,7 @@ for f_region = fieldnames(region_data)'
 
             % Plot the trial-averaged Vm
             %nexttile;
-            %plot(nr_timeline, popul_data.neuron_Vm(:, nr));
+            %plot(nr_timeline, popul_data.neuron_RawVm(:, nr));
 
             % plot the shuffled distribution
             nexttile;
@@ -958,13 +994,167 @@ for f_region = fieldnames(region_data)'
     end % Stim freq loop
 end % Region loop
 
-%% Plot stuff based on stim-Vm PLV
-% To use 'stim_dbsvm_plvs_adj', need to run 'dbs_PLV.m' and the section on calculating dbs-Vm PLVs
+%% Plot single cell pulse triggered average across transient and sustained based on stim-Vm PLV entrainement
+% 
+extra_trace = 3;
+
+for f_region = fieldnames(region_data)'
+    f_region = f_region{1};
+    data_bystim = region_data.(f_region);
+    stims = fieldnames(data_bystim);
+
+    % Loop through stim frequencies
+    for f_stim = stims'
+        f_stim = f_stim{1};
+        popul_data = data_bystim.(f_stim);
+        
+        avg_Fs = mean(popul_data.framerate, 'omitnan');
+        
+
+        % Set up figure for plotting
+        % Each column is for: 'all', 'trans', and 'sus' 
+        figure('Position', [0, 0, 1500, 1000]);
+        tiledlayout(2, 3, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 4, 9.9, 6]);
+        %tiledlayout(2, 3, 'TileSpacing', 'compact', 'Padding', 'compact');
+        
+        N_col = 3;
+
+        % Loop through all, sus, and transient pulses
+        tilenum = 1;
+
+        % Reset the sorting for the entrained and non-entrained neurons
+        etrain_i = [];
+        non_etrain_i = [];
+        for f_ped = {'all', 'trans', 'sus'}
+            f_ped = f_ped{1};
+            
+            % Create heatmap for each neuron
+            %cur_pulse_vms = popul_data.etrain.([f_ped '_pulse_trig_Vm']);
+            num_stim_pulses = str2num(erase(f_stim, 'f_'));
+            num_pulse_wind = size(popul_data.etrain.all_pulse_trig_Vm, 1); 
+            base_sub = @(mat) mat - mat(extra_trace + 1, :);
+            
+            etrain_avg_pulse_mat = cellfun(@(x) mean(base_sub(reshape(x', num_pulse_wind, [])), 2, 'omitnan'), ...
+                popul_data.etrain.([f_ped '_pulse_vm_by_neuron']), 'UniformOutput', false)';
+            etrain_avg_pulse_mat = cat(2, etrain_avg_pulse_mat{:})';
+
+            % Non-entrained pulse window
+            non_etrain_avg_pulse_mat = cellfun(@(x) mean(base_sub(reshape(x', num_pulse_wind, [])), 2, 'omitnan'), ...
+                popul_data.non_entr.([f_ped '_pulse_vm_by_neuron']), 'UniformOutput', false)';
+            non_etrain_avg_pulse_mat = cat(2, non_etrain_avg_pulse_mat{:})';
+
+            % Sort by the max Vm and concatenate the Vms
+            if isempty(etrain_i) && isempty(non_etrain_i)
+                [~, etrain_i] = sort(max(etrain_avg_pulse_mat, [], 2), 'descend');
+                [~, non_etrain_i] = sort(max(non_etrain_avg_pulse_mat, [], 2), 'descend');
+            end
+            pulse_heatmap = cat(1, etrain_avg_pulse_mat(etrain_i, :), ...
+                                non_etrain_avg_pulse_mat(non_etrain_i, :) );
+
+            %-- Plot the heatmap with the pulse-triggered averages--
+            nexttile(tilenum);
+            
+            timeline = ([0:size(pulse_heatmap, 2) - 1]- extra_trace)*1000./avg_Fs;
+            imagesc('XData', timeline, 'YData', 1:size(pulse_heatmap, 1), 'CData', pulse_heatmap);
+            hold on;
+            yline(size(etrain_avg_pulse_mat, 1) + 0.5);
+            hold on;
+            Multi_func.set_default_axis(gca);
+            xlim([min(timeline) - .01, max(timeline)]);
+            
+            ylim([0.5 size(pulse_heatmap, 1) + 0.5]);
+            xlabel('Time from onset (S)');
+            
+            if strcmp(f_ped, 'sus') == 1
+                colormap(heatmap_color);
+                c = colorbar;
+                c.Label.String = 'Vm';
+            end
+            
+            clim = caxis;
+            caxis([-1 1]*range(clim)/2);
+            
+             title([f_stim ' ' f_ped], 'Interpreter', 'none');
+            %-- End plotting the heatmap with the pulse-triggered averages--
+            
+            % -- Plotting the averages of the entrained and non-entrained population
+            nexttile(tilenum + N_col);
+            cur_etrain_pulse_vms = popul_data.etrain.([f_ped '_pulse_trig_Vm']);
+            cur_etrain_avg_Vm = mean(cur_etrain_pulse_vms, 2, 'omitnan');
+            cur_etrain_sem_Vm = std(cur_etrain_pulse_vms, 0, 2, 'omitnan')./sqrt(size(cur_etrain_pulse_vms, 2));
+            
+            fill_h = fill([timeline, flip(timeline)], [cur_etrain_avg_Vm + cur_etrain_sem_Vm; flipud(cur_etrain_avg_Vm - cur_etrain_sem_Vm)], [0.5 0.5 0.5]);
+            if ~isempty(fill_h)
+                Multi_func.set_fill_properties(fill_h);
+            end
+            hold on;
+            plot(timeline, cur_etrain_avg_Vm, '-r', 'LineWidth', 1, 'DisplayName', 'Entrained');
+            hold on;
+            
+            %TODO plot the red points on the actual line
+            plot(timeline(sig_idx), max(cur_etrain_avg_Vm + cur_etrain_sem_Vm)*ones(size(sig_idx)), ...
+                'b*', 'MarkerSize', 4)
+            %plot(timeline(sig_idx), cur_etrain_avg_Vm(sig_idx), ...
+            %    'b.', 'MarkerSize', 6)
+            hold on;
+
+            % Try to plot non-entrained neurons if it exists
+            try
+                cur_nonetrain_pulse_vms = popul_data.non_entr.([f_ped '_pulse_trig_Vm']);
+                cur_nonetrain_avg_Vm = mean(cur_nonetrain_pulse_vms, 2, 'omitnan');
+                cur_nonetrain_sem_Vm = std(cur_nonetrain_pulse_vms, 0, 2, 'omitnan')./sqrt(size(cur_nonetrain_pulse_vms, 2));
+                
+                fill_h = fill([timeline, flip(timeline)], [cur_nonetrain_avg_Vm + cur_nonetrain_sem_Vm; flipud(cur_nonetrain_avg_Vm - cur_nonetrain_sem_Vm)], [0.5 0.5 0.5]);
+                if ~isempty(fill_h)
+                    Multi_func.set_fill_properties(fill_h);
+                end
+                hold on;
+                plot(timeline, cur_nonetrain_avg_Vm, '-k', 'LineWidth', 1, 'DisplayName', 'Non-Entrained');
+                hold on;
+            
+            catch ME
+                
+            end
+            
+            % Plot the DBS stimulation time pulses
+            nr_avg_pulse_width_time = popul_data.nr_avg_pulse_width_time;
+            xline([0:nr_avg_pulse_width_time*1000:nr_avg_pulse_width_time*1000], 'Color', Multi_func.pulse_color, 'LineWidth', 2);
+            hold on;
+
+            % Increase timescale resolution
+            %xlim([0 - .100, 0 + .100]);
+            Multi_func.set_default_axis(gca);
+            ylabel('Normalized Vm');
+            xlabel('Time from pulse(ms)');
+
+            % -- End plotting population averages
+
+            % Increment to the next period pulse-triggered
+            tilenum = tilenum + 1;
+        end
+
+        % Give the whole title
+        sgtitle([f_region], 'Interpreter', 'none');
+
+        % Save figure stuff
+        saveas(gcf, [figure_path 'Neuronwise' f f_region '_' f_stim '_entrain_pulse.png']);
+        saveas(gcf, [figure_path 'Neuronwise' f f_region '_' f_stim '_entrain_pulse.pdf']);
+    end
+end
+
+%% Plot different aspects of neuron's data based on stim-Vm PLV entrainment
+% This is doing 'all_pulse' all stimulation stuff
+% Note:To use 'stim_dbsvm_plvs_adj', need to run 'dbs_PLV.m' and the section on calculating dbs-Vm PLVs
+% Note:To use ''
+
 %plot_mode = 'pow'; % Use stimulation frequency power spectra for each neuron
 %plot_mode = 'Vm'; % Use the trial averaged Vm
 plot_mode = 'pulse'; % use Pulse-triggered average
 freqs = Multi_func.entr_freqs;
 extra_trace = 3;
+
+% This is mostly for debugging purposes
+display_names = 0;
 
 for f_region = fieldnames(region_data)'
     f_region = f_region{1};
@@ -1021,8 +1211,8 @@ for f_region = fieldnames(region_data)'
             
             case 'Vm'
                 % Save the trial-averaged neuron Vm
-                pop_etrain_vm = popul_data.neuron_Vm(:, etrain_i);
-                pop_non_vm = popul_data.neuron_Vm(:, non_i);
+                pop_etrain_vm = popul_data.neuron_RawVm(:, etrain_i);
+                pop_non_vm = popul_data.neuron_RawVm(:, non_i);
 
                 % Zscore all of the trial-averaged neuron Vm
                 pop_etrain_vm = zscore(pop_etrain_vm, [], 1);
@@ -1174,13 +1364,18 @@ for f_region = fieldnames(region_data)'
             case 'pulse'
                 nexttile;
                 
-                timeline = ([0:size(pulse_heatmap, 2)]- extra_trace)*1000./avg_Fs;
+                % Just take from first neuron
+                nr_avg_pulse_width_time = mean(diff(popul_data.stim_timestamps(:, 1) ), 'omitnan');
+                
+                timeline = ([0:size(pulse_heatmap, 2) - 1]- extra_trace )*1000./avg_Fs;
 
                 imagesc('XData', timeline, 'YData', 1:size(pulse_heatmap, 1), 'CData', pulse_heatmap);
                 hold on;
                 yline(0.5 + [length(etrain_i), length(etrain_i) + length(non_i)]);
                 hold on;
-                xline([0 round(1000/cur_freq)]);
+
+                xline([0:nr_avg_pulse_width_time*1000:nr_avg_pulse_width_time*1000], ...
+                    'Color', 'k', 'LineWidth', 2);
                 hold on;
                 Multi_func.set_default_axis(gca);
 
@@ -1204,37 +1399,75 @@ for f_region = fieldnames(region_data)'
                 c = colorbar;
                 clim = caxis;
                 caxis([-1 1]*range(clim)/2);
-                c.Label.String = 'Vm (z-scored)';
+                c.Label.String = 'Vm';
 
         end
 
-        % Plot the population average for each group entrainment
+        % Plot the population average PLV for each group entrainment
+        %nexttile;
+        %
+        %fill_h = fill([freqs'; flip(freqs)'], ...
+        %        [non_plv_avg + non_plv_sem; flipud(non_plv_avg - non_plv_sem)], ...
+        %        Multi_func.non_color, 'HandleVisibility', 'off');
+        %Multi_func.set_fill_properties(fill_h);
+
+        %fill_h.EdgeAlpha = 0;
+        %hold on;
+        %plot(freqs', non_plv_avg, 'DisplayName', 'Non-entrained', 'Color', Multi_func.non_color);
+
+        %hold on;
+        %fill_h = fill([freqs'; flip(freqs)'], ...
+        %        [etrain_plv_avg + etrain_plv_sem; flipud(etrain_plv_avg - etrain_plv_sem)], ...
+        %        Multi_func.act_color, 'HandleVisibility', 'off');
+        %Multi_func.set_fill_properties(fill_h);
+        %fill_h.EdgeAlpha = 0;
+        %hold on;
+        %plot(freqs', etrain_plv_avg, 'DisplayName', 'Entrained', 'Color', Multi_func.act_color);
+        %hold on;
+
+        %set(gca, 'XScale', 'log');
+        %Multi_func.set_default_axis(gca);
+        %legend();
+        %ylabel('DBS-Vm PLV^2');
+        %xlabel('Frequency (Hz)');
+        % -- Done plotting the population average for each group entrainment
+
+        % PLot the pulse-triggered average for both entrained and non-entrained
         nexttile;
-        
-        fill_h = fill([freqs'; flip(freqs)'], ...
-                [non_plv_avg + non_plv_sem; flipud(non_plv_avg - non_plv_sem)], ...
-                Multi_func.non_color, 'HandleVisibility', 'off');
-        Multi_func.set_fill_properties(fill_h);
-
-        fill_h.EdgeAlpha = 0;
-        hold on;
-        plot(freqs', non_plv_avg, 'DisplayName', 'Non-entrained', 'Color', Multi_func.non_color);
-
-        hold on;
-        fill_h = fill([freqs'; flip(freqs)'], ...
-                [etrain_plv_avg + etrain_plv_sem; flipud(etrain_plv_avg - etrain_plv_sem)], ...
-                Multi_func.act_color, 'HandleVisibility', 'off');
+        etrain_pulse_avg = mean(pop_etrain_pulse, 2);
+        etrain_pulse_sem = std(pop_etrain_pulse, 0, 2)./sqrt(size(pop_etrain_pulse, 2));
+        non_pulse_avg = mean(pop_non_pulse, 2);
+        non_pulse_sem = std(pop_non_pulse, 0, 2)./sqrt(size(pop_non_pulse, 2));
+ 
+        % Plot the Non-Entrained pulse-triggered average
+        fill_h = fill([timeline, flip(timeline)], ...
+            [non_pulse_avg + non_pulse_sem; flipud(non_pulse_avg - non_pulse_sem)], ...
+            Multi_func.non_color, 'HandleVisibility', 'off');
         Multi_func.set_fill_properties(fill_h);
         fill_h.EdgeAlpha = 0;
         hold on;
-        plot(freqs', etrain_plv_avg, 'DisplayName', 'Entrained', 'Color', Multi_func.act_color);
+        plot(timeline, non_pulse_avg, 'DisplayName', 'Non-entrained', 'Color', Multi_func.non_color);
         hold on;
 
-        set(gca, 'XScale', 'log');
+        % Plot the Entrained pulse-triggered average
+        fill_h = fill([timeline, flip(timeline)], ...
+            [etrain_pulse_avg + etrain_pulse_sem; flipud(etrain_pulse_avg - etrain_pulse_sem)], ...
+            Multi_func.act_color, 'HandleVisibility', 'off');
+        Multi_func.set_fill_properties(fill_h);
+        fill_h.EdgeAlpha = 0;
+        hold on;
+        plot(timeline, etrain_pulse_avg, 'DisplayName', 'Entrained', 'Color', Multi_func.act_color);
+        hold on;
         Multi_func.set_default_axis(gca);
+
+        xlim([min(timeline) - .01, max(timeline)]);
+        xline([0:nr_avg_pulse_width_time*1000:nr_avg_pulse_width_time*1000], ...
+            'Color', Multi_func.pulse_color, 'LineWidth', 2, ...
+            'HandleVisibility', 'off');
+        hold on;
         legend();
-        ylabel('DBS-Vm PLV^2');
-        xlabel('Frequency (Hz)');
+        xlabel('Time from pulse onset (S)');
+        ylabel('Normalized Vm');
 
         % Plot each neuron's PLV for all frequencies
         nexttile;
@@ -1397,7 +1630,104 @@ for f_region = fieldnames(region_data)'
 end
 
 %% Save the number of neurons per modulation
+
+% Note: to get percentages, I have to copy the top part of this csv into the top of formula.xlsx file
+
+% a flag here for whether or not to include non-modulated neurons or not
+% If 1, then keep the non-modulated neurons in the counts calculations
+% if 0, then remove the non-modulated neurons from the count calculations
+keep_nonmod_nrs = 0;
+
 stats_t = table();
+for f_region = fieldnames(region_data)'
+    f_region = f_region{1};
+    data_bystim = region_data.(f_region);
+    stims = fieldnames(data_bystim);
+
+    % Loop through stim frequencies
+    for f_stim = stims'
+
+        f_stim = f_stim{1};
+        popul_data = data_bystim.(f_stim);
+       
+        %--- Count neurons that have any modulation vs no modulation
+        mod_nr = find(sum(popul_data.mod_matrix, 2) > 0);
+        non_mod_nr = find(sum(popul_data.mod_matrix, 2) == 0);
+
+        % Grab the neuron number of each Vm trans positive modulation
+        vm_trans_act_nr = find([popul_data.Vm_trans_mod_stats.mod] > 0);
+        vm_trans_non_nr = find([popul_data.Vm_trans_mod_stats.mod] == 0);
+        vm_trans_sup_nr = find([popul_data.Vm_trans_mod_stats.mod] < 0);
+
+        % Grab the firing rate modulated trans data
+        fr_trans_act_nr = find([popul_data.fr_trans_mod_stats.mod] > 0);
+        fr_trans_non_nr = find([popul_data.fr_trans_mod_stats.mod] == 0);
+        fr_trans_sup_nr = find([popul_data.fr_trans_mod_stats.mod] < 0);
+
+        %----- Modulated data for sustained period
+        % Grab the neuron number of each Vm sus positive modulation
+        vm_sus_act_nr = find([popul_data.Vm_sus_mod_stats.mod] > 0);
+        vm_sus_non_nr = find([popul_data.Vm_sus_mod_stats.mod] == 0);
+        vm_sus_sup_nr = find([popul_data.Vm_sus_mod_stats.mod] < 0);
+
+        % Grab the firing rate modulated sus data
+        fr_sus_act_nr = find([popul_data.fr_sus_mod_stats.mod] > 0);
+        fr_sus_non_nr = find([popul_data.fr_sus_mod_stats.mod] == 0);
+        fr_sus_sup_nr = find([popul_data.fr_sus_mod_stats.mod] < 0);
+
+        %--- Determine the entrainment PLV mod stuff
+        etrain_nr = find([popul_data.plv_mod_stats.mod] > 0);
+        non_nr = find([popul_data.plv_mod_stats.mod] < 0);
+
+        % Count the total number of neurons
+        total_nrs = 1:length([popul_data.plv_mod_stats.mod]);
+
+        % Determine whether to keep the non-modulated neurons
+        if keep_nonmod_nrs == 0
+            vm_trans_non_nr = setdiff(vm_trans_non_nr, non_mod_nr);
+            fr_trans_non_nr = setdiff(fr_trans_non_nr, non_mod_nr);
+            vm_sus_non_nr = setdiff(vm_sus_non_nr, non_mod_nr);
+            fr_sus_non_nr = setdiff(fr_sus_non_nr, non_mod_nr);
+            non_nr = setdiff(non_nr, non_mod_nr);
+            total_nrs = setdiff(total_nrs, non_mod_nr);
+        end
+
+        % Add all of the counts to table
+        stats_t([f_region f_stim], 'Vm Trans Act') = {length(vm_trans_act_nr)};
+        stats_t([f_region f_stim], 'Vm Trans Non') = {length(vm_trans_non_nr)};
+        stats_t([f_region f_stim], 'Vm Trans Sup') = {length(vm_trans_sup_nr)};
+    
+        stats_t([f_region f_stim], 'FR Trans Act') = {length(fr_trans_act_nr)};
+        stats_t([f_region f_stim], 'FR Trans Non') = {length(fr_trans_non_nr)};
+        stats_t([f_region f_stim], 'FR Trans Sup') = {length(fr_trans_sup_nr)};
+
+        stats_t([f_region f_stim], 'Vm sus Act') = {length(vm_sus_act_nr)};
+        stats_t([f_region f_stim], 'Vm sus Non') = {length(vm_sus_non_nr)};
+        stats_t([f_region f_stim], 'Vm sus Sup') = {length(vm_sus_sup_nr)};
+    
+        stats_t([f_region f_stim], 'FR sus Act') = {length(fr_sus_act_nr)};
+        stats_t([f_region f_stim], 'FR sus Non') = {length(fr_sus_non_nr)};
+        stats_t([f_region f_stim], 'FR sus Sup') = {length(fr_sus_sup_nr)};
+        
+        stats_t([f_region f_stim], 'PLV Etrain') = {length(etrain_nr)};
+        stats_t([f_region f_stim], 'PLV non-etrain') = {length(non_nr)};
+
+        stats_t([f_region f_stim], 'Modulated Neurons') = {length(mod_nr)};
+        stats_t([f_region f_stim], 'Non-Modulated Neurons') = {length(non_mod_nr)};
+
+        %--- Add total number of neurons
+        stats_t([f_region f_stim], 'Total Neurons') = {length(total_nrs)};
+
+        % Loop and create percentages
+        %for row = stats_t.Properties.RowNames'
+        %    stats_t{row{1}, :} = stats_t{row{1}, :}*100 / stats_t{row{1}, 'Total Neurons'};
+        %end
+    end
+end
+disp(stats_t);
+writetable(stats_t, [figure_path 'Neuronwise' f 'modulation_stats_keepNonMod' num2str(keep_nonmod_nrs) '.csv'], 'WriteRowNames', true);
+
+%% Determine neurons by Vm modulation, firing rate modulation, and entrainment
 for f_region = fieldnames(region_data)'
     f_region = f_region{1};
     data_bystim = region_data.(f_region);
@@ -1407,62 +1737,73 @@ for f_region = fieldnames(region_data)'
     for f_stim = stims'
         f_stim = f_stim{1};
         popul_data = data_bystim.(f_stim);
-       
-        % Grab the neuron number of each Vm trans positive modulation
-        vm_act_nr = find([popul_data.Vm_trans_mod_stats.mod] > 0);
-        vm_non_nr = find([popul_data.Vm_trans_mod_stats.mod] == 0);
-        vm_sup_nr = find([popul_data.Vm_trans_mod_stats.mod] < 0);
-
-        % Grab the firing rate modulated trans data
-        fr_act_nr = find([popul_data.fr_trans_mod_stats.mod] > 0);
-        fr_non_nr = find([popul_data.fr_trans_mod_stats.mod] == 0);
-        fr_sup_nr = find([popul_data.fr_trans_mod_stats.mod] < 0);
-
-        stats_t([f_region f_stim], 'Vm Trans Act') = {length(vm_act_nr)};
-        stats_t([f_region f_stim], 'Vm Trans Non') = {length(vm_non_nr)};
-        stats_t([f_region f_stim], 'Vm Trans Sup') = {length(vm_sup_nr)};
     
-        stats_t([f_region f_stim], 'FR Trans Act') = {length(fr_act_nr)};
-        stats_t([f_region f_stim], 'FR Trans Non') = {length(fr_non_nr)};
-        stats_t([f_region f_stim], 'FR Trans Sup') = {length(fr_sup_nr)};
+        % Need to convert the non-entrained label of -1 to 0. 
+        %Easier for intersection purposes
+        nr_entr_mod = [popul_data.plv_mod_stats.mod]';
+        nr_entr_mod(nr_entr_mod == -1) = 0;
 
-        %----- Modulated data for sustained period
-        % Grab the neuron number of each Vm sus positive modulation
-        vm_act_nr = find([popul_data.Vm_sus_mod_stats.mod] > 0);
-        vm_non_nr = find([popul_data.Vm_sus_mod_stats.mod] == 0);
-        vm_sup_nr = find([popul_data.Vm_sus_mod_stats.mod] < 0);
-
-        % Grab the firing rate modulated sus data
-        fr_act_nr = find([popul_data.fr_sus_mod_stats.mod] > 0);
-        fr_non_nr = find([popul_data.fr_sus_mod_stats.mod] == 0);
-        fr_sup_nr = find([popul_data.fr_sus_mod_stats.mod] < 0);
-
-        stats_t([f_region f_stim], 'Vm sus Act') = {length(vm_act_nr)};
-        stats_t([f_region f_stim], 'Vm sus Non') = {length(vm_non_nr)};
-        stats_t([f_region f_stim], 'Vm sus Sup') = {length(vm_sup_nr)};
-    
-        stats_t([f_region f_stim], 'FR sus Act') = {length(fr_act_nr)};
-        stats_t([f_region f_stim], 'FR sus Non') = {length(fr_non_nr)};
-        stats_t([f_region f_stim], 'FR sus Sup') = {length(fr_sup_nr)};
+        % Create matrix for all neuron modulation feature
+        % I am taking the absolute value here to combine activated and suppressed
+        mod_matrix = [nr_entr_mod, ...
+                abs([popul_data.Vm_trans_mod_stats.mod])', ...
+                abs([popul_data.Vm_sus_mod_stats.mod])', ...
+                abs([popul_data.fr_trans_mod_stats.mod])', ...
+                abs([popul_data.fr_sus_mod_stats.mod])', ...
+                ];
         
+        % Save modulation to region_data structure
+        region_data.(f_region).(f_stim).mod_matrix = mod_matrix;
 
-        %--- Determine the entrainment PLV mod stuff
-        etrain_nr = find([popul_data.plv_mod_stats.mod] > 0);
-        non_nr = find([popul_data.plv_mod_stats.mod] < 0);
-        stats_t([f_region f_stim], 'PLV Etrain') = {length(etrain_nr)};
-        stats_t([f_region f_stim], 'PLV non-etrain') = {length(non_nr)};
-        
-        %--- Add total number of neurons
-        stats_t([f_region f_stim], 'Total Neurons') = {length([popul_data.plv_mod_stats.mod])};
+        % Save matrix to csv file
+        headers = {['Ent ' num2str(100*sum(mod_matrix(:, 1))/size(mod_matrix, 1))], ...
+            ['Vm trans ' num2str(100*sum(mod_matrix(:, 2))/size(mod_matrix, 1))], ...
+            ['Vm sus ' num2str(100*sum(mod_matrix(:, 3))/size(mod_matrix, 1))], ...
+            ['FR trans ' num2str(100*sum(mod_matrix(:, 4))/size(mod_matrix, 1))], ...
+            ['FR sus ' num2str(100*sum(mod_matrix(:, 5))/size(mod_matrix, 1))]};
 
-        % Loop and create percentages
-        %for row = stats_t.Properties.RowNames'
-        %    stats_t{row{1}, :} = stats_t{row{1}, :}*100 / stats_t{row{1}, 'Total Neurons'};
-        %end
+        T = array2table(mod_matrix, 'VariableNames', headers);
+        writetable(T, [figure_path 'Neuronwise' f 'mod_matrix_' f_region '_' f_stim '.csv'], ...
+            'WriteRowNames', true);
+
+        % Find neurons that do not have any modulatory property
+        disp([f_region ' ' f_stim]);
+        non_mod = find(sum(mod_matrix, 2) == 0)
+
+        % Find neurons that were sustained activated, but not in the transient
+        sus_mod = find(mod_matrix(:, 3) == 1);
+        trans_non_mod = find(mod_matrix(:, 2) == 0);
+        disp('Sus only');
+        sus_only = intersect(sus_mod, trans_non_mod)
+
+        if isempty(non_mod)
+            continue
+        end
+
+        % Display neuron trials of neurons without modulatory effect
+        figure;
+        tiledlayout(length(non_mod), 1, 'TileSpacing', 'none', 'Padding', 'none');
+        for nr=non_mod'
+            nexttile;
+            plot(Multi_func.norm_signals(popul_data.all_trial_rawVm{nr}) ...
+                + [1:size(popul_data.all_trial_rawVm{nr}, 2)]);
+            hold on;
+            stim = popul_data.stim_timestamps(:, nr);
+            frame_time = popul_data.trace_timestamps(:, nr);
+            stim_onset = find(frame_time < stim(1));
+            stim_onset = stim_onset(end);
+
+            stim_offset = find(frame_time > stim(end));
+            stim_offset = stim_offset(1);
+
+            xline([stim_onset, stim_offset]);
+            title(['Non-Feature ' popul_data.neuron_name{nr}], 'Interpreter', 'none');
+        end
+        sgtitle([f_region ' ' f_stim], 'Interpreter', 'none');
+        legend(['Num Neuron: ' num2str(length(popul_data.neuron_name))]);
+
     end
 end
-disp(stats_t);
-writetable(stats_t, [figure_path 'Neuronwise' f 'modulation_stats.csv'], 'WriteRowNames', true);
 
 %% Display the number of neurons that demonstrated similar modulation between Vm and entrainment
 for f_region = fieldnames(region_data)'
