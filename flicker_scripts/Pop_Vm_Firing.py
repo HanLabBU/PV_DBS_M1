@@ -43,9 +43,10 @@ print(df.columns)
 # %% Population Vm average
 
 # Determine which neuron population to plot here
-#nr_pop = 'all'
+nr_pop = 'all'
 #nr_pop = 'inc_power'
-nr_pop = 'dec_power'
+#nr_pop = 'dec_power'
+zsco = 1
 
 # Loop through each ROI
 test_freqs = df['stim_freq'].unique()
@@ -100,8 +101,15 @@ for freq in test_freqs:
         vm_df['neuron'] = vm_df['neuron'].astype('category')
         roi_acum += 1
     
+    
+
     # Plot the trial averaged Vm
     plot_df = vm_df.pivot(index='neuron', columns='interp_time', values='vm_trial_avg')
+    
+    # Determine to zscore
+    if zsco == 1:
+        plot_df = plot_df.apply(stats.zscore, axis=1)
+    
     avg_vm = plot_df.mean(axis=0)
     std_vm = plot_df.std(axis=0)
     num_neurons = plot_df.shape[0]
@@ -122,7 +130,7 @@ for freq in test_freqs:
          linewidth=20,  color=consts.pulse_color)
     plt.xlabel('Time from flicker onset (s)')
     plt.ylabel('Normalized Vm')
-    plt.title(nr_pop + ' Flicker Average: ' + str(freq))
+    plt.title(nr_pop + ' Flicker Average: ' + str(freq) + ' Zscore: ' + str(bool(zsco)))
     
     ax = plt.gca()
     ax.spines['top'].set_visible(False)
