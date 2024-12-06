@@ -39,6 +39,7 @@ ignore_trial_dict = Multi_func.csv_to_struct([local_root_path 'Pierre Fabris' f 
 all_regions = 0;
 
 % Flag to use low frequency oscillation
+%TODO what was I trying to do here??
 use_low_freq = 0;
 use_plv_low = 1;
 
@@ -71,7 +72,7 @@ freqs = [1:200];
 
 % Flag to use low frequency oscillation
 use_low_freq = 0;
-use_plv_low = 1;
+%use_plv_low = 1;
 
 for f_region = fieldnames(region_data)'
     f_region = f_region{1};
@@ -163,8 +164,8 @@ end
 % Flag to determine which populations to plot
 % The variable must be set from 'single_cell_mod'
 %nr_pop = 'all';
-%nr_pop = 'etrain';
-nr_pop = 'non';
+nr_pop = 'etrain';
+%nr_pop = 'non';
 
 %low_freqs = [1:50]; % Deprecated??
 
@@ -257,6 +258,81 @@ for f_region = fieldnames(region_data)'
         %    plot(popul_data.stim_plvs_adjusted(nr, :)', 'g');
         %    title(popul_data.neuron_name{nr}, 'Interpreter', 'none');
         %end 
+    end
+end
+
+%% Save significant spike-Vm PLV of stim 140 Hz and 40 Hz compared to baseline
+% Use Wilcoxon's sign rank test 
+
+freqs = [1:200];
+
+% Determine the neuron population
+%nr_pop = 'all';
+nr_pop = 'etrain';
+%nr_pop = 'non';
+
+stats_log = [figure_path 'PLV' f 'spikevm_plv_stats' nr_pop];
+if exist(stats_log), delete(sprintf('%s', stats_log)), end;
+diary(stats_log);
+diary off
+
+% Loop through each region
+for f_region = fieldnames(region_data)'
+    f_region = f_region{1};
+    data_bystim = region_data.(f_region);
+    stims = fieldnames(data_bystim);
+    
+    % Loop through stim conditions
+    for f_stim=stims'
+        f_stim = f_stim{1};
+        popul_data = data_bystim.(f_stim);
+        
+
+        % Check if there is an entrained field in the population data
+        try
+            switch nr_pop
+                case 'etrain'
+                    nr_idxs = find([popul_data.plv_mod_stats.mod] > 0);
+                case 'non'
+                    nr_idxs = find([popul_data.plv_mod_stats.mod] < 0);
+                case 'all'
+                    nr_idxs = 1:length(popul_data.plv_mod_stats);
+            end
+        catch ME
+            disp(ME.message);
+        end
+
+        
+        % Grab the current stimulation into a numer variable
+        cur_stim = str2num(f_stim(3:end));
+
+        % Store the baseline neuron PLVs
+        base_plv = popul_data.base_spikevm_plvs_adj(nr_idxs, cur_stim);
+        stim_plv = popul_data.stim_spikevm_plvs_adj(nr_idxs, cur_stim);
+        
+        [p_sign, ~, stats] = signrank(base_plv, stim_plv);
+    
+        % Print the stats data to the file
+        diary on;
+        fprintf('\n\n');
+        disp([f_region ' ' f_stim]);
+        disp(['p_value: ' num2str(p_sign)]);
+        disp(['Statistic: ' num2str(stats.signedrank)]);
+        diary off;
+        
+        % DEBUG
+        figure;
+        plot(ones(size(base_plv)), base_plv, '.');
+        hold on;
+        plot(2*ones(size(stim_plv)), stim_plv, '.');
+        title([f_region ' ' f_stim], 'Interpreter', 'none');
+        xlim([0 3]);
+        ylim([0 1]);
+
+        if strcmp(f_region, 'r_M1') && strcmp(f_stim, 'f_140')
+            disp('op');
+            error('asd');
+        end
     end
 end
 
