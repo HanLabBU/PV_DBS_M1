@@ -331,6 +331,12 @@ for f_region = fieldnames(region_matfiles)'
                     cur_roi_tracenoises = horzcat_pad(cur_roi_tracenoises, cur_trace_noise);
 
                     cur_spike_amp = trial_data.spike_info375.spike_amplitude{roi_idx};
+                    
+                    % set to Nan if there is no spikes for this trial
+                    if isempty(cur_spike_amp)
+                        cur_spike_amp = [NaN];
+                    end
+
                     cur_roi_spike_amp = horzcat_pad(cur_roi_spike_amp, cur_spike_amp');
 
                     % Calculate spikerate with a window size of 100
