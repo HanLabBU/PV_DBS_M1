@@ -83,8 +83,8 @@ trial_df = exam_df[exam_df['trial_id'] == exam_df['trial_id'].unique()[trial_i]]
 
 # %%
 # Plot individual cell trials
-low_freq = 8*0.05
-high_freq = 8*0.95
+low_freq = 8*0.95
+high_freq = 8*1.05
 #low_freq = 7
 #high_freq = 9
 
