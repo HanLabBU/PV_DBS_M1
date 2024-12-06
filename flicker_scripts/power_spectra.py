@@ -151,7 +151,7 @@ for stim_freq in test_freqs:
         for tr_val in fov_df['trial_id'].unique():
             trial_df = fov_df[fov_df['trial_id'] == tr_val]
             avg_sp_amp = np.nanmean(trial_df['spike_amp_raster'].values)
-            norm_subvm = trial_df['sub_vm'].values/avg_sp_amp
+            norm_subvm = trial_df['detrend_trace'].values/avg_sp_amp # or 'sub_vm' Switching between the full Vm and the Sub Vm
             fov_df.loc[fov_df['trial_id'] == tr_val, 'norm_vm'] = norm_subvm
 
             # Calculate the trial power spectra
@@ -268,10 +268,10 @@ for stim_freq in test_freqs:
     # Add colorbar axis
     fig = plt.gcf()
     cbar_ax = fig.add_axes((0.92, 0.35, 0.02, 0.35))
-    cbar = fig.colorbar(surf_p, label='Normalized Power', cax=cbar_ax)
+    cbar = fig.colorbar(surf_p, label='Normalized Power Change', cax=cbar_ax)
 
     # Set the default colorbar scale similar to main figures
-    #surf_p.set_clim(-0.9, 0.2)
+    surf_p.set_clim(-0.2, 0.8)
 
     # If color bar is too high, cap it
     #c_limits = surf_p.get_clim()
@@ -313,7 +313,7 @@ for stim_freq in test_freqs:
     mask_stim = (power_spec_df['timeline'] >= 1) | (power_spec_df['timeline'] < 2)
     mask_flicker_post = (power_spec_df['timeline'] >= 2) & (power_spec_df['timeline'] < 3)
     
-    mask_8hz_spec = (power_spec_df['freq_spec'] > 7.5) & (power_spec_df['freq_spec'] < 8.5) 
+    mask_8hz_spec = (power_spec_df['freq_spec'] > 7.5) & (power_spec_df['freq_spec'] < 8.5)
 
     # Take the average for each neuron across time
     base_pre_power = power_spec_df[mask_base_pre & mask_8hz_spec].groupby(['neuron']).mean()
@@ -437,6 +437,7 @@ for stim_freq in test_freqs:
     eng.workspace['freq'] = stim_freq
     eng.workspace['nr_pop'] = nr_pop
     matlab_exp += "title([num2str(freq) ' Hz ' nr_pop], 'Interpreter', 'none');\n"
+    matlab_exp += "ylabel('Normalized Power (A.U.)', 'Interpreter', 'none');\n"
     matlab_exp += "set(gca, 'FontSize', 14);\n"
     eng.workspace['savefig_path'] = savefig_path
     matlab_exp += "saveas(gcf, [savefig_path '8Hz_Vm_Power_violin_" + nr_pop + "_' num2str(freq) 'Hz.png']);\n"
