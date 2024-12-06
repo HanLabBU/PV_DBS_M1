@@ -172,6 +172,8 @@ for freq in test_freqs:
         np.concatenate((avg_pre_flick + sem_pre_flick, avg_pre_flick[::-1] - sem_pre_flick[::-1])),
         color='gray')
     axs[0].plot(timeline, avg_pre_flick)
+    axs[0].set_xlabel('Time from flicker onset (S)')
+    axs[0].set_ylabel('Normalized Vm (A.U.)')
     axs[0].set_title('Pre Stim')
         
     axs[1].plot(timeline, flick_height*flick_pulse_single + np.max(avg_dur_flick))
@@ -179,12 +181,17 @@ for freq in test_freqs:
         np.concatenate((avg_dur_flick + sem_dur_flick, avg_dur_flick[::-1] - sem_dur_flick[::-1])),
         color='gray')
     axs[1].plot(timeline, avg_dur_flick)
+    axs[1].set_xlabel('Time from flicker onset (S)')
+    axs[1].set_ylabel('Normalized Vm (A.U.)')
     axs[1].set_title('During Stim')
+
     axs[2].plot(timeline, flick_height*flick_pulse_single + np.max(avg_post_flick))
     axs[2].fill(np.concatenate((timeline, timeline[::-1])), \
         np.concatenate((avg_post_flick + sem_post_flick, avg_post_flick[::-1] - sem_post_flick[::-1])),
         color='gray')
     axs[2].plot(timeline, avg_post_flick)
+    axs[2].set_xlabel('Time from flicker onset (S)')
+    axs[2].set_ylabel('Normalized Vm (A.U.)')
     axs[2].set_title('Post Stim')
     plt.suptitle('Flicker Pulse Triggered Avg' + str(freq))
     plt.tight_layout()
