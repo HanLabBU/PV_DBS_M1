@@ -81,3 +81,26 @@ def get_ephys_rise_indices(ephys_signal):
     #plt.show()
 
     return peak_idx
+
+# Filter signal using FIR filter
+def fir_filt(data, low_freq, high_freq, fs, numtaps=400, mode='same'):
+    h = signal.firwin(numtaps, [low_freq, high_freq], pass_zero=False, fs=fs)
+    return signal.fftconvolve(data, h, mode=mode)
+
+# Calculate PLVs from the dataframe while specifying the column labels
+def event_PLV(fov_df, phase_lbl, event_lbl, exc_criteria, timeshift=0): # Is it worth using timeshift here
+    indi_phase_vecs = np.exp(1j*fov_df[fov_df[event_lbl] == 1][phase_lbl].values)
+
+
+    # Number of events
+    num_events = fov_df[event_lbl].sum()
+    PLV = (1/num_events) * (np.abs(np.sum(indi_phase_vecs)))
+    PLV2 = (1/(num_events - 1))*((PLV**2)*num_events - 1)
+
+    #DEBUG
+    #print('Num events: ' + str(num_events))
+    #print('PLV: ' + str(PLV))
+    #print('PLV2: ' + str(PLV2))
+    #print('size of df ' + str(fov_df.shape))
+    #print('event label: ' + event_lbl)
+    return PLV, PLV2, indi_phase_vecs
