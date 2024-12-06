@@ -71,6 +71,11 @@ field1 = field1(1);
 avg_Fs = mean(region_data.(field1{1}).f_40.framerate, 'omitnan');
 
 %%Compact full collective spike rate over time
+
+% Filter neurons based on this variable
+nr_pop = 'all_mod';
+%nr_pop = 'non_mod';
+
 for f_region = fieldnames(region_data)'
     f_region = f_region{1};
     data_bystim = region_data.(f_region);
@@ -80,14 +85,48 @@ for f_region = fieldnames(region_data)'
     tiledlayout(1, length(stims), 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 20, 17.56, 3]);
     for f_stim=stims'
         f_stim = f_stim{1};
+        popul_data =data_bystim.(f_stim);
+        
+        % Determine specific neuron population to plot
+        try
+            switch nr_pop
+                case 'all_mod'
+                    nr_idxs = find(sum(popul_data.mod_matrix, 2) > 0);
+                case 'non_mod'
+                    nr_idxs = find(sum(popul_data.mod_matrix, 2) == 0);
+            end
+        catch ME
+            disp(ME.message);
+        end
+
         cur_win_srate = 50;
-        timeline = nanmean(data_bystim.(f_stim).trace_timestamps, 2);
-        cur_srate = mean(data_bystim.(f_stim).neuron_srate_50, 2, 'omitnan');
-        std_srate = std(data_bystim.(f_stim).neuron_srate_50, 0, 2, 'omitnan');
-        num_neurons = size(data_bystim.(f_stim).neuron_srate_50, 2);
+        timeline = nanmean(popul_data.trace_timestamps, 2);
+        cur_srate = mean(popul_data.neuron_srate_50(:, nr_idxs), 2, 'omitnan');
+        std_srate = std(popul_data.neuron_srate_50(:, nr_idxs), 0, 2, 'omitnan');
+        num_neurons = size(popul_data.neuron_srate_50(:, nr_idxs), 2);
         %num_points = size(data_bystim.(f_stim).neurons_srate_50, 1);
         sem_srate = std_srate./sqrt(num_neurons);
         nexttile;
+    
+        % Plot the transient and sustained rectangle squares
+        trans_fill = fill([Multi_func.trans_ped(1), Multi_func.trans_ped(2), ...
+                        Multi_func.trans_ped(2), Multi_func.trans_ped(1)  ]./1000, ...
+                        [min(cur_srate - sem_srate), min(cur_srate - sem_srate), ...
+                        max(cur_srate + sem_srate), max(cur_srate + sem_srate) ], ...
+                        Multi_func.trans_color, 'HandleVisibility', 'off');
+        Multi_func.set_fill_properties(trans_fill);
+        trans_fill.EdgeAlpha = 0;
+
+        hold on;
+        sus_fill = fill([Multi_func.sus_ped(1), Multi_func.sus_ped(2), ...
+                        Multi_func.sus_ped(2), Multi_func.sus_ped(1)  ]./1000, ...
+                        [min(cur_srate - sem_srate), min(cur_srate - sem_srate), ...
+                        max(cur_srate + sem_srate), max(cur_srate + sem_srate) ], ...
+                        Multi_func.sus_color, 'HandleVisibility', 'off');
+        Multi_func.set_fill_properties(sus_fill);
+        sus_fill.EdgeAlpha = 0;
+        hold on;
+
         fill_h = fill([timeline; flip(timeline)], [cur_srate + sem_srate; flipud(cur_srate - sem_srate)], [0.5 0.5 0.5]);
         Multi_func.set_fill_properties(fill_h);
         hold on;
@@ -125,18 +164,20 @@ for f_region = fieldnames(region_data)'
         %title(f_stim(3:end), 'Interpreter', 'none');
     end
     sgtitle([f_region(3:end) ' Average Spike rate'], 'Interpreter', 'none');
-    saveas(gcf, [figure_path 'Average/' f_region '_Summary_Continuous_FiringRate' num2str(cur_win_srate) '.png']);
-    saveas(gcf, [figure_path 'Average/' f_region '_Summary_Continuous_FiringRate' num2str(cur_win_srate) '.pdf']);
+    saveas(gcf, [figure_path 'Average/' f_region '_Summary_Continuous_FiringRate' num2str(cur_win_srate) '_' nr_pop '.png']);
+    saveas(gcf, [figure_path 'Average/' f_region '_Summary_Continuous_FiringRate' num2str(cur_win_srate) '_' nr_pop '.pdf']);
     %saveas(gcf, [figure_path 'Average/' f_region '_Summary_Continuous_FiringRate.eps']);
 end
 
-%% Compact population Subthreshold Vm
+%% Compact population Vm
 
 % Flag to determine which populations to plot
 % The variable must be set from 'single_cell_mod'
 %nr_pop = 'all';
-nr_pop = 'etrain';
+%nr_pop = 'etrain';
 %nr_pop = 'non';
+nr_pop = 'all_mod';
+%nr_pop = 'non_mod';
 
 for f_region = fieldnames(region_data)'
     f_region = f_region{1};
@@ -160,19 +201,43 @@ for f_region = fieldnames(region_data)'
                     nr_idxs = find([popul_data.plv_mod_stats.mod] < 0);
                 case 'all'
                     nr_idxs = 1:length(popul_data.plv_mod_stats);
+                case 'all_mod'
+                    nr_idxs = find(sum(popul_data.mod_matrix, 2) > 0);
+                case 'non_mod'
+                    nr_idxs = find(sum(popul_data.mod_matrix, 2) == 0);
             end
         catch ME
             disp(ME.message);
         end
 
         timeline = nanmean(popul_data.trace_timestamps, 2);
-        norm_vms = popul_data.neuron_Vm(:, nr_idxs)./popul_data.neuron_spike_amp(nr_idxs);
+        norm_vms = popul_data.neuron_RawVm(:, nr_idxs)./popul_data.neuron_spike_amp(nr_idxs);
         cur_Vm = mean(norm_vms, 2, 'omitnan');
         std_Vm = std(norm_vms, 0, 2, 'omitnan');
         num_neurons = size(norm_vms, 2);
         sem_Vm = std_Vm./sqrt(num_neurons);
-        %num_points = size(data_bystim.(f_stim{1}).neuron_Vm, 1);
+        %num_points = size(data_bystim.(f_stim{1}).neuron_RawVm, 1);
         nexttile;
+        
+        % Plot the transient and sustained rectangle squares
+        trans_fill = fill([Multi_func.trans_ped(1), Multi_func.trans_ped(2), ...
+                        Multi_func.trans_ped(2), Multi_func.trans_ped(1)  ]./1000, ...
+                        [min(cur_Vm - sem_Vm), min(cur_Vm - sem_Vm), ...
+                        max(cur_Vm + sem_Vm), max(cur_Vm + sem_Vm) ], ...
+                        Multi_func.trans_color, 'HandleVisibility', 'off');
+        Multi_func.set_fill_properties(trans_fill);
+        trans_fill.EdgeAlpha = 0;
+
+        hold on;
+        sus_fill = fill([Multi_func.sus_ped(1), Multi_func.sus_ped(2), ...
+                        Multi_func.sus_ped(2), Multi_func.sus_ped(1)  ]./1000, ...
+                        [min(cur_Vm - sem_Vm), min(cur_Vm - sem_Vm), ...
+                        max(cur_Vm + sem_Vm), max(cur_Vm + sem_Vm) ], ...
+                        Multi_func.sus_color, 'HandleVisibility', 'off');
+        Multi_func.set_fill_properties(sus_fill);
+        sus_fill.EdgeAlpha = 0;
+        hold on;
+
         fill_h = fill([timeline; flip(timeline)], [cur_Vm + sem_Vm; flipud(cur_Vm - sem_Vm)], [0.5 0.5 0.5], 'linewidth', 0.2);
         Multi_func.set_fill_properties(fill_h);
         hold on;
@@ -209,14 +274,18 @@ for f_region = fieldnames(region_data)'
         ylabel('Normalized Vm');
         xlabel('Time from stim onset (s)');
     end
-    sgtitle([f_region(3:end) ' Average subthreshold Vm'], 'Interpreter', 'none');
-    saveas(gcf, [figure_path 'Average/' f_region '_' nr_pop '_Average_sub_thres.png']);
-    saveas(gcf, [figure_path 'Average/' f_region '_' nr_pop '_Average_sub_thres.pdf']);
+    sgtitle([f_region(3:end) ' ' nr_pop ' Average Vm'], 'Interpreter', 'none');
+    saveas(gcf, [figure_path 'Average/' f_region '_' nr_pop '_Average_Raw_Vm.png']);
+    saveas(gcf, [figure_path 'Average/' f_region '_' nr_pop '_Average_Raw_Vm.pdf']);
     %saveas(gcf, [figure_path 'Average/' f_region '_Average_sub_thres.eps']);
 end
 
 
 %% Violin plots sub vm transient and sustained periods
+% Determine which neuron population to use
+nr_pop = 'all_mod';
+%nr_pop = 'non_mod';
+
 % Struct to identify each group of data
 sub_vm_stat_data = struct();
 % Make Violin plots on Subthreshold Vm for transient and sustained
@@ -231,12 +300,32 @@ for f_region = fieldnames(region_data)'
     tiledlayout(1, length(stims), 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 20, 8.096, 3]);
     for f_stim=stims'
         f_stim = f_stim{1};
+        
+        popul_data = data_bystim.(f_stim);
+        
+        % Determine specific neuron population to plot
+        try
+            switch nr_pop
+                case 'all_mod'
+                    nr_idxs = find(sum(popul_data.mod_matrix, 2) > 0);
+                case 'non_mod'
+                    nr_idxs = find(sum(popul_data.mod_matrix, 2) == 0);
+            end
+        catch ME
+            disp(ME.message);
+        end
+        
+        % If there is no data, skip plot
+        if isempty(nr_idxs)
+            continue
+        end
+
         nexttile;
 
         % Normalize the Vm
-        norm_vms = data_bystim.(f_stim).neuron_Vm./data_bystim.(f_stim).neuron_spike_amp;
+        norm_vms = popul_data.neuron_RawVm(:, nr_idxs)./popul_data.neuron_spike_amp(:, nr_idxs);
         
-        tim_stamp = data_bystim.(f_stim).trace_timestamps;
+        tim_stamp = popul_data.trace_timestamps(:, nr_idxs);
         [trans_r, trans_c] = find(tim_stamp > Multi_func.trans_ped(1)/1000 & tim_stamp < Multi_func.trans_ped(2)/1000);
         [sus_r, sus_c] = find(tim_stamp > Multi_func.sus_ped(1)/1000 & tim_stamp < Multi_func.sus_ped(2)/1000);
         [base_r, base_c] = find(tim_stamp > Multi_func.base_ped(1)/1000 & tim_stamp < Multi_func.base_ped(2)/1000);
@@ -279,21 +368,22 @@ for f_region = fieldnames(region_data)'
         % Change axis cosmetics
         a = gca; y = a.YAxis;
         Multi_func.set_default_axis(gca);
-        y.Limits = [-1, 2];
-        Multi_func.set_spacing_axis(y, 1, 2);
 
+        
+        %y.Limits = [-1.5, 2];
+        %Multi_func.set_spacing_axis(y, 1, 2);
         % Old way of setting axis limits
         % Determine parameters based on what is being plotted
-        %if strcmp(f_region, 'r_combine') == 1
-        %    y.Limits = [-2 8];
-        %    Multi_func.set_spacing_axis(y, 4, 1);
-        %elseif strcmp(f_region, 'r_M1') == 1
-        %    y.Limits = [-1 2];
-        %    %Multi_func.set_spacing_axis(y, 10, 1);
-        %elseif strcmp(f_region, 'r_V1') == 1
-        %    y.Limits = [-5 45];
-        %    Multi_func.set_spacing_axis(y, 20, 1);
-        %end
+        if strcmp(f_region, 'r_combine') == 1
+            y.Limits = [-2 8];
+            Multi_func.set_spacing_axis(y, 4, 1);
+        elseif strcmp(f_region, 'r_M1') == 1
+            y.Limits = [-1.5 2];
+            %Multi_func.set_spacing_axis(y, 10, 1);
+        elseif strcmp(f_region, 'r_V1') == 1
+            y.Limits = [-1 2];
+            Multi_func.set_spacing_axis(y, 1, 1);
+        end
 
         title([f_stim(3:end) ' Hz DBS']);
         ylabel('Normalized Vm Change');
@@ -302,9 +392,9 @@ for f_region = fieldnames(region_data)'
         sub_vm_stat_data.(f_region).(f_stim).sus_vm = neuron_sus_vm;
     end
     
-    sgtitle([f_region(3:end) ' Sub Vm Violins'], 'Interpreter', 'none');
-    saveas(gcf, [figure_path 'Average/' f_region '_population_comp_Vm_violin.png']);
-    saveas(gcf, [figure_path 'Average/' f_region '_population_comp_Vm_violin.pdf']);
+    sgtitle([f_region(3:end) ' Vm Violins'], 'Interpreter', 'none');
+    saveas(gcf, [figure_path 'Average/' f_region '_population_comp_Vm_violin_' nr_pop '.png']);
+    saveas(gcf, [figure_path 'Average/' f_region '_population_comp_Vm_violin_' nr_pop '.pdf']);
     %saveas(gcf, [figure_path 'Average/' f_region '_population_comp_Vm_violin.eps'], 'epsc');
 end
 
@@ -365,6 +455,9 @@ for f_region = fieldnames(region_data)'
 end
 
 %% Violin plots firing rate transient and sustained periods
+% Determine which neuron population to use
+nr_pop = 'all_mod';
+%nr_pop = 'non_mod';
 
 % Struct to identify each group of data
 fr_stat_data = struct();
@@ -380,14 +473,34 @@ for f_region = fieldnames(region_data)'
     figure('visible', 'on', 'Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
     tiledlayout(1, length(stims), 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 20, 8.096, 3]);
     for f_stim=stims'
+        f_stim = f_stim{1};
+        popul_data = data_bystim.(f_stim);
+        
+        % Determine specific neuron population to plot
+        try
+            switch nr_pop
+                case 'all_mod'
+                    nr_idxs = find(sum(popul_data.mod_matrix, 2) > 0);
+                case 'non_mod'
+                    nr_idxs = find(sum(popul_data.mod_matrix, 2) == 0);
+            end
+        catch ME
+            disp(ME.message);
+        end
+
+        % If there is no data, skip plot
+        if isempty(nr_idxs)
+            continue
+        end
+
         nexttile;
         % Plot violins
         labels = [];
         data = [];
-        f_stim = f_stim{1};
-        num_neurons = length(data_bystim.(f_stim).neuron_trans_FR);
+        
+        num_neurons = length(popul_data.neuron_trans_FR(:, nr_idxs));
         labels = [labels; repmat({'Trans'}, num_neurons, 1); repmat({'Sus'}, num_neurons, 1)];
-        data = [data; data_bystim.(f_stim).neuron_trans_FR', data_bystim.(f_stim).neuron_sus_FR'];
+        data = [data; popul_data.neuron_trans_FR(:, nr_idxs)', popul_data.neuron_sus_FR(:, nr_idxs)'];
         ViolinOpts = Multi_func.get_default_violin();
         violins = violinplot(data, labels, 'MedianColor', [1 0 0], 'GroupOrder', {'Trans', 'Sus'}, ViolinOpts);
         
@@ -395,7 +508,6 @@ for f_region = fieldnames(region_data)'
         violins(2).ViolinColor = {Multi_func.sus_color};
 
         hold on;
-
         yline(0);
 
         % Plot individual lines between violins
@@ -408,29 +520,31 @@ for f_region = fieldnames(region_data)'
         % Change axis cosmetics
         a = gca; y = a.YAxis;
         Multi_func.set_default_axis(gca);
+        
         % Determine parameters based on what is being plotted
         if strcmp(f_region, 'r_combine') == 1
             y.Limits = [-10 40];
             Multi_func.set_spacing_axis(y, 4, 1);
         elseif strcmp(f_region, 'r_M1') == 1
-            y.Limits = [-2 15];
+            y.Limits = [-2 20];
             Multi_func.set_spacing_axis(y, 5, 1);
         elseif strcmp(f_region, 'r_V1') == 1
-            y.Limits = [-5 70];
+            y.Limits = [-10 70];
             Multi_func.set_spacing_axis(y, 20, 1);
         end
 
         %fr_stat_data.(f_region).(f_stim) = struct();
-        fr_stat_data.(f_region).(f_stim).trans_fr = data_bystim.(f_stim).neuron_trans_FR;
-        fr_stat_data.(f_region).(f_stim).sus_fr = data_bystim.(f_stim).neuron_sus_FR;
+        fr_stat_data.(f_region).(f_stim).trans_fr = popul_data.neuron_trans_FR(:, nr_idxs);
+        fr_stat_data.(f_region).(f_stim).sus_fr = popul_data.neuron_sus_FR(:, nr_idxs);
     end
     
     sgtitle([f_region(3:end) ' Firing Rate Violins'], 'Interpreter', 'none');
-    saveas(gcf, [figure_path 'Average/' f_region '_population_comp_FR_violin.png']);
-    saveas(gcf, [figure_path 'Average/' f_region '_population_comp_FR_violin.pdf']);
+    saveas(gcf, [figure_path 'Average/' f_region '_population_comp_FR_violin_' nr_pop '.png']);
+    saveas(gcf, [figure_path 'Average/' f_region '_population_comp_FR_violin_' nr_pop '.pdf']);
     %saveas(gcf, [figure_path 'Average/' f_region '_population_comp_FR_violin.eps']);
 end
 
+%%
 % Show violin plot on stimulation period for Firing Rate 
 for f_region = fieldnames(region_data)'
     f_region = f_region{1};
@@ -501,12 +615,14 @@ end
 
 
 %% Subthreshold Vm showing all DBS pulses
-
 % Flag to determine which populations to plot
 % The variable must be set from 'single_cell_mod'
 %nr_pop = 'all';
 %nr_pop = 'etrain';
 nr_pop = 'non';
+
+% Flag for removing non-modulated neurons from analysis
+remove_nonmod_nrs = 1;
 
 for f_region = fieldnames(region_data)'
     f_region = f_region{1};
@@ -534,13 +650,19 @@ for f_region = fieldnames(region_data)'
             disp(ME.message);
         end
             
+        % Filter out the neurons that were non-modulated at all
+        if remove_nonmod_nrs == 1
+            non_mod_nr = find(sum(popul_data.mod_matrix, 2) == 0);
+            nr_idxs = nr_idxs(~ismember(nr_idxs, non_mod_nr));
+        end
+
         timeline = nanmean(popul_data.trace_timestamps, 2);
-        norm_vms = popul_data.neuron_Vm(:, nr_idxs)./popul_data.neuron_spike_amp(nr_idxs);
+        norm_vms = popul_data.neuron_RawVm(:, nr_idxs)./popul_data.neuron_spike_amp(nr_idxs);
         cur_Vm = mean(norm_vms, 2, 'omitnan');
         std_Vm = std(norm_vms, 0, 2, 'omitnan');
         num_neurons = size(norm_vms, 2);
         sem_Vm = std_Vm./sqrt(num_neurons);
-        %num_points = size(data_bystim.(f_stim{1}).neuron_Vm, 1);
+        %num_points = size(data_bystim.(f_stim{1}).neuron_RawVm, 1);
         nexttile;
 
         % Plot the subthreshold Vm
@@ -554,6 +676,7 @@ for f_region = fieldnames(region_data)'
         stim_time = nanmedian(popul_data.stim_timestamps, 2);
         xline(stim_time, 'Color', [170, 176, 97]./255, 'LineWidth', 0.5);
         hold on;
+
 
         % Plot the timescale bar
         posx = -.100;
@@ -569,8 +692,26 @@ for f_region = fieldnames(region_data)'
         plot([posx, posx], [posy, posy + Vm_scale], 'k', 'LineWidth', 2);
         text(posx - .01, posy, [num2str(Vm_scale) ' Norm Vm'], 'Rotation', 90);
 
+        % Plot the zoom-in outlines for the onset and some points in the stimulation period
+        min_val = min(cur_Vm - sem_Vm);
+        max_val = max(cur_Vm + sem_Vm);
+        plot([Multi_func.onset_ped(1), Multi_func.onset_ped(2), Multi_func.onset_ped(2), ...
+            Multi_func.onset_ped(1), Multi_func.onset_ped(1) ]./1000, ...
+            [min_val, min_val, max_val, max_val, min_val], ...
+            'LineWidth', 0.5, 'Color', Multi_func.trans_color);
+        hold on;
+
+        min_val = min(cur_Vm - sem_Vm);
+        max_val = max(cur_Vm + sem_Vm);
+        plot([Multi_func.mid_stim_ped(1), Multi_func.mid_stim_ped(2), Multi_func.mid_stim_ped(2), ...
+            Multi_func.mid_stim_ped(1), Multi_func.mid_stim_ped(1) ]./1000, ...
+            [min_val, min_val, max_val, max_val, min_val], ...
+            'LineWidth', 0.5, 'Color', Multi_func.sus_color);
+        hold on;
+
         % Increase timescale resolution
-        xlim([0 - .100, max(stim_time) + 0.100]);
+        xlim([0 - .100, max(stim_time) + 0.100]); % Includes surrounding component
+        %xlim([-0.80 2.05]); % Same time resolution as power spectra
         a = gca;
         a.XAxis.Visible = 'off';
         a.YAxis.Visible = 'off';
@@ -591,6 +732,9 @@ end
 %nr_pop = 'all';
 %nr_pop = 'etrain';
 nr_pop = 'non';
+
+% Flag for removing non-modulated neurons from analysis
+remove_nonmod_nrs = 1;
 
 for f_region = fieldnames(region_data)'
     f_region = f_region{1};
@@ -616,6 +760,12 @@ for f_region = fieldnames(region_data)'
             end
         catch ME
             disp(ME.message);
+        end
+
+        % Filter out the neurons that were non-modulated at all
+        if remove_nonmod_nrs == 1
+            non_mod_nr = find(sum(popul_data.mod_matrix, 2) == 0);
+            nr_idxs = nr_idxs(~ismember(nr_idxs, non_mod_nr));
         end
 
         timeline = nanmean(popul_data.trace_timestamps, 2);
@@ -671,7 +821,7 @@ end
 % signtest for individual: trans, sus, stim
 % signrank for paired, non-independent: 140 trans vs. 140 sus
 % ranksum paired, independent distributions: 140 trans vs 40 trans
-stats_log = [figure_path 'Average' f 'Population_Trans_and_Sustained_Vm_FR_stats']
+stats_log = [figure_path 'Average' f 'Population_Trans_and_Sustained_Vm_FR_stats_' nr_pop]
 if exist(stats_log), delete(sprintf('%s', stats_log)), end;
 diary(stats_log);
 diary off
@@ -699,7 +849,7 @@ for f_region = fieldnames(sub_vm_stat_data)'
             end
 
             diary on;
-            disp(['Period ' f_ped]);
+            disp(['Period signtest from baseline ' f_ped]);
             [p, h, stats] = signtest(sub_vm_stat_data.(f_region).(f_stim).(f_ped))
             diary off;
 
@@ -715,7 +865,7 @@ for f_region = fieldnames(sub_vm_stat_data)'
             end
 
             diary on;
-            disp(['Period ' f_ped]);
+            disp(['Period signtest from baseline ' f_ped]);
             [p, h, stats] = signtest(fr_stat_data.(f_region).(f_stim).(f_ped))
             diary off;
 
@@ -724,26 +874,16 @@ for f_region = fieldnames(sub_vm_stat_data)'
 
         % Perform the trans and sus comparison (Vm)
         diary on;
-        disp(['Trans Vm vs Sustained Vm'])
+        disp(['Trans Vm vs Sustained Vm Wilcoxon signed rank'])
         [p, h, stats] = signrank(sub_vm_stat_data.(f_region).(f_stim).trans_vm, sub_vm_stat_data.(f_region).(f_stim).sus_vm)
         diary off;
 
         clear p, h, stats;
 
         diary on;
-        disp(['Trans FR vs Sustained FR'])
+        disp(['Trans FR vs Sustained FR Wilcoxon signed rank'])
         % Perform the trans and sus comparison (Firign Rate)
         [p, h, stats] = signrank(fr_stat_data.(f_region).(f_stim).trans_fr, fr_stat_data.(f_region).(f_stim).sus_fr)
         diary off;
     end
-end
-
-%% Functin to calculate the power spectra
-% Calculate cwt for input signal and 
-function [wt, f] = get_power_spec(signal, samp_freq)
-    freqLimits = [0 150];
-    fb = cwtfilterbank(SignalLength=length(signal),...
-                       SamplingFrequency=samp_freq,...
-                       FrequencyLimits=freqLimits);
-    [wt, f] = cwt(signal, FilterBank=fb);
 end
