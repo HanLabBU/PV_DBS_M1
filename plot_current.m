@@ -46,11 +46,228 @@ tic;
 load(save_all_data_file);
 toc
 disp('Finished Loading Data');
-%% TODO plot these as days from surgery
-%% TODO plot currents of each brain region and frequency
 
-%%TODO plot the currents for each mouse, and try to indicate brain region or frequency
+%% TODO <--- determine if the file that has the current info for the flicker experiments is older than the interm pickle file
 
+
+% TODO Also read in that data here somehow
+%% Loop through and save the current amplitude for each neuron
+% Loop through regions
+for f_region = fieldnames(region_data)'
+    f_region = f_region{1};
+    data_bystim = region_data.(f_region);
+    stims = fieldnames(data_bystim);
+    
+    % Skip CA1 neurons from this plot
+    if strcmp(f_region, 'r_CA1') == 1
+        continue;
+    end
+
+    % Loop through stim frequencies
+    for f_stim = stims'
+        f_stim = f_stim{1};
+        popul_data = data_bystim.(f_stim);
+
+        % Store the current amplitude for each neuron
+        pop_amps = [];        
+        
+        % Loop through each neuron
+        for nr=1:length(popul_data.neuron_name)
+            tokens = regexp(popul_data.neuron_name{nr}, '_', 'split');
+            
+            % Parse out the current amperage
+            fov_i = find(contains(tokens, 'FOV') == 1);
+            amp_i = fov_i + 2;
+            if contains(tokens{amp_i}, '.') == 1
+                amp_str = regexp(tokens{amp_i}, '\.', 'split');
+                amp_str = amp_str{1};
+            else
+                amp_str = tokens{amp_i};
+            end
+            
+            % Store the amperage into array
+            amp = str2num(amp_str);
+            pop_amps(end + 1) = amp;
+
+        end
+
+        % Save the currents
+        region_data.(f_region).(f_stim).currents = pop_amps;
+    end
+end
+
+%% Read in the flicker amplitude data into our currents structure
+% Note: Need to only do this once, otherwise neuron names will keep getting appended
+% to the end of region_data
+
+% Check if there are more than XX number of neurons for V1, if there are,
+% it means that the flicker experiment data was already added
+if ~(length(region_data.r_V1.f_40.neuron_name) > 27)
+    T = readtable([savepath 'Current' f 'flicker_current.csv']);
+    % Convert the recording session date to string
+    T.session = string(T.session);
+    
+    for i=1:height(T)
+        freq = T{i, 'stim_freq'};
+        params = T{i, 'nr_params'}{:};
+    
+        amp_str = regexp(params, '\d+', 'match');
+        amp = str2num(amp_str{:});
+    
+        % Add current data back into structure
+        region_data.r_V1.(['f_' num2str(freq)]).currents ... 
+            = [region_data.r_V1.(['f_' num2str(freq)]).currents, amp];
+    
+        % Parse out the mouse name and recording session
+        mouse_name = T{i, 'mouse'};
+        mouse_name = mouse_name{:};
+        mouse_name = strsplit(mouse_name, '_');
+        mouse_name = mouse_name{1};
+       
+        session_id = T{i, 'session'};
+        
+        % Construct full neuron name similar to the regular 3-second stimulation trials
+        nr_name_array = string({mouse_name, "V1", session_id, "FOV", freq, amp});
+        full_nr_name = join(nr_name_array, '_');
+        
+        % Add neuron name back into region_data structure
+        region_data.r_V1.(['f_' num2str(freq)]).neuron_name{end + 1} = char(full_nr_name);
+    end
+end
+
+%% Print the amplitude ranges for each brain region and stimulation frequency
+for f_region = fieldnames(region_data)'
+    f_region = f_region{1};
+    stims = fieldnames(region_data.(f_region));
+
+    % Loop through stim frequencies
+    for f_stim = stims'
+        f_stim = f_stim{1};
+        popul_data = data_bystim.(f_stim);
+
+        % Display the conditions
+        disp([f_region ' ' f_stim]);
+        disp(['Current Range: ' num2str(min(popul_data.currents)) ...
+                               '-' num2str(max(popul_data.currents)) ]);        
+        disp([num2str(mean(popul_data.currents)) '+-' num2str(std(popul_data.currents)) ]);        
+        fprintf('\n');
+    end
+end
+
+%% Plot the current amplitudes for each brain region and stimulation frequency
+% Also do the current statistical test for current amplitude
+
+% Store the data and labels for the violinplots
+data = [];
+labels = [];
+for f_region = fieldnames(region_data)'
+    f_region = f_region{1};
+    data_bystim = region_data.(f_region);
+    stims = fieldnames(data_bystim);
+
+    % Skip CA1 neurons from this plot
+    if strcmp(f_region, 'r_CA1') == 1
+        continue;
+    end
+
+    % Loop through stim frequencies
+    for f_stim = stims'
+        f_stim = f_stim{1};
+        popul_data = data_bystim.(f_stim);
+        
+        % Add the current amplitudes to violin arrays
+        data = [data, popul_data.currents];
+        labels = [labels, repmat({[f_region ' ' f_stim]}, 1, length(popul_data.currents))];
+    end
+end
+
+% Make the violinplots
+figure('Renderer', 'Painters');
+violinOpts = Multi_func.get_default_violin();
+violinplot(data(:)', labels, 'GroupOrder', ...
+    {'r_M1 f_140', 'r_M1 f_40', 'r_V1 f_140', 'r_V1 f_40'}, ...
+    violinOpts);
+ylabel('Current (uamp)');
+Multi_func.set_default_axis(gca);
+
+saveas(gcf, [savepath 'Current/' 'violin_current_by_condtion.png']);
+saveas(gcf, [savepath 'Current/' 'violin_current_by_condtion.pdf']);
+
+% Perform statistical analysis on the current amplitudes and log the stats
+stats_log = [savepath 'Current' f 'region_stim_stats'];
+if exist(stats_log), delete(sprintf('%s', stats_log)), end;
+diary(stats_log);
+diary off
+
+diary on;
+[p, h, stats] = kruskalwallis(data, labels)
+disp('Group Columns');
+disp(stats.gnames');
+c = multcompare(stats, 'CriticalValueType', 'dunn-sidak')
+diary off;
+
+%% Loop through and calculate charge density for each neuron
+% Perform statistical analysis on the current amplitudes and log the stats
+stats_log = [savepath 'Current' f 'charge_density_calcs'];
+if exist(stats_log), delete(sprintf('%s', stats_log)), end;
+diary(stats_log);
+diary off;
+
+
+electrode_diam = 127*10^-4; % 127 um converted to cm
+electrode_shave_len = 500 * 10^-4; % 500 um converted to cm
+
+total_electrode_area = (pi * ((electrode_diam/2)^2)) + ...
+    (pi * electrode_shave_len * electrode_diam);
+
+phase_width = 200*10^-6; % S
+
+data = [];
+labels = [];
+for f_region = fieldnames(region_data)'
+    f_region = f_region{1};
+
+    % Skip CA1 neurons from this plot
+    if strcmp(f_region, 'r_CA1') == 1
+        continue;
+    end
+
+    data_bystim = region_data.(f_region);
+    stims = fieldnames(data_bystim);
+
+    % Loop through stim frequencies
+    for f_stim = stims'
+        f_stim = f_stim{1};
+        popul_data = data_bystim.(f_stim);
+        
+        % Charge densities
+        charg_dens = popul_data.currents * (phase_width)/(total_electrode_area)
+
+        data = [data, charg_dens];
+        labels = [labels, repmat({[f_region ' ' f_stim]}, 1, length(charg_dens))];
+
+        region_data.(f_region).(f_stim).charge_density = charg_dens;
+
+        % Plot the average and standard deviation of the charge density used
+        diary on;
+        disp([f_region ' ' f_stim]);
+        disp([num2str(mean(charg_dens)) '+- ' num2str(std(charg_dens)) ' (uamp/cm^2)']);
+        fprintf('\n\n');
+        diary off;
+    end
+end
+
+% Make the violinplots
+figure('Renderer', 'Painters');
+violinOpts = Multi_func.get_default_violin();
+violinplot(data(:)', labels, 'GroupOrder', ...
+    {'r_M1 f_140', 'r_M1 f_40', 'r_V1 f_140', 'r_V1 f_40'}, ...
+    violinOpts);
+ylabel('Current (uamp)');
+Multi_func.set_default_axis(gca);
+
+saveas(gcf, [savepath 'Current/' 'violin_charge_density_by_condtion.png']);
+saveas(gcf, [savepath 'Current/' 'violin_charge_density_by_condtion.pdf']);
 
 %% Plotting current from days to surgery for each neuron
 % Red: 140Hz
@@ -58,15 +275,22 @@ disp('Finished Loading Data');
 % Circle: M1
 % Plus: V1
 
-%TODO have a map that keeps track of how many repetitions there are
+%A map that keeps track of how many repetitions there are
 %of number of days since surgery and amperage
 days_amp_map = [];
 mouse_color = struct();
 
 figure('Position', [0 0 1000 800]);
+
 % Loop through regions
 for f_region = fieldnames(region_data)'
     f_region = f_region{1};
+
+    % Skip CA1 neurons from this plot
+    if strcmp(f_region, 'r_CA1') == 1
+        continue;
+    end
+
     data_bystim = region_data.(f_region);
     stims = fieldnames(data_bystim);
 
@@ -105,7 +329,12 @@ for f_region = fieldnames(region_data)'
                 img_date = datetime(tokens{3}, 'InputFormat', 'yyyyMMdd');
 
                 days_from_surg = days(img_date - surg_date);
-
+            
+                %DEBUG
+                if days_from_surg > 400
+                    disp(popul_data.neuron_name{i});
+                end
+                    
                 % Parse out the current amperage
                 fov_i = find(contains(tokens, 'FOV') == 1);
                 amp_i = fov_i + 2;
@@ -160,6 +389,7 @@ for f_region = fieldnames(region_data)'
                     plot_h = plot(same_m_nrs_pts(1, i), same_m_nrs_pts(2, i),  '-');
                     mouse_color.(['m_' tokens{1}]) = get(plot_h, 'Color');
                 end
+                hold on;
             end
         end
     end
@@ -182,16 +412,179 @@ for mouse_f=fieldnames(mouse_color)'
     text(450, y_val, '--', 'Color', mouse_color.(mouse_f), 'FontWeight', 'bold');
     y_val = y_val - 20;
 end
-% Label 
+% Labels
 xlabel('Days since surgery (days)');
 ylabel('Amperage (uamp)');
 
-saveas(gcf, [savepath 'Current/' '2d_currents_by_region_frequency.png']);
-saveas(gcf, [savepath 'Current/' '2d_currents_by_region_frequency.pdf']);
+% Set the axis
+Multi_func.set_default_axis(gca);
+
+saveas(gcf, [savepath 'Current/' '2d_currents_per_mouse_by_region_frequency.png']);
+saveas(gcf, [savepath 'Current/' '2d_currents_per_mouse_by_region_frequency.pdf']);
+
+%% Plotting current from days to surgery for each neuron separate plots for each brain region
+% Red: 140Hz
+% Blue: 40Hz
+% Circle: M1
+% Plus: V1
+
+%A map that keeps track of how many repetitions there are
+%of number of days since surgery and amperage
+days_amp_map = [];
+mouse_color = struct();
+
+% Loop through regions
+for f_region = fieldnames(region_data)'
+
+    figure('Position', [0 0 1000 800]);
+    
+    f_region = f_region{1};
+
+    % Skip CA1 neurons from this plot
+    if strcmp(f_region, 'r_CA1') == 1
+        continue;
+    end
+
+    data_bystim = region_data.(f_region);
+    stims = fieldnames(data_bystim);
+
+    % Loop through stim frequencies
+    for f_stim = stims'
+        f_stim = f_stim{1};
+        popul_data = data_bystim.(f_stim);
+        
+        % Keep track of neurons plotted
+        neurons_plotted = [];
+
+        % Loop through each neuron
+        for nr=1:length(popul_data.neuron_name)
+            if ismember(nr, neurons_plotted)
+                continue;
+            end
+
+            tokens = regexp(popul_data.neuron_name{nr}, '_', 'split');
+
+            % Find all of the neurons that come from the same mouse
+            same_m_nrs = find(contains(popul_data.neuron_name, tokens{1}) == 1);
+            same_m_nrs_pts = [];
+            neurons_plotted = cat(2, neurons_plotted, same_m_nrs);
+            for i=same_m_nrs
+
+                tokens = regexp(popul_data.neuron_name{i}, '_', 'split');
+
+                % Calculate the days between imaging and surgery date
+                surg_date = popul_data.surgery_date.(['m_' tokens{1}]);
+                if isempty(surg_date)
+                    continue;
+                end
+                tokens{3} = erase(tokens{3}, 'rec');
+
+                surg_date = datetime(surg_date, 'InputFormat', 'yyyyMMdd');
+                img_date = datetime(tokens{3}, 'InputFormat', 'yyyyMMdd');
+
+                days_from_surg = days(img_date - surg_date);
+            
+                %DEBUG
+                if days_from_surg > 400
+                    disp(popul_data.neuron_name{i});
+                end
+                    
+                % Parse out the current amperage
+                fov_i = find(contains(tokens, 'FOV') == 1);
+                amp_i = fov_i + 2;
+                if contains(tokens{amp_i}, '.') == 1
+                    amp_str = regexp(tokens{amp_i}, '\.', 'split');
+                    amp_str = amp_str{1};
+                else
+                    amp_str = tokens{amp_i};
+                end
+
+                % Set labels based on brain region and stim frequency
+                plot_str = '';
+                if strcmp(f_region, 'r_M1') == 1
+                    plot_str(end+1) = 'o';
+                elseif strcmp(f_region, 'r_V1') == 1
+                    plot_str(end+1) = '+';
+                end
+
+                % Set the frequency stuff
+                if strcmp(f_stim, 'f_40') == 1
+                    plot_str(end+1) = 'b';
+                elseif strcmp(f_stim, 'f_140') == 1
+                    plot_str(end+1) = 'r';
+                end
+
+                % Increment the marker size for repeated points
+                if size(days_amp_map, 1) < days_from_surg | size(days_amp_map, 2) < str2num(amp_str)
+                    days_amp_map(days_from_surg, str2num(amp_str)) = 1;
+                else
+                    days_amp_map(days_from_surg, str2num(amp_str)) = ...
+                        1 + days_amp_map(days_from_surg, str2num(amp_str));
+                end
+
+                % Plot data point
+                hold on;
+                plot(days_from_surg, str2num(amp_str), plot_str, 'MarkerSize', 8 + days_amp_map(days_from_surg, str2num(amp_str)));
+                hold on;
+
+                % Keep track of points
+                same_m_nrs_pts(:, end + 1) = [days_from_surg; str2num(amp_str)];
+            end
+
+            % Plot lines across all FOVs of the same mouse
+            %TODO sort the x values from decreasing to increasing, makes figure easier to read
+            if ~isempty(same_m_nrs_pts)
+                
+                [~, i] = sort(same_m_nrs_pts(1, :));
+                if isfield(mouse_color, ['m_' tokens{1}])
+                    color = mouse_color.(['m_' tokens{1}]);
+                    plot(same_m_nrs_pts(1, i), same_m_nrs_pts(2, i), '-', 'Color', color);
+                else
+                    plot_h = plot(same_m_nrs_pts(1, i), same_m_nrs_pts(2, i),  '-');
+                    mouse_color.(['m_' tokens{1}]) = get(plot_h, 'Color');
+                end
+                hold on;
+            end
+        end
+    end
+    
+    % Add legend label for each item
+    text(400, 600, '+: V1 region');
+    hold on;
+    text(400, 580, 'o: M1 region');
+    hold on;
+    text(400, 560, '140Hz', 'Color', 'r');
+    hold on;
+    text(400, 540, '40Hz', 'Color', 'b');
+    hold on;
+    
+    y_val = 600;
+    for mouse_f=fieldnames(mouse_color)'
+        mouse_f = mouse_f{1};
+        text(450, y_val, '--', 'Color', mouse_color.(mouse_f), 'FontWeight', 'bold');
+        y_val = y_val - 20;
+    end
+    % Labels
+    xlabel('Days since surgery (days)');
+    ylabel('Amperage (uamp)');
+    
+    % Set the axis
+    Multi_func.set_default_axis(gca);
+    
+    % Title
+    title(f_region);
+        
+    saveas(gcf, [savepath 'Current/' f_region '_2d_currents_per_mouse_by_frequency.png']);
+    saveas(gcf, [savepath 'Current/' f_region '_2d_currents_per_mouse_by_frequency.pdf']);
+
+end
+
 
 %TODO make a 3D plot so that each mouse's data is in a different axis
 % Try to reuse as much as possible from the top figure plotting
 %% Generates a 3D plot of the mouse current stuff
+
+
 
 %% Plot a similar plot as above, but a linear regression for all points in each condition
 % I will have 4 plots where I overlay the points for each group together
@@ -200,7 +593,7 @@ saveas(gcf, [savepath 'Current/' '2d_currents_by_region_frequency.pdf']);
 % Bottom row is the same idea, but with each panel being a unique brain region
 % Mouse information will not be preserved here
 
-%Specify a color based on 
+%Specify a color based on region and stimulation frequency
 color_dict.r_M1 = 'g';
 color_dict.r_V1 = 'm';
 color_dict.f_40 = 'b';
@@ -214,6 +607,11 @@ for f_region = fieldnames(region_data)'
     f_region = f_region{1};
     data_bystim = region_data.(f_region);
     stims = fieldnames(data_bystim);
+
+    % Skip CA1 neurons from this plot
+    if strcmp(f_region, 'r_CA1') == 1
+        continue;
+    end
 
     % Loop through stim frequencies
     for f_stim = stims'
@@ -336,26 +734,42 @@ end
 
 nexttile(1);
 title('M1 Neurons');
+xlabel('Time imaged from surgery (days)');
+ylabel('Current amplitude (uamp)');
 nexttile(2);
 title('V1 Neurons');
+xlabel('Time imaged from surgery (days)');
+ylabel('Current amplitude (uamp)');
 nexttile(3);
 title('140Hz neurons');
+xlabel('Time imaged from surgery (days)');
+ylabel('Current amplitude (uamp)');
 nexttile(4);
 title('40Hz neurons');
+xlabel('Time imaged from surgery (days)');
+ylabel('Current amplitude (uamp)');
 
 
 saveas(gcf, [savepath 'Current/' 'by_condition_currents.png']);
 saveas(gcf, [savepath 'Current/' 'by_condition_currents.pdf']);
 
-%%
+
+
+
+%% -- (Deprecated) --
 
 all_currents = [];
 all_Fs = [];
 
 % Loop through and grab each neuron's current amplitude
-for f_region = {'r_M1'}
+for f_region = fieldnames(region_data)'
     f_region = f_region{1};
     data_bystim = region_data.(f_region);
+
+   % % Skip CA1 neurons from this plot
+   % if strcmp(f_region, 'r_CA1') == 1
+   %     continue;
+   % end
 
     for f_stim = fieldnames(data_bystim)'
         f_stim = f_stim{1};
@@ -372,7 +786,7 @@ for f_region = {'r_M1'}
 
             neuron_num = str2num(erase(cur_nr_name{4}, 'FOV'));
             
-            [region_data] = create_struct(region_data, f_region, f_mouse, f_rec, f_neuron, f_stim);
+            [region_data] = Multi_func.create_struct(region_data, f_region, f_mouse, f_rec, f_neuron, f_stim);
             
             % Saving the current at neuron number index
             region_data.(f_region).(f_mouse).(f_rec).(f_stim).currents(neuron_num) = str2num(cur_nr_name{6});
@@ -448,7 +862,7 @@ end
 %end
 
 
-
+%% Plot the current by mouse name
 % Clear all zeros in the current array
 all_currents(find(all_currents == 0)) = [];
 
@@ -509,36 +923,3 @@ saveas(gcf, [savepath 'Current/' 'all_mice_currents.png']);
 saveas(gcf, [savepath 'Current/' 'all_mice_currents.pdf']);
 
 % Plot the Normalized Vm Change vs Current amplitude
-
-% Create fields in structure if they do not exist
-function [result] = create_struct(src, f_region, f_mouse, f_rec, f_neuron, f_stim)
-    result = src;
-    % Create region field
-    if isfield(result, f_region) == 0
-        result.(f_region) = struct();
-    end
-    
-    % Create mouse field
-    if isfield(result.(f_region), f_mouse) == 0
-        result.(f_region).(f_mouse) = struct();
-    end
-
-    % Create recording field
-    if isfield(result.(f_region).(f_mouse), f_rec) == 0
-        result.(f_region).(f_mouse).(f_rec) = struct();
-    end
-
-    % Create stim field
-    if isfield(result.(f_region).(f_mouse).(f_rec), f_stim) == 0
-        result.(f_region).(f_mouse).(f_rec).(f_stim) = struct();
-        result.(f_region).(f_mouse).(f_rec).(f_stim).currents = [];
-    end
-
-    % Create neuron field
-    % Old code for saving everything into the neuron field's
-    %if isfield(result.(f_region).(f_mouse).(f_rec).(f_stim), f_neuron) == 0
-    %    result.(f_region).(f_mouse).(f_rec).(f_stim).(f_neuron) = struct();
-    %    result.(f_region).(f_mouse).(f_rec).(f_stim).(f_neuron).currents = [];
-    %    
-    %end
-end
