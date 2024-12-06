@@ -29,16 +29,9 @@ figure_path = Multi_func.save_plot;
 ignore_trial_dict = Multi_func.csv_to_struct([local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f ...
                                        'Stim Recordings' f 'Data_Config' f 'byvis_ignore.csv']);
 
-% Smoothing parameter for spike rate
-srate_win = 100;
-
 % Parameter to determine whether to combine all regions as one data
 all_regions = 0;
 
-% Define transient and sustained periods
-trans_ped = [0, 150];
-sus_ped = [150, 1000];
-offset_trans_ped = [1000, 1150];
 
 %%% END Modification
 
@@ -71,13 +64,18 @@ field1 = fieldnames(region_data);
 field1 = field1{1};
 avg_Fs = mean(region_data.(field1).f_40.framerate, 'omitnan');
 
-%% Subthreshold time series spectra with (x - A)/(A + B) normalization for each neuron and 
+%% All Vm time series spectra with (x - A)/(A + B) normalization for each neuron and 
 
 % Flag to determine which populations to plot
 % The variable must be set from 'single_cell_mod'
 %nr_pop = 'all';
 %nr_pop = 'etrain';
 nr_pop = 'non';
+%nr_pop = 'first_half'
+%nr_pop = 'second_half'
+
+% Flag for removing non-modulated neurons from analysis
+remove_nonmod_nrs = 1;
 
 for f_region = fieldnames(region_data)'
     f_region = f_region{1};
@@ -98,11 +96,21 @@ for f_region = fieldnames(region_data)'
                     nr_idxs = find([popul_data.plv_mod_stats.mod] > 0);
                 case 'non'
                     nr_idxs = find([popul_data.plv_mod_stats.mod] < 0);
+                case 'first_half'
+                    nr_idxs = find([popul_data.plv_mod_stats.first_mod] > 0);
+                case 'second_half'
+                    nr_idxs = find([popul_data.plv_mod_stats.last_mod] > 0);
                 case 'all'
                     nr_idxs = 1:length(popul_data.plv_mod_stats);
             end
         catch ME
             disp(ME.message);
+        end
+
+        % Filter out the neurons that were non-modulated at all
+        if remove_nonmod_nrs == 1
+            non_mod_nr = find(sum(popul_data.mod_matrix, 2) == 0);
+            nr_idxs = nr_idxs(~ismember(nr_idxs, non_mod_nr));
         end
 
         nexttile;
@@ -112,7 +120,7 @@ for f_region = fieldnames(region_data)'
         
         % Normalize ratio
         % First calculate by doing the ratios for each neuron first and then averaging
-        cur_spec_pow = popul_data.neuron_spec_power(nr_idxs);
+        %cur_spec_pow = popul_data.neuron_rawvm_spec_power(nr_idxs);
     
         % Plot the starting time point for each neuron
         sz = size(popul_data.trace_timestamps);
@@ -129,7 +137,7 @@ for f_region = fieldnames(region_data)'
             calc_time_pow(trial_spec, get_base_idxs(tr_tmstmp, stim_tmstp)),  ...
             calc_time_pow(trial_spec, get_stim_idxs(tr_tmstmp, stim_tmstp))), 3, 'omitnan');
 
-        cur_spec_pow = arrayfun(@(i) calc_nr_spec(popul_data.all_trial_power_spec{i}, ...
+        cur_spec_pow = arrayfun(@(i) calc_nr_spec(popul_data.all_trial_rawvm_power_spec{i}, ...
                                 popul_data.trace_timestamps(:, i), ...
                                 popul_data.stim_timestamps(:, i)), ...
                                 nr_idxs, 'UniformOutput', false);
@@ -137,7 +145,7 @@ for f_region = fieldnames(region_data)'
         cur_spec_pow = cat(3, cur_spec_pow{:});
 
         surface(timeline, ... 
-                nanmean(popul_data.neuron_spec_freq(:, :, nr_idxs), 3), ...
+                nanmean(popul_data.neuron_rawvm_spec_freq(:, :, nr_idxs), 3), ...
                 nanmean(cur_spec_pow, 3), 'CDataMapping', 'scaled', 'FaceColor', 'texturemap', 'edgecolor', 'none');
         colormap(jet*.8);
         % Add DBS bar
