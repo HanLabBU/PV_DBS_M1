@@ -20,6 +20,11 @@ classdef Multi_func
         stim_ped = [0 1000];
         offset_trans_ped = [1000, 1150];
 
+        % Specify points for zoom-ins of pulses
+        onset_ped = [-50, 100];
+        mid_stim_ped = [500, 650];
+
+
         % Colors for violin plots
         trans_color = [153, 51, 51]/255;
         sus_color = [51, 51, 153]/255;
@@ -45,7 +50,8 @@ classdef Multi_func
         shuf_color = [92, 161, 255]/255;
 
         % Colors indicating pulses
-        pulse_color = [170, 176, 97]./255;
+        pulse_color = [170, 176, 97]./255; %TODO should use dbs_color instead of pulse_color
+        dbs_color = [202, 141,25]./255;        
 
         % Colors for heatmaps
         light_gray_color = [linspace(256, 178, 256)', linspace(256, 178, 256)', linspace(256, 178, 256)']./256;
@@ -203,6 +209,15 @@ classdef Multi_func
             end
         end
 
+        % Using FIR filter
+        function [filt_sig] = fir_filt(sig, fr, Fs)
+            N = 499;
+            Wn = [fr*0.95 fr*1.05] / (Fs/2);
+        
+            b = fir1(N, Wn, 'bandpass', blackman(N + 1));
+            filt_sig = filtfilt(b, 1, sig);
+        end
+
         % Filter and grab the hilbert transform for at each frequency in the specified range
         function [filt_sig]=filt_data(sig,frs, FS)
             Fn = FS/2;
@@ -307,7 +322,7 @@ classdef Multi_func
             fill_handle.FaceAlpha = 0.2;
             fill_handle.LineWidth = 0.2;
         end
-        
+
         % Specify default axis on plots
         function [result] = set_default_axis(ax)
             set(ax, 'Color', 'none', 'Box', 'off', 'TickDir', 'out', 'linewidth', 0.2);
@@ -326,7 +341,7 @@ classdef Multi_func
         % Plot DBS bar above specified value
         function [result] = plot_dbs_bar(x_pts, y, text_str)
             offset = 0;
-            plot(x_pts, [y + offset, y + offset], '-', 'LineWidth', 2.5, 'Color', Fig_color_props.dbs_color);
+            plot(x_pts, [y + offset, y + offset], '-', 'LineWidth', 2.5, 'Color', Multi_func.dbs_color);
             hold on;
             t1 = text(x_pts(1), y + 2*offset, text_str, 'FontSize', 7);
             txt_width = t1.Extent(3);
@@ -381,7 +396,39 @@ classdef Multi_func
             result = (x - min(x, [], 1))./(max(x, [], 1) - min(x, [], 1));
         end
 
-        %TODO change the data_bystim part of the struct
+        % Create fields in structure if they do not exist
+        function [result] = create_struct(src, f_region, f_mouse, f_rec, f_neuron, f_stim)
+            result = src;
+            % Create region field
+            if isfield(result, f_region) == 0
+                result.(f_region) = struct();
+            end
+            
+            % Create mouse field
+            if isfield(result.(f_region), f_mouse) == 0
+                result.(f_region).(f_mouse) = struct();
+            end
+        
+            % Create recording field
+            if isfield(result.(f_region).(f_mouse), f_rec) == 0
+                result.(f_region).(f_mouse).(f_rec) = struct();
+            end
+        
+            % Create stim field
+            if isfield(result.(f_region).(f_mouse).(f_rec), f_stim) == 0
+                result.(f_region).(f_mouse).(f_rec).(f_stim) = struct();
+                result.(f_region).(f_mouse).(f_rec).(f_stim).currents = [];
+            end
+        
+            % Create neuron field
+            % Old code for saving everything into the neuron field's
+            %if isfield(result.(f_region).(f_mouse).(f_rec).(f_stim), f_neuron) == 0
+            %    result.(f_region).(f_mouse).(f_rec).(f_stim).(f_neuron) = struct();
+            %    result.(f_region).(f_mouse).(f_rec).(f_stim).(f_neuron).currents = [];
+            %    
+            %end
+        end
+
         % Combine all regions into a single 'region' structure called 'f_combined'
         function [combine_struct] = combine_regions(region_data)
             % Initialize combined region
