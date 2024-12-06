@@ -67,6 +67,7 @@ avg_Fs = mean(region_data.(field1{1}).f_40.framerate, 'omitnan');
 
 
 %% Loop through and calculate dbs-Vm PLV values for all region and conditions
+% Needed for ;single_cell_mod.m'
 freqs = Multi_func.entr_freqs;
 for f_region = fieldnames(region_data)'
     f_region = f_region{1};
