@@ -221,7 +221,7 @@ classdef Multi_func
         % Filter and grab the hilbert transform for at each frequency in the specified range
         function [filt_sig]=filt_data(sig,frs, FS)
             Fn = FS/2;
-            for steps=1:length(frs);
+            for steps=frs;
                 FB=[ frs(steps)*0.95 frs(steps)*1.05];
                 
                 [B, A] = butter(2, [min(FB)/Fn max(FB)/Fn]);
@@ -327,6 +327,15 @@ classdef Multi_func
         function [result] = set_default_axis(ax)
             set(ax, 'Color', 'none', 'Box', 'off', 'TickDir', 'out', 'linewidth', 0.2);
             ax.FontSize = 7;
+        end
+
+        % Specify colormap of red and blue
+        function [cmap] = get_red_blue_cmap()
+            [red_blue_color_cmap] = (cbrewer('div', 'RdBu',500));
+            red_blue_color_cmap(red_blue_color_cmap > 1) = 1;
+            red_blue_color_cmap(red_blue_color_cmap < 0) = 0;
+            red_blue_color_cmap = flipud(red_blue_color_cmap);
+            cmap = red_blue_color_cmap;
         end
 
         % Space tick marks starting from 0 and going towards the limits
