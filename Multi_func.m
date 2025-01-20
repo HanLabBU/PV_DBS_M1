@@ -215,14 +215,21 @@ classdef Multi_func
             Wn = [fr*0.95 fr*1.05] / (Fs/2);
         
             b = fir1(N, Wn, 'bandpass', blackman(N + 1));
-            filt_sig = filtfilt(b, 1, sig);
+            filt_sig = filtfilt(b, 1, sig)';
+
+            %DEBUG
+            size(filt_sig);
         end
 
         % Filter and grab the hilbert transform for at each frequency in the specified range
         function [filt_sig]=filt_data(sig,frs, FS)
             Fn = FS/2;
             for steps=frs;
-                FB=[ frs(steps)*0.95 frs(steps)*1.05];
+                %DEBUG
+                disp('new');
+                disp(steps);
+
+                FB=[ steps*0.95 steps*1.05];
                 
                 [B, A] = butter(2, [min(FB)/Fn max(FB)/Fn]);
                 filt_sig(steps,:)= hilbert(filtfilt(B,A,sig));
