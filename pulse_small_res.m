@@ -266,7 +266,8 @@ for f_region = fieldnames(region_data)'
     % Set up all of the figures
     all_pulse_fig = figure('Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 30.59 27.94]);
     %all_tt = tiledlayout(all_pulse_fig, length(stims), 3, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 20, 3*3.62, 5.16]); % Use for fourth of a figure
-    all_tt = tiledlayout(all_pulse_fig, length(stims), 3, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 20, 3*2.27, 5.16]); % Use for a sixth of a figure
+    %all_tt = tiledlayout(all_pulse_fig, length(stims), 3, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 20, 5*2.27, 5.16]); % Use for a sixth of a figure
+    all_tt = tiledlayout(all_pulse_fig, length(stims), 3, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 10, 11.5, 5.16]); % Use for a sixth of a figure
     %all_tt = tiledlayout(all_pulse_fig, length(stims), 3, 'TileSpacing', 'compact', 'Padding', 'compact'); % Use to help with zooming in
     
     tilenum = 1;
@@ -801,15 +802,64 @@ for f_region = fieldnames(region_data)'
     sgtitle([f_region(3:end) ' Vm Pulse-triggered ' nr_pop ' iter:' num2str(num_iter)], 'Interpreter', 'none');
     saveas(gcf, [figure_path 'Small_Res' f f_region '_' nr_pop '_Pulse_Avg_Vm.png']);
     saveas(gcf, [figure_path 'Small_Res' f f_region '_' nr_pop '_Pulse_Avg_Vm.pdf']);
-    saveas(gcf, [figure_path 'Small_Res' f f_region '_' nr_pop '_Pulse_Avg_Vm.eps'], 'epsc');
+    %savefig(gca, [figure_path 'Small_Res' f f_region '_' nr_pop '_Pulse_Avg_Vm.fig']);
+end
+
+%% TODO if I ever need to replot this thing again
+%Plot the pulse-triggered Vm
+
+%% Stats on pulse-triggered Vm depolarizations between transient and sustained
+nr_pop = 'etrain';
+stats_log = [figure_path 'Small_Res' f 'Vm_pulse_triggered_deflection_size_' nr_pop];
+
+if exist(stats_log), delete(sprintf('%s', stats_log)), end;
+diary(stats_log);
+diary off
+
+for f_region = fieldnames(region_data)'
+    f_region = f_region{1};
+    data_bystim = region_data.(f_region);
+    stims = fieldnames(data_bystim);
+
+    for f_stim=stims'
+        f_stim = f_stim{1};
+        popul_data = data_bystim.(f_stim);
+        
+        % Grab the pulse windows with taking into account the extra_trace
+        trans_vms = popul_data.(nr_pop).trans_pulse_trig_Vm(extra_trace+1:end - extra_trace, :);
+        sus_vms = popul_data.(nr_pop).sus_pulse_trig_Vm(extra_trace+1:end - extra_trace, :);
+
+        % Get the max values within the pulse windows
+        trans_max = max(trans_vms, [], 1);
+        sus_max = max(sus_vms, [], 1);
+        
+        % Perform statisical testing
+        [p_sign, ~, stats] = ranksum(trans_max, sus_max);
+        
+        % Plot the stats info
+        diary on;
+        fprintf('\n\n');
+        disp([f_region ' ' f_stim]);
+        
+        % Find which period is larger
+        if median(trans_max) > median(sus_max)
+            disp('Transient larger');
+        else
+            disp('Sustained larger');
+        end
+
+        disp(['p= ' num2str(p_sign) ' statistic: ' num2str(stats.ranksum)]);
+
+        diary off;
+    end
 end
 
 %% Spike rate pulse-trggered averaged across all pulses
 % Flag to determine which populations to plot
 % The variable must be set from 'single_cell_mod'
 %nr_pop = 'all';
-nr_pop = 'etrain';
-%nr_pop = 'non_entr';
+%nr_pop = 'etrain';
+nr_pop = 'non_entr';
 
 % Flag for which statistical method to use
 stat_met = 'shuff';
@@ -819,7 +869,7 @@ stat_met = 'shuff';
 remove_nonmod_nrs = 1;
 
 fr_trig_avg_time = struct();
-stats_log = [figure_path 'Small_Res' f '_Fr_pulse_triggered_times_final_average_' nr_pop ];
+stats_log = [figure_path 'Small_Res' f 'Fr_pulse_triggered_times_final_average_' nr_pop ];
 if exist(stats_log), delete(sprintf('%s', stats_log)), end;
 diary(stats_log);
 diary off;
@@ -829,8 +879,9 @@ for f_region = fieldnames(region_data)'
     stims = fieldnames(data_bystim);
     
     figure('Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
-    all_tt = tiledlayout(length(stims), 3, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 20, 3.5, 5]);
-    all_tt = tiledlayout(length(stims), 3, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 20, 3*2.27, 5.16]); % Use for a sixth of a figure
+    %all_tt = tiledlayout(length(stims), 3, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 20, 3.5, 5]);
+    %all_tt = tiledlayout(length(stims), 3, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 20, 3*2.27, 5.16]); % Use for a sixth of a figure
+    all_tt = tiledlayout(length(stims), 3, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 10, 11.5, 5.16]); % Use for a sixth of a figure
     tilenum = 1;
 
     for f_stim=stims'
@@ -1356,6 +1407,7 @@ for f_region = fieldnames(region_data)'
     
     saveas(gcf, [figure_path 'Small_Res' f f_region '_' nr_pop '_Pulse_Avg_FR.png']);
     saveas(gcf, [figure_path 'Small_Res' f f_region '_' nr_pop '_Pulse_Avg_FR.pdf']);
+    %savefig(gcf, [figure_path 'Small_Res' f f_region '_' nr_pop '_Pulse_Avg_FR.fig']);
     %saveas(gcf, [figure_path 'Average/' f_region '_All_Pulse_Avg_FR.eps'], 'epsc');
 end
 
