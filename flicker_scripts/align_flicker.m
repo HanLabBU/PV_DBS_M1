@@ -21,6 +21,9 @@ matfiles = matfiles(indices);
 % Openephys dual scope path
 addpath([server_root 'Cara_Ravasio' f_sep 'Code' f_sep 'OpenEphys_Scripts']);
 
+% Grab the ignore file csv
+ignore_dict = Multi_func.csv_to_struct('flicker_ignore.csv');
+
 %% Parameters for recordings
 total_frames = 2500;
 total_time = 5.0258; % in Sec
@@ -34,14 +37,14 @@ frame_chan = 33;
 flick_chan = 35;
 stim_chan = 36;
 
+% Find matfiles with 40 Hz
+% originally for debugging mat_40s = find(contains({matfiles.name}, 'DBS40hz'));
 
 % Store all of the data here
 data = struct;
 
 %TODO need to find a 40 Hz ephys file as a model ephys
 
-% Find matfiles with 40 Hz
-mat_40s = find(contains({matfiles.name}, 'DBS40hz'));
 for i= 1:length(matfiles) % 49 %
     i
     matfile = fullfile(matfiles(i).folder, matfiles(i).name)
@@ -55,6 +58,12 @@ for i= 1:length(matfiles) % 49 %
         continue;
     end
 
+    % Create frequency condition field
+    f_stim = ['f_' erase(cur_freq, 'DBS')];
+    f_stim = f_stim(1:end - 2);
+    
+    % Create neuron number field
+    f_nr = ['f_' num2str(i)];
 
     % Example neuron name: 109558_Vb_male_20240308_2
     mat_parts = split(matfiles(i).name, '_');
@@ -102,6 +111,13 @@ for i= 1:length(matfiles) % 49 %
         all_flickoff_times = flip(Multi_func.get_ephys_rise_times(flip(D.Timestamps), flip(D.Data(3, :)') ) );
     end
     
+    % Grab the trials that need to be ignored
+    mouse_fn = fieldnames(ignore_dict);
+    mouse_idx = find(contains(mouse_fn, name_parts{1})); % Use the name split
+    mouse_f = mouse_fn(mouse_idx);
+    fov_num = erase(cur_fov, 'fov');
+    ign_trials = ignore_dict.(mouse_f{1}).(['rec_' num2str(name_parts{2})]).(['FOV' fov_num]).(f_stim).ROI1;
+
     % Loop through each trial to align
     raw_vm = [];
     sp_amp_raster = [];
@@ -109,7 +125,12 @@ for i= 1:length(matfiles) % 49 %
     stim_times = [];
     flicker_times = [];
     flicker_off_times = [];
-    for tr_i = 1:min([length(all_start_times), unique(trace_data.roi_list.trial_vec)])
+    for tr_i = 1:min([length(all_start_times), length(unique(trace_data.roi_list.trial_vec))])
+        
+        % Skip trial if it is in the trials array
+        if ismember(tr_i, ign_trials)
+            continue;
+        end
 
         trace = trace_data.roi_list.traces(tr_i == trace_data.roi_list.trial_vec);
         trace = trace(front_frame_drop:end);
@@ -168,10 +189,7 @@ for i= 1:length(matfiles) % 49 %
         %tr_flicker_times(1) - tr_all_frame_times(1)
     end
 
-    % Save all of the properties to data struct
-    f_stim = ['f_' erase(cur_freq, 'DBS')];
-    f_stim = f_stim(1:end - 2);
-    f_nr = ['f_' num2str(i)];
+    %-- Save all of the properties to data struct
     
     % Check if neuron data exists
     if ~isfield(data, f_stim)
@@ -212,3 +230,57 @@ ephys_data = Multi_func.norm_signals(D.Data(33:37, :)');
 figure;
 plot(D.Timestamps, ephys_data + [1:size(ephys_data, 2)]);
 title(num2str(i));
+
+
+%% 
+
+ignore_trials = {
+    '109558_Vb_male':{
+        '20240311':{
+            1:{40:[3, 4, 5, 8, 10],
+               140:[1, 2, 8, 9]},
+            2:{40:[4, 5, 7, 8, 9, 10],
+               140:[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]},
+            3:{40:[1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+               140:[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]},
+            4:{40:[1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+               140:[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]}
+         },
+         '20240308':{
+             1:{140:[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]},
+             2:{140:[2, 5, 6, 8, 9, 10, 11, 14, 16, 17, 18, 19]},
+             3:{140:[6, 7, 14, 15, 16]}
+         }
+    },
+    '109567_Vb_male':{
+        '20240311':{
+            1:{40:[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+               140:[4, 8, 9]},
+            2:{40:[3, 5, 6, 7, 8],
+               140:[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]},
+            3:{40:[1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+               140:[]},
+            4:{40:[2, 3, 6, 7, 8, 9, 10],
+               140:[1, 2, 3, 4, 9, 10]},
+           5:{40:[7, 8, 9],
+               140:[1, 2, 3, 10]},
+            6:{40:[1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+               140:[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]}
+        },
+        '20240411':{
+            1:{40:[6, 7, 8, 10],
+               140:[2, 3, 5, 8, 9, 10]},
+           2:{40:[1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+               140:[2, 3, 4, 5, 8, 9, 10]},
+            3:{40:[1, 6, 7, 8, 9],
+               140:[1, 3, 5]},
+            4:{40:[4, 5, 7, 9],
+               140:[7, 9, 10]},
+            5:{40:[1, 6, 7],
+               140:[1, 3, 4, 5, 6, 7]}
+        },
+        '20240424':{
+            2:{40:[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]}
+        }
+    }
+}
