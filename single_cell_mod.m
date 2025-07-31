@@ -93,8 +93,13 @@ for f_region = fieldnames(region_data)'
             %base_idx = find(nr_timeline > 0 - wind_dist & nr_timeline < 0);
             %stim_idx = find(nr_timeline > 0 & nr_timeline < 0 + wind_dist);
             
-            base_idx = find(nr_timeline > 0 - ped_stop & ...
-                            nr_timeline < 0 - ped_start );
+            % Baseline of just the first 500 ms prior to stimulation onset
+            base_idx = find(nr_timeline > Multi_func.base_ped(1)./1000 & ...
+                            nr_timeline < Multi_func.base_ped(2)./1000 );
+
+            % Baseline uses the reflective of the stim period
+            %base_idx = find(nr_timeline > 0 - ped_stop & ...
+            %                nr_timeline < 0 - ped_start );
 
             stim_idx = find(nr_timeline > 0 + ped_start & ...
                             nr_timeline < 0 + ped_stop );
@@ -153,9 +158,13 @@ for f_region = fieldnames(region_data)'
             %base_idx = find(nr_timeline > 0 - range([per_start, per_stop]) & nr_timeline < 0);
             %stim_idx = find(nr_timeline > per_start & nr_timeline < per_stop);
             
-            % Reflect the stimulation time period across the onset
-            base_idx = find(nr_timeline > 0 - ped_stop & ...
-                            nr_timeline < 0 - ped_start )
+            % Baseline of just the first 500 ms prior to stimulation onset
+            base_idx = find(nr_timeline > Multi_func.base_ped(1)./1000 & ...
+                            nr_timeline < Multi_func.base_ped(2)./1000);
+
+            % Reflect the stimulation time period across the onset in the baseline
+            %base_idx = find(nr_timeline > 0 - ped_stop & ...
+            %                nr_timeline < 0 - ped_start );
 
             stim_idx = find(nr_timeline > 0 + ped_start & ...
                             nr_timeline < 0 + ped_stop );
@@ -236,8 +245,13 @@ for f_region = fieldnames(region_data)'
             %base_idx = find(nr_timeline > 0 - wind_dist & nr_timeline < 0);
             %stim_idx = find(nr_timeline > 0 & nr_timeline < 0 + wind_dist);
             
-            base_idx = find(nr_timeline > 0 - ped_stop & ...
-                            nr_timeline < 0 - ped_start);
+            % Baseline of just the first 500 ms prior to stimulation onset
+            base_idx = find(nr_timeline > Multi_func.base_ped(1)./1000 & ...
+                            nr_timeline < Multi_func.base_ped(2)./1000);
+            
+            % Reflect the stimulation time period across the onset into the baseline
+            %base_idx = find(nr_timeline > 0 - ped_stop & ...
+            %                nr_timeline < 0 - ped_start);
 
             stim_idx = find(nr_timeline > 0 + ped_start & ...
                             nr_timeline < 0 + ped_stop);
@@ -304,8 +318,13 @@ for f_region = fieldnames(region_data)'
             %stim_idx = find(nr_timeline > 0 & nr_timeline < 0 + wind_dist);
             % -- End of wrong way
                 
-            base_idx = find(nr_timeline > 0 - ped_stop & ...
-                            nr_timeline < 0 - ped_start );
+            % Baseline of just the first 500 ms prior to stimulation onset
+            base_idx = find(nr_timeline > Multi_func.base_ped(1)./1000 & ...
+                            nr_timeline < Multi_func.base_ped(2)./1000);
+            
+            % Reflect the stimulation time period across the onset in the baseline
+            %base_idx = find(nr_timeline > 0 - ped_stop & ...
+            %                nr_timeline < 0 - ped_start );
 
             stim_idx = find(nr_timeline > 0 + ped_start & ...
                             nr_timeline < 0 + ped_stop );
@@ -893,7 +912,7 @@ for f_region = fieldnames(region_data)'
 
         % Perform the plotting
         figure('Position', [0, 0, 800, 1000]);
-        tiledlayout(4, 1, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 4, 10, 20]);
+        tiledlayout(4, 1, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 4, 7.5, 14]);
 
         % Plot the heatmap
         nexttile([2, 1]);
@@ -933,14 +952,15 @@ for f_region = fieldnames(region_data)'
             xlim([min(timeline) - .01, max(timeline)]);
         end
 
-        %TODO maybe plot the DBS bar on top??
+        %maybe plot the DBS bar on top??
         ylim([0.5 size(vm_heatmap, 1) + 0.5]);
-        xlabel('Time from onset (S)');
 
         %colormap(red_blue_color_cmap);
         colormap(Multi_func.red_purple_blue_color);
         c = colorbar;
         c.Label.String = 'Vm';
+        
+        % Make colorbar symmetric
         max_abs = max(abs(c.Limits));
         caxis([-max_abs, max_abs]);
 
@@ -988,6 +1008,9 @@ for f_region = fieldnames(region_data)'
         else
             xlim([min(timeline) - .01, max(timeline)]);
         end
+        
+        xlabel('Time from onset (S)');
+        ylabel('Norm Vm');
 
         % Save figure stuff
         saveas(gcf, [figure_path 'Neuronwise/' f_region '_' f_stim '_' num2str(wind_dist) '_Vm_mod_plots.png']);
@@ -1033,10 +1056,20 @@ for f_region = fieldnames(region_data)'
         pop_non_fr = popul_data.neuron_srate_50(:, non_i);
         pop_sup_fr = popul_data.neuron_srate_50(:, sup_i);
 
+        % Transfer the population firing rates to a plotting variable handle
+        plot_act_fr = pop_act_fr;
+        plot_non_fr = pop_non_fr;
+        plot_sup_fr = pop_sup_fr;
+
         % Zscore all of the trial-averaged neuron firing rate
-        pop_act_fr = zscore(pop_act_fr, [], 1);
-        pop_non_fr = zscore(pop_non_fr, [], 1);
-        pop_sup_fr = zscore(pop_sup_fr, [], 1);
+        %plot_act_fr = zscore(plot_act_fr, [], 1);
+        %plot_non_fr = zscore(plot_non_fr, [], 1);
+        %plot_sup_fr = zscore(plot_sup_fr, [], 1);
+
+        % Zscore the trial-averaged neuron FR using baseline mean and standard deviation
+        plot_act_fr = (plot_act_fr - mean(plot_act_fr(base_idx, :), 1))./std(plot_act_fr(base_idx, :), 0, 1);
+        plot_non_fr = (plot_non_fr - mean(plot_non_fr(base_idx, :), 1))./std(plot_non_fr(base_idx, :), 0, 1);
+        plot_sup_fr = (plot_sup_fr - mean(plot_sup_fr(base_idx, :), 1))./std(plot_sup_fr(base_idx, :), 0, 1);
 
         % Zscore the trial-averaged neuron fr using baseline mean and standard deviation
         % Check for zero std
@@ -1057,17 +1090,15 @@ for f_region = fieldnames(region_data)'
         %else
         %    pop_sup_fr = (pop_sup_fr - mean(pop_sup_fr(base_idx, :), 1))./std(pop_sup_fr(base_idx, :), 0, 1);
         %end
-        
-
         % Baseline subtract the fr data
-        pop_act_fr = pop_act_fr - mean(pop_act_fr(base_idx, :), 1);
-        pop_non_fr = pop_non_fr - mean(pop_non_fr(base_idx, :), 1);
-        pop_sup_fr = pop_sup_fr - mean(pop_sup_fr(base_idx, :), 1);
+        %pop_act_fr = pop_act_fr - mean(pop_act_fr(base_idx, :), 1);
+        %pop_non_fr = pop_non_fr - mean(pop_non_fr(base_idx, :), 1);
+        %pop_sup_fr = pop_sup_fr - mean(pop_sup_fr(base_idx, :), 1);
 
         % Construct fr heatmap
-        fr_heatmap = pop_act_fr;
-        fr_heatmap = horzcat_pad(fr_heatmap, pop_non_fr);
-        fr_heatmap = horzcat_pad(fr_heatmap, pop_sup_fr)';
+        fr_heatmap = plot_act_fr;
+        fr_heatmap = horzcat_pad(fr_heatmap, plot_non_fr);
+        fr_heatmap = horzcat_pad(fr_heatmap, plot_sup_fr)';
 
         % Calculate the population average of each groups
         act_fr_avg = mean(pop_act_fr, 2);
@@ -1109,11 +1140,14 @@ for f_region = fieldnames(region_data)'
         ylim([0.5 size(fr_heatmap, 1) + 0.5]);
         xlabel('Time from onset (S)');
 
-
-        colormap(red_blue_color_cmap);
+        %colormap(red_blue_color_cmap);
+        colormap(Multi_func.red_purple_blue_color);
         c = colorbar;
-        caxis([-5 5]);
-        c.Label.String = 'spike rate (z-scored)';
+        c.Label.String = 'FR';
+        
+        % Make colorbar symmetric
+        max_abs = max(abs(c.Limits));
+        caxis([-max_abs, max_abs]);
 
         % Plot the population average for each group activated
         nexttile;
