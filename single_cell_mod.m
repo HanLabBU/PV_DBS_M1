@@ -455,7 +455,6 @@ for f_region = fieldnames(region_data)'
             % Shuffled PLV data
             shuf_plv = [];
             shuf_plv_adj = [];
-        
 
             % Shuffle the start of the dbs timepoints and recalculate the PLV
             % Need to randomize where the DBS points are along the rasters
@@ -591,11 +590,12 @@ for f_region = fieldnames(region_data)'
         T = array2table(mod_matrix, 'VariableNames', headers);
         writetable(T, [figure_path 'Neuronwise' f 'mod_matrix_' f_region '_' f_stim '.csv'], ...
             'WriteRowNames', true);
+            %TODO double check after committing to see what the previous version of these lines were
 
         % Find neurons that do not have any modulatory property
         disp([f_region ' ' f_stim]);
-        non_mod = find(sum(mod_matrix, 2) == 0)
-
+        non_mod = find(sum(mod_matrix, 2) == 0);
+            
         % Find neurons that were sustained activated, but not in the transient
         sus_mod = find(mod_matrix(:, 3) == 1);
         trans_non_mod = find(mod_matrix(:, 2) == 0);
@@ -632,7 +632,6 @@ for f_region = fieldnames(region_data)'
 end
 
 %% Save the number of neurons per modulation
-
 % Note: to get percentages, I have to copy the top part of this csv into the top of formula.xlsx file
 
 % a flag here for whether or not to include non-modulated neurons or not
@@ -709,6 +708,11 @@ for f_region = fieldnames(region_data)'
             non_etrain_nr = setdiff(non_etrain_nr, non_mod_nr);
             total_nrs = setdiff(total_nrs, non_mod_nr);
         end
+
+        % DEBUG
+        %if strcmp(f_region, 'r_M1') == 1 & strcmp(f_stim, 'f_140') == 1 %TODO ensure that the M1 140 Hz Vm non-modulated is somehow accounted for?
+        %    error('Ned');
+        %end
 
         % Add all of the counts to table
         stats_t([f_region f_stim], 'Vm Trans Act') = {length(vm_trans_act_nr)};
@@ -841,6 +845,13 @@ for f_region = fieldnames(region_data)'
             nr_non = nr_non(~ismember(nr_non, non_mod_nr));
         end
 
+        %TODO need to figure out why the non-modulated is showing up here without the correct total number of mod neurons
+
+        % DEBUG
+        if strcmp(f_region, 'r_M1') == 1 & strcmp(f_stim, 'f_140') == 1 %TODO ensure that the M1 140 Hz Vm non-modulated is somehow accounted for?
+            error('Ned');
+        end
+
         %DEBUG
         %disp([f_region ' ' f_stim]);
         %pause();
@@ -952,17 +963,27 @@ for f_region = fieldnames(region_data)'
             xlim([min(timeline) - .01, max(timeline)]);
         end
 
-        %maybe plot the DBS bar on top??
-        ylim([0.5 size(vm_heatmap, 1) + 0.5]);
+        % Plot DBS bar
+        hold on;
+        Multi_func.plot_dbs_bar([0 1], size(vm_heatmap, 1) + 0.75, [f_stim(3:end) ' Hz']);
+
+        % Set the above limit with taking into account the DBS bar
+        ylim([0.5 size(vm_heatmap, 1) + 1]);
+        
 
         %colormap(red_blue_color_cmap);
         colormap(Multi_func.red_purple_blue_color);
         c = colorbar;
-        c.Label.String = 'Vm';
+        c.Label.String = 'Vm (z-scored)';
         
         % Make colorbar symmetric
         max_abs = max(abs(c.Limits));
         caxis([-max_abs, max_abs]);
+
+        ylabel('Neuron #');
+
+        % Remove the outlines
+        set(gca, 'Box', 'off', 'XTick', [], 'YTick', []);
 
         % Plot the population average for each group
         nexttile([1 1]);
@@ -1026,7 +1047,7 @@ for f_region = fieldnames(region_data)'
     data_bystim = region_data.(f_region);
     stims = fieldnames(data_bystim);
 
-    % Loop through stim frequencies
+    % Loop through stim frequencieshe diff tool bc is not available as 'bcompare'
     for f_stim = stims'
         f_stim = f_stim{1};
         popul_data = data_bystim.(f_stim);
@@ -1221,6 +1242,11 @@ writetable(T, 'V1_40');
 
 
 %% Calculate significant stim-Vm PLV for both halves of the stimulation period
+
+% Note: there are two blocks within this function for constructing the shuffled distribution:
+% 1. The full baseline and stimulation time
+% 2. Just the baseline
+
 num_iter = 500;
 end_point = 1000/1000; %ms
 start_point = 0/1000; %ms
@@ -1256,15 +1282,18 @@ for f_region = fieldnames(region_data)'
             stim_f_idx = find(nr_timeline > start_point & nr_timeline < mid_point);
             stim_l_idx = find(nr_timeline > mid_point & nr_timeline < end_point);
 
-            filt_trial = @(trial) (angle(Multi_func.filt_data(trial, plv_freq, avg_Fs)));
+            filt_trial = @(trial) (angle(Multi_func.filt_single_freq(trial, plv_freq, avg_Fs)));
             
             % Function that waits for a function and matrix and then returns a function waiting for a column value
             applyFunToColi = @(func, mat) (@(col) func(mat(:, col)));
+            
             % Aply the filtering function with the whole trial matrix, so all is left is waiting for a column number
-            partial_apply = applyFunToColi(filt_trial, popul_data.all_trial_SubVm{nr});
+            partial_apply = applyFunToColi(filt_trial, popul_data.all_trial_rawVm{nr});
+            
             % Iterate through each column trial and concatenate all o fthe results
-            vm_phases = arrayfun(partial_apply, [1:size(popul_data.all_trial_SubVm{nr}, 2)]' , 'UniformOutput', false); 
-            % 
+            vm_phases = arrayfun(partial_apply, [1:size(popul_data.all_trial_rawVm{nr}, 2)]' , 'UniformOutput', false); 
+            
+            %Concatenate all cells together
             vm_phases = cat(3, vm_phases{:});
 
             % Calculate stimulation raster with dimensions of the whole trace
@@ -1305,33 +1334,69 @@ for f_region = fieldnames(region_data)'
                         stim_l_idx(:), ...
                         col_ind_mat(:)));
 
+
             [PLV, PLV2, norm_vecs] = Multi_func.spike_field_PLV(vm_phases, stim_rasters, 0, 10);             
             last_obs_PLV = PLV;
             last_obs_PLV2 = PLV2;
             last_obs_norm_vecs= norm_vecs;
 
-            % Find the upper limit for randomization
-            filt_time = nr_frame_time(mid_point > nr_frame_time);
-            % Compute absolute differences
-            diffs = abs(filt_time - mid_point);
-            % Find index of minimum difference in filtered_array
-            [minDiff, minIndex] = min(diffs);
-            % Find index of corresponding element in original array
-            last_index = find(nr_frame_time == filt_time(minIndex), 1);
+
+            % TODO commment this out
+            % DEBUG make sure that the first and second half of the stimulation are being calcualted
+
+            % The idxs of half the stimulation time pulses
+            % Here we are only considering half of the stimulation time
+            stim_idx_i = stim_idx_i(ceil(length(stim_idx_i)/2):end); 
 
             % Shuffled PLV data
             shuf_plv = [];
             shuf_plv_adj = [];
+            
+            %----------------------- Start of full baseline and stimulation period shuffling ------------------------
+            %  
+            % % Find the upper limit for randomization, where the midpoint is in the stimulation period
+            % filt_time = nr_frame_time(mid_point > nr_frame_time);
+            % % Compute absolute differences
+            % diffs = abs(filt_time - mid_point);
+            % % Find index of minimum difference in filtered_array
+            % [minDiff, minIndex] = min(diffs);
+            % % Find index of corresponding element in original array
+            % last_index = find(nr_frame_time == filt_time(minIndex), 1);
+            % 
+            % %TODO something is wrong in the for loop below
+            % % Shuffle the start of the dbs timepoints and recalculate the PLV
+            % % Need to randomize where the DBS points are along the rasters
+            % for i=1:num_iter
+            %     % Randomly select stim onset time
+            %     onset_rand = randi(last_index, 1, size(vm_phases, 3));
+            %     
+            %     
+            %     rand_stim_idx = repmat(stim_idx_i' - stim_idx_i(1), 1, size(vm_phases, 3)) + onset_rand;
+            %     col_ind_mat = repmat(1:size(rand_stim_idx, 2), size(rand_stim_idx, 1), 1);
+            %     stim_rasters = zeros(size(dbs_rasters));
+            %     stim_rasters(sub2ind(size(stim_rasters), ...
+            %                          rand_stim_idx(:), ...
+            %                          col_ind_mat(:))) = 1;
+            % 
+            %     [sh_PLV, sh_PLV2, norm_vecs] = Multi_func.spike_field_PLV(vm_phases, stim_rasters, 0, 10);            
+            %     shuf_plv(end + 1) = sh_PLV;
+            %     shuf_plv_adj(end + 1) = sh_PLV2;
+            % end
+            %----------------------- End of full baseline and stimulation period shuffling ------------------------
+        
 
-            % Reset the starting stim_idx for each trial and keep the spacing between indices the same
-            stim_idx_i = stim_idx_i(ceil(length(stim_idx_i)/2):end);
+            %----------------------- Start of baseline shuffled distribution --------------------------------------
+            % Find the upper limit for randomization, since we chop the baseline, I am going to calculate the half stimulation from the stimulation start
+        
+            % The time span for the half stimulation period
+            half_stim_time_range = range(nr_frame_time(stim_idx_i));
 
-            % Shuffle the start of the dbs timepoints and recalculate the PLV
-            % Need to randomize where the DBS points are along the rasters
+            % Get the last index for shuffling within the baseline period
+            last_index = max(find(start_point - half_stim_time_range > nr_frame_time));
+
+            % Loop through and calculate the shuffled distribution
             for i=1:num_iter
-                % Randomly select stim onset time
                 onset_rand = randi(last_index, 1, size(vm_phases, 3));
-                
                 
                 rand_stim_idx = repmat(stim_idx_i' - stim_idx_i(1), 1, size(vm_phases, 3)) + onset_rand;
                 col_ind_mat = repmat(1:size(rand_stim_idx, 2), size(rand_stim_idx, 1), 1);
@@ -1339,12 +1404,18 @@ for f_region = fieldnames(region_data)'
                 stim_rasters(sub2ind(size(stim_rasters), ...
                                      rand_stim_idx(:), ...
                                      col_ind_mat(:))) = 1;
-            
+                
+
+
                 [sh_PLV, sh_PLV2, norm_vecs] = Multi_func.spike_field_PLV(vm_phases, stim_rasters, 0, 10);            
+               
                 shuf_plv(end + 1) = sh_PLV;
                 shuf_plv_adj(end + 1) = sh_PLV2;
+
             end
-        
+
+            %----------------------- End of baseline shuffled distribution --------------------------------------
+
             % Calculate the 95th percentile
             high_prc = prctile(shuf_plv_adj, 95);
 
@@ -1432,6 +1503,68 @@ for f_region = fieldnames(region_data)'
 
     end % Stim freq loop
 end % Region loop
+
+%% Save the percentage of first and second half of stimulation neurons
+
+stats_t = table();
+
+% Loop through region
+for f_region = fieldnames(region_data)'
+    f_region = f_region{1};
+    data_bystim = region_data.(f_region);
+    stims = fieldnames(data_bystim);
+
+    % Loop through stim frequencies
+    for f_stim = stims'
+        f_stim = f_stim{1};
+        popul_data = data_bystim.(f_stim);
+
+        % All modulated neurons
+        mod_nr = find(sum(popul_data.mod_matrix, 2) > 0);
+
+        % Full entrained neurons
+        full_etrain = find([popul_data.plv_mod_stats.mod] > 0);
+
+        % First-half entrained neurons
+        first_etrain = find([popul_data.plv_mod_stats.first_mod] > 0);
+            
+        % Second-half entrained neurons
+        second_etrain = find([popul_data.plv_mod_stats.last_mod] > 0);
+        
+        % Total number of modulated neurons
+        stats_t([f_region, f_stim], 'Modulated Neurons') = {length(mod_nr)};
+
+        % Total population count for each condition
+        stats_t([f_region, f_stim], 'Full entrained') = {length(full_etrain)};
+        stats_t([f_region, f_stim], 'First half') = {length(first_etrain)};
+        stats_t([f_region, f_stim], 'Second half') = {length(second_etrain)};
+
+        % First and second count that were initially fully entrained
+        first_given_full = intersect(full_etrain, first_etrain);
+        second_given_full = intersect(full_etrain, second_etrain);
+
+        stats_t([f_region, f_stim], 'First half given full') = {length(first_given_full)};
+        stats_t([f_region, f_stim], 'Second half given full') = {length(second_given_full)};
+        
+        % Both first and second entrained without full
+        % Conceptually, this should be zero
+        first_given_second = intersect(first_etrain, second_etrain);
+        first_given_second = setdiff(first_given_second, full_etrain);
+
+        stats_t([f_region, f_stim], 'First and Second half wo full') = {length(first_given_second)};
+
+        % Grab the first and second entrained that are not fully entrained
+        first_only = setdiff(first_etrain, full_etrain);
+        second_only = setdiff(second_etrain, full_etrain);
+
+        stats_t([f_region, f_stim], 'First half only') = {length(first_only)};
+        stats_t([f_region, f_stim], 'Second half only') = {length(second_only)};
+    end
+end
+
+% Display stats table
+disp(stats_t);
+writetable(stats_t, [figure_path 'Neuronwise' f 'Entrained_Counts.csv'], 'WriteRowNames', true);
 
 %% Plot single cell pulse triggered average across transient and sustained based on stim-Vm PLV entrainement
 % Need to run All the options for the variable 'nr_pop' 
