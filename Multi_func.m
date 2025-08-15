@@ -35,6 +35,9 @@ classdef Multi_func
         stim_color = [131, 195, 65]/255;
         post_color = [128, 56, 149]/255;
         flick_color = [189, 130, 57]/255;
+        
+        % (Maybe just use the top part) Colors for different flicker protocol period
+        %flick_onset_color = [189, 130, 57]/255;
 
         % Colors indicating different brain regions
         ca1_color = [0.8500 0.3250 0.0980];
@@ -54,6 +57,9 @@ classdef Multi_func
         dbs_color = [202, 141,25]./255;        
 
         % Colors for heatmaps
+        % First linspace is the red value gradient, second is green, and third is blue
+        % The top rows are the bottom of the gradient
+
         light_gray_color = [linspace(256, 178, 256)', linspace(256, 178, 256)', linspace(256, 178, 256)']./256;
         tang_blue_color = [[linspace(38, 233, 256/2)', linspace(70, 196, 256/2)', linspace(83, 106, 256/2)'];
                           [linspace(233, 231, 256/2)', linspace(196, 111, 256/2)', linspace(106, 81, 256/2)']]./256;                    
@@ -64,11 +70,63 @@ classdef Multi_func
         warm_cold_gray_color = [[linspace(58, 200, 256/2)', linspace(12, 200, 256/2)', linspace(163, 200, 256/2)'];
                          [linspace(200, 217, 256/2)', linspace(200, 4, 256/2)', linspace(200, 41, 256/2)']]./256;
                
-        green_warm_cold_color = [[linspace(202, 160, 256/2)', linspace(255, 196, 256/2)', linspace(191, 255, 256/2)'];
-                         [linspace(160, 217, 256/2)', linspace(196, 4, 256/2)', linspace(255, 41, 256/2)']]./256;
+        %green_warm_cold_color = [[linspace(202, 160, 2popul_data.neuron_spike_amp56/2)', linspace(255, 196, 256/2)', linspace(191, 255, 256/2)'];
+        %                 [linspace(160, 217, 256/2)', linspace(196, 4, 256/2)', linspace(255, 41, 256/2)']]./256;
+
+        red_green_blue_color = Multi_func.gen_color_map([0, 0, 256], [0, 170, 0], [256, 0, 0]);
+        red_gray_blue_color = Multi_func.gen_color_map([0, 0, 256], [200, 200, 200], [256, 0, 0]);
+        red_yellow_blue_color = Multi_func.gen_color_map([0, 0, 256], [244, 211, 94], [256, 0, 0]);
+        
+        % Softer blue and red
+        red_purple_blue_color = Multi_func.gen_color_map([0, 119, 182], [230, 230, 250], [214, 40, 40]);
+
+        % This is pure blue and red colors
+        %red_purple_blue_color = Multi_func.gen_color_map([0, 0, 256], [230, 230, 250], [256, 0, 0]);
+
     end
 
     methods(Static)
+        % Find specific parameters within the filenames
+        % Function to get the parameter of a result
+        function [result] = get_param(path, param)
+            % Split the string pattern
+            vals = split(path, '_');
+        
+            idx = find(contains(vals, param));
+            result = vals(idx);
+            result = result{1};
+        end
+
+        function [rising_times] = get_ephys_rise_times(timestamp, data)    
+            
+            % Check whether to flip the data over the x-axis or not    
+            upper_volt = max(data);        
+            lower_volt = min(data);        
+                        
+            center_points = nanmean(data);        
+                       
+            diff_low = abs(center_points - lower_volt);        
+            diff_high = abs(center_points - upper_volt);        
+                
+            if diff_low > diff_high        
+                data = -1*data;        
+            end    
+            
+            first_der = [0; diff(data)];    
+            thres = 0.03*max(first_der);
+
+            % Get all rising edges indices    
+            first_der(first_der < thres) = 0;    
+            [~, rise_edge_idx] = findpeaks(first_der);    
+                
+            rising_times = timestamp(rise_edge_idx);    
+            %DEBUG    
+            %figure;    
+            %plot(timestamp, data, '-b');    
+            %hold on;    
+            %plot(timestamp(rise_edge_idx), data(rise_edge_idx), '|r')    
+            
+        end
 
         % Read in .csv file to a dictionary structure that stores which traces to ignore    
         function [result_dict] = csv_to_struct(csv_pathname)    
@@ -206,34 +264,44 @@ classdef Multi_func
             for i = 1:size(sigs, 2)
                 [B, A] = butter(2, [min(FB) max(FB)]./Fn);
                 filt_sigs(:, i) = filtfilt(B, A, sigs(:, i));
+                
+                %DEBUG
+                %figure;
+                %plot(sigs(:, i) ); %- mean(sigs(:, i)));
+                %hold on;
+                %plot(filt_sigs(:, i));
             end
         end
 
         % Using FIR filter
+        %TODO be mindful in using this, I got different results from the regular filter
         function [filt_sig] = fir_filt(sig, fr, Fs)
             N = 499;
             Wn = [fr*0.95 fr*1.05] / (Fs/2);
         
             b = fir1(N, Wn, 'bandpass', blackman(N + 1));
             filt_sig = filtfilt(b, 1, sig)';
-
-            %DEBUG
-            size(filt_sig);
         end
 
         % Filter and grab the hilbert transform for at each frequency in the specified range
         function [filt_sig]=filt_data(sig,frs, FS)
             Fn = FS/2;
             for steps=frs;
-                %DEBUG
-                disp('new');
-                disp(steps);
 
                 FB=[ steps*0.95 steps*1.05];
                 
                 [B, A] = butter(2, [min(FB)/Fn max(FB)/Fn]);
                 filt_sig(steps,:)= hilbert(filtfilt(B,A,sig));
             end
+        end
+
+        % Filter just a single trial
+        function [filt_sig] = filt_single_freq(sig, freq, FS)
+            Fn = FS/2;
+            FB=[ freq*0.95 freq*1.05];
+            
+            [B, A] = butter(2, [min(FB)/Fn max(FB)/Fn]);
+            filt_sig = hilbert(filtfilt(B,A,sig))';
         end
 
         %Calculates spike phase-locking value
@@ -316,8 +384,8 @@ classdef Multi_func
             opts.ShowMean = false;
             opts.MedianColor = [1 1 1];
             opts.MarkerSize = 5;
-            opts.MedianMarkerSize = 5;
-            opts.BoxWidth = 0.1;
+            opts.MedianMarkerSize = 20;
+            %opts.BoxWidth = 0.1;
             opts.BoxColor = [0 0 0];
             opts.ViolinAlpha = {[0.3], [0.3]};
         end
@@ -343,6 +411,21 @@ classdef Multi_func
             red_blue_color_cmap(red_blue_color_cmap < 0) = 0;
             red_blue_color_cmap = flipud(red_blue_color_cmap);
             cmap = red_blue_color_cmap;
+        end
+
+        % Function to generate color map from first, to second, to third color
+        % c1 is the lowest value, c2 is middle, c3 is the highest value
+        function [cmap] = gen_color_map(c1, c2, c3)
+            num_pts_half = 256/2;
+            first_gradient = [linspace(c1(1), c2(1), num_pts_half)', ...
+                linspace(c1(2), c2(2), num_pts_half)', ...
+                linspace(c1(3), c2(3), num_pts_half)'];
+            
+            sec_gradient = [linspace(c2(1), c3(1), num_pts_half)', ...
+                linspace(c2(2), c3(2), num_pts_half)', ...
+                linspace(c2(3), c3(3), num_pts_half)'];
+            
+            cmap = [first_gradient; sec_gradient]./256;
         end
 
         % Space tick marks starting from 0 and going towards the limits
