@@ -369,7 +369,7 @@ end
 % This is used to determine between entrained and non-entrained neurons
 % Creates 'plv_mod_stats' field
 
-num_iter = 500; %change this back to 500
+num_iter = 500;
 wind_dist = 1000/1000; %ms
 
 % Determine whether or not to show figures
