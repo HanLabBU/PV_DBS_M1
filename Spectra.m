@@ -64,6 +64,12 @@ field1 = fieldnames(region_data);
 field1 = field1{1};
 avg_Fs = mean(region_data.(field1).f_40.framerate, 'omitnan');
 
+%% Setup the color variables
+[red_blue_color_cmap] = (cbrewer('div', 'RdBu',500));
+red_blue_color_cmap(red_blue_color_cmap > 1) = 1;
+red_blue_color_cmap(red_blue_color_cmap < 0) = 0;
+red_blue_color_cmap = flipud(red_blue_color_cmap);
+
 %% All Vm time series spectra with (x - A)/(A + B) normalization for each neuron and 
 
 % Flag to determine which populations to plot
@@ -147,7 +153,12 @@ for f_region = fieldnames(region_data)'
         surface(timeline, ... 
                 nanmean(popul_data.neuron_rawvm_spec_freq(:, :, nr_idxs), 3), ...
                 nanmean(cur_spec_pow, 3), 'CDataMapping', 'scaled', 'FaceColor', 'texturemap', 'edgecolor', 'none');
-        colormap(jet*.8);
+        
+        %colormap(Multi_func.red_green_blue_color);
+        %colormap(Multi_func.red_yellow_blue_color);
+        colormap(Multi_func.red_purple_blue_color);
+        %colormap(red_blue_color_cmap);
+        %colormap(jet*.8);
         % Add DBS bar
         hold on;
         Multi_func.plot_dbs_bar([0, 1], 205, '');
@@ -166,8 +177,12 @@ for f_region = fieldnames(region_data)'
         Multi_func.set_default_axis(gca);
         xlabel('Time from Stim onset(s)');
         xlim([-0.80 2.05]);
+        ylim([0 205]);
         ylabel('Freq (Hz)');
         title(f_stim(3:end), 'Interpreter', 'none');
+
+        % Save the spectra data into the region_data structure
+        region_data.(f_region).(f_stim).ab_norm_pow_spec = cur_spec_pow;
     end
     sgtitle([ f_region ' Time Series Spectra with (x - A)/(A + B) normalization individually ' nr_pop], 'Interpreter', 'none');
     
@@ -177,6 +192,108 @@ for f_region = fieldnames(region_data)'
     %saveas(gcf, [figure_path 'Spectra/' f_region '_A_B_Normalization_Time_Spectra.eps'], 'epsc');
     %savefig(gcf, [figure_path 'Spectra/' f_region '_A_B_Normalization_Time_Spectra.fig']);
 end
+
+%% Compute the PSD from the A_B normalization
+%nr_pop = 'all';
+nr_pop = 'etrain';
+%nr_pop = 'non';
+for f_region = fieldnames(region_data)'
+    f_region = f_region{1};
+    data_bystim = region_data.(f_region);
+    stims = fieldnames(data_bystim);
+
+    for f_stim=stims'
+        f_stim = f_stim{1};
+        popul_data =data_bystim.(f_stim);
+        
+        try
+            switch nr_pop
+                case 'etrain'
+                    nr_idxs = find([popul_data.plv_mod_stats.mod] > 0);
+                case 'non'
+                    nr_idxs = find([popul_data.plv_mod_stats.mod] < 0);
+                case 'first_half'
+                    nr_idxs = find([popul_data.plv_mod_stats.first_mod] > 0);
+                case 'second_half'
+                    nr_idxs = find([popul_data.plv_mod_stats.last_mod] > 0);
+                case 'all'
+                    nr_idxs = 1:length(popul_data.plv_mod_stats);
+            end
+        catch ME
+            disp(ME.message);
+        end
+
+        % Filter out the neurons that were non-modulated at all
+        if remove_nonmod_nrs == 1
+            non_mod_nr = find(sum(popul_data.mod_matrix, 2) == 0);
+            nr_idxs = nr_idxs(~ismember(nr_idxs, non_mod_nr));
+        end
+
+        tr_timestmps = nanmean(popul_data.trace_timestamps, 2)';
+        stim_timestmps = nanmean(popul_data.stim_timestamps, 2);
+
+        % Grab idxs between different parts of the trial
+        [base_r, base_c] = find(popul_data.trace_timestamps < 0);
+        [stim_r, stim_c] = find(popul_data.trace_timestamps >= 0 & ...
+                            popul_data.trace_timestamps < 1);
+        [offset_r, offset_c] = find(popul_data.trace_timestamps >= 1);
+        
+        norm_spec_pow = popul_data.ab_norm_pow_spec;
+
+        % Calculate the average spectra across these periods into PSDs, overlay on the same plot
+        base_psd = squeeze(mean(norm_spec_pow(:, unique(base_r), :), 2, 'omitnan'));
+        avg_base_psd = mean(base_psd, 2, 'omitnan');
+        std_base_psd = std(base_psd, 0, 2, 'omitnan');
+        sem_base_psd = std_base_psd./sqrt(size(base_psd, 2));
+
+        stim_psd = squeeze(mean(norm_spec_pow(:, unique(stim_r), :), 2, 'omitnan'));
+        avg_stim_psd = mean(stim_psd, 2, 'omitnan');
+        std_stim_psd = std(stim_psd, 0, 2, 'omitnan');
+        sem_stim_psd = std_stim_psd./sqrt(size(stim_psd, 2));
+
+        offset_psd = squeeze(mean(norm_spec_pow(:, unique(offset_r), :), 2, 'omitnan'));
+        avg_offset_psd = mean(offset_psd, 2, 'omitnan');
+        std_offset_psd = std(offset_psd, 0, 2, 'omitnan');
+        sem_offset_psd = std_offset_psd./sqrt(size(offset_psd, 2));
+
+        % Plot all of the psds
+        figure('Renderer', 'Painters', 'Units', 'centimeters', 'Position', [2 2 10 10]);
+        ax = gca;
+        ax.Units = 'Centimeters';
+        ax.InnerPosition = [1 1 5 2.3];
+
+        freqs = nanmean(popul_data.neuron_rawvm_spec_freq(:, :, nr_idxs), 3);
+        f = fill([freqs; flip(freqs)], [avg_base_psd + sem_base_psd; ...
+            flipud(avg_base_psd - sem_base_psd)], [0.5 0.5 0.5], 'HandleVisibility','off');
+        hold on;
+        Multi_func.set_fill_properties(f);
+        plot(freqs, avg_base_psd, 'Color', Multi_func.base_color, 'DisplayName', 'Base');
+        hold on;
+        f = fill([freqs; flip(freqs)], [avg_stim_psd + sem_stim_psd; ...
+            flipud(avg_stim_psd - sem_stim_psd)], [0.5 0.5 0.5], 'HandleVisibility','off');
+        hold on;
+        Multi_func.set_fill_properties(f);
+        plot(freqs, avg_stim_psd, 'Color', Multi_func.stim_color, 'DisplayName', 'Stim');
+        hold on;
+        f = fill([freqs; flip(freqs)], [avg_offset_psd + sem_offset_psd; ...
+            flipud(avg_offset_psd - sem_offset_psd)], [0.5 0.5 0.5], 'HandleVisibility','off');
+        hold on;
+        Multi_func.set_fill_properties(f);
+        plot(freqs, avg_offset_psd, 'Color', Multi_func.post_color, 'DisplayName', 'Offset');
+        Multi_func.set_default_axis(gca);
+        legend();
+        xlabel('Frequency (Hz)');
+        ylabel('Power change (A.U.)');
+        title(['PSD of ' f_region ' ' f_stim], 'Interpreter', 'none');
+        xlim([0 20]);
+
+        % Filename for power spectra density
+        saveas(gcf, [figure_path 'Spectra/' f_region '_' f_stim '_A_B_Normalization_PSD.png']);
+        saveas(gcf, [figure_path 'Spectra/' f_region '_' f_stim '_A_B_Normalization_PSD.pdf']);
+        saveas(gcf, [figure_path 'Spectra/' f_region '_' f_stim '_A_B_Normalization_PSD.eps'], 'epsc');
+    end
+end
+
 
 %% Subthreshold time series spectra with (x - A)/(A + B) normalization for each neuron and 
 % zoom in on the 50 Hz
@@ -352,7 +469,7 @@ for f_region = fieldnames(region_data)'
 end
 
 
-% Period spectrum  with (x - A)/(A + B) normalization for each neuron and 
+%% Period spectrum  with (x - A)/(A + B) normalization for each neuron and 
 % Averaged afterwards
 for f_region = fieldnames(region_data)'
     f_region = f_region{1};
@@ -469,7 +586,7 @@ for f_region = fieldnames(region_data)'
     saveas(gcf, [figure_path 'Spectra/' f_region '_A_B_Normalization_trans_sus_Spectrum.eps'], 'epsc');
 end
 
-%% Period spectrum of Raw Sub Vm
+%% (Deprecated) Updated method is in a higher section -- Period spectrum of Raw Sub Vm
 for f_region = fieldnames(region_data)'
     f_region = f_region{1};
     data_bystim = region_data.(f_region);
