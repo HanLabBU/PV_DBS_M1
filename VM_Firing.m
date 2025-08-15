@@ -1,7 +1,7 @@
 clear all;
 close all;
 f = filesep;
-
+warning('off', 'all');
 %% USER Modification
 % Linux server
 local_root_path = '~/Projects/';
@@ -98,13 +98,14 @@ for f_region = fieldnames(region_data)'
         catch ME
             disp(ME.message);
         end
-
-        cur_win_srate = 50;
+        
+        % 50 Has been used for the paper
+        cur_win_srate = 3;
         timeline = nanmean(popul_data.trace_timestamps, 2);
-        cur_srate = mean(popul_data.neuron_srate_50(:, nr_idxs), 2, 'omitnan');
-        std_srate = std(popul_data.neuron_srate_50(:, nr_idxs), 0, 2, 'omitnan');
-        num_neurons = size(popul_data.neuron_srate_50(:, nr_idxs), 2);
-        %num_points = size(data_bystim.(f_stim).neurons_srate_50, 1);
+        cur_srate = mean(popul_data.neuron_srate_3(:, nr_idxs), 2, 'omitnan');
+        std_srate = std(popul_data.neuron_srate_3(:, nr_idxs), 0, 2, 'omitnan');
+        num_neurons = size(popul_data.neuron_srate_3(:, nr_idxs), 2);
+        %num_points = size(data_bystim.(f_stim).neurons_srate_3, 1);
         sem_srate = std_srate./sqrt(num_neurons);
         nexttile;
     
@@ -132,25 +133,43 @@ for f_region = fieldnames(region_data)'
         hold on;
         plot(timeline, cur_srate, 'k', 'LineWidth', 0.3);
         hold on;
-        
+ 
+        %DEBUG find the bottom plot of the points
+        if strcmp(f_region, 'r_V1') == 1 &&  strcmp(f_stim, 'f_40') == 1
+        %    min_val = min(cur_srate - sem_srate);
+        %    yline(min_val, 'r|', 'LineWidth', 4);
+        %    y.Limits
+        end
+
         % Some axis stuff
         a = gca; y = a.YAxis;
         Multi_func.set_default_axis(gca);
+
  
         % Determine parameters based on what is being plotted
-        if strcmp(f_region, 'r_combine') == 1
-            Multi_func.plot_dbs_bar([0, 1], 7, [f_stim(3:end) 'Hz DBS']);
+        if strcmp(f_region, 'r_combine') == 1 && cur_win_srate == 50
+            Multi_func.plot_dbs_bar([0, 1], 7, [f_stim(3:end) ' Hz DBS']);
             y.Limits = [-2 8];
             Multi_func.set_spacing_axis(y, 2, 1);
-        elseif strcmp(f_region, 'r_M1') == 1
-            Multi_func.plot_dbs_bar([0, 1], 4, [f_stim(3:end) 'Hz DBS']);
+        elseif strcmp(f_region, 'r_M1') == 1 && cur_win_srate == 50
+            Multi_func.plot_dbs_bar([0, 1], 4, [f_stim(3:end) ' Hz DBS']);
             y.Limits = [-2 5];
             Multi_func.set_spacing_axis(y, 2, 1);
-        elseif strcmp(f_region, 'r_V1') == 1
-            Multi_func.plot_dbs_bar([0, 1], 18, [f_stim(3:end) 'Hz DBS']);
+        elseif strcmp(f_region, 'r_V1') == 1 && cur_win_srate == 50
+            Multi_func.plot_dbs_bar([0, 1], 18, [f_stim(3:end) ' Hz DBS']);
             y.Limits = [-5 20];
             Multi_func.set_spacing_axis(y, 5, 1);
+        
+        elseif strcmp(f_region, 'r_V1') == 1 && strcmp(f_stim, 'f_40') == 1
+            min_val = min(cur_srate - sem_srate);
+            y.Limits(1) = min_val;
         end
+
+        if cur_win_srate == 3
+            Multi_func.plot_dbs_bar([0, 1], y.Limits(2), [f_stim(3:end) ' Hz DBS']);
+        end
+        
+
 
         xlabel('Time from stim onset (s)');
         
@@ -185,7 +204,6 @@ for f_region = fieldnames(region_data)'
     stims = fieldnames(data_bystim);
     
     figure('Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
-    fontsize(gcf, 7, "points")
     tiledlayout(1, length(stims), 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 20, 17.56, 2.80]);
     for f_stim=stims'
         f_stim = f_stim{1};
@@ -212,11 +230,20 @@ for f_region = fieldnames(region_data)'
 
         timeline = nanmean(popul_data.trace_timestamps, 2);
         norm_vms = popul_data.neuron_RawVm(:, nr_idxs)./popul_data.neuron_spike_amp(nr_idxs);
+        % Baseline subtract each neuron's baseline from itself
+        base_idx = find(mean(popul_data.trace_timestamps, 2) < 0);
+        pop_base = mean(norm_vms(base_idx, :), 1);
+        norm_vms = norm_vms - pop_base;
         cur_Vm = mean(norm_vms, 2, 'omitnan');
         std_Vm = std(norm_vms, 0, 2, 'omitnan');
         num_neurons = size(norm_vms, 2);
         sem_Vm = std_Vm./sqrt(num_neurons);
         %num_points = size(data_bystim.(f_stim{1}).neuron_RawVm, 1);
+
+        % Print out the number of neurons for each condition
+        disp([f_region ' ' f_stim]);
+        num_neurons
+
         nexttile;
         
         % Plot the transient and sustained rectangle squares
@@ -255,7 +282,7 @@ for f_region = fieldnames(region_data)'
         end
         
         % Plot a DBS bar generically
-        Multi_func.plot_dbs_bar([0, 1], max(cur_Vm)+ 0.3, [f_stim(3:end) 'Hz DBS']);
+        Multi_func.plot_dbs_bar([0, 1], max(cur_Vm)+ 0.3, [f_stim(3:end) ' Hz DBS']);
 
         % Determine limits based on what is plotted
         %if strcmp(f_region, 'r_M1') == 1
@@ -274,17 +301,24 @@ for f_region = fieldnames(region_data)'
         ylabel('Normalized Vm');
         xlabel('Time from stim onset (s)');
     end
+
+    %fontsize(7, "points")
     sgtitle([f_region(3:end) ' ' nr_pop ' Average Vm'], 'Interpreter', 'none');
+    
     saveas(gcf, [figure_path 'Average/' f_region '_' nr_pop '_Average_Raw_Vm.png']);
     saveas(gcf, [figure_path 'Average/' f_region '_' nr_pop '_Average_Raw_Vm.pdf']);
+    savefig(gcf, [figure_path 'Average/' f_region '_' nr_pop '_Average_Raw_Vm.fig']);
     %saveas(gcf, [figure_path 'Average/' f_region '_Average_sub_thres.eps']);
 end
 
 
-%% Violin plots sub vm transient and sustained periods
+%% Violin plots Vm transient and sustained periods
 % Determine which neuron population to use
 nr_pop = 'all_mod';
 %nr_pop = 'non_mod';
+%nr_pop = 'vm_act';
+%nr_pop = 'vm_sup';
+%nr_pop = 'vm_non_mod';
 
 % Struct to identify each group of data
 sub_vm_stat_data = struct();
@@ -305,11 +339,39 @@ for f_region = fieldnames(region_data)'
         
         % Determine specific neuron population to plot
         try
+            % Store neurons based on their Vm modulation
+            nr_trans_act = find([popul_data.Vm_trans_mod_stats.mod] > 0); 
+            nr_sus_act = find([popul_data.Vm_sus_mod_stats.mod] > 0);
+
+            nr_trans_sup = find([popul_data.Vm_trans_mod_stats.mod] < 0); 
+            nr_sus_sup = find([popul_data.Vm_sus_mod_stats.mod] < 0);
+
+            nr_non = find([popul_data.Vm_trans_mod_stats.mod] == 0 ...
+                & [popul_data.Vm_sus_mod_stats.mod] == 0);
+
+            % Consider activated neurons that have sustained activation, or transient activation that do not have sustained suppression
+            nr_act = nr_sus_act;
+            nr_act = unique([nr_act, setdiff(nr_trans_act, nr_sus_sup)]);
+            
+            % Consider suppressed neurons that have sustained suppression, or transient suppression without sustained activation
+            nr_sup = nr_sus_sup;
+            nr_sup = unique([nr_sup, setdiff(nr_trans_sup, nr_sus_act)]);
+            
+            % Remove the neurons that were non-modulated at all
+            non_mod_nr = find(sum(popul_data.mod_matrix, 2) == 0);
+            nr_non = nr_non(~ismember(nr_non, non_mod_nr));
+ 
             switch nr_pop
                 case 'all_mod'
                     nr_idxs = find(sum(popul_data.mod_matrix, 2) > 0);
                 case 'non_mod'
                     nr_idxs = find(sum(popul_data.mod_matrix, 2) == 0);
+                case 'vm_act'
+                    nr_idxs = nr_act;
+                case 'vm_sup'
+                    nr_idxs = nr_sup;
+                case 'vm_non_mod'
+                    nr_idxs = nr_non;
             end
         catch ME
             disp(ME.message);
@@ -323,32 +385,93 @@ for f_region = fieldnames(region_data)'
         nexttile;
 
         % Normalize the Vm
-        norm_vms = popul_data.neuron_RawVm(:, nr_idxs)./popul_data.neuron_spike_amp(:, nr_idxs);
+        %norm_vms = popul_data.neuron_RawVm(:, nr_idxs)./popul_data.neuron_spike_amp(:, nr_idxs);
         
-        tim_stamp = popul_data.trace_timestamps(:, nr_idxs);
-        [trans_r, trans_c] = find(tim_stamp > Multi_func.trans_ped(1)/1000 & tim_stamp < Multi_func.trans_ped(2)/1000);
-        [sus_r, sus_c] = find(tim_stamp > Multi_func.sus_ped(1)/1000 & tim_stamp < Multi_func.sus_ped(2)/1000);
-        [base_r, base_c] = find(tim_stamp > Multi_func.base_ped(1)/1000 & tim_stamp < Multi_func.base_ped(2)/1000);
-        
-        base_r = unique(base_r);
-        base_c = unique(base_c);
-        trans_r = unique(trans_r);
-        trans_c = unique(trans_c);
-        sus_r = unique(sus_r);
-        sus_c = unique(sus_c);
+        % %TODO need to change to use the adjusted baseline for transient and sustained
+        %tim_stamp = popul_data.trace_timestamps(:, nr_idxs);
+        %[trans_r, trans_c] = find(tim_stamp > Multi_func.trans_ped(1)/1000 & tim_stamp < Multi_func.trans_ped(2)/1000);
+        %[sus_r, sus_c] = find(tim_stamp > Multi_func.sus_ped(1)/1000 & tim_stamp < Multi_func.sus_ped(2)/1000);
+        %[base_r, base_c] = find(tim_stamp > Multi_func.base_ped(1)/1000 & tim_stamp < Multi_func.base_ped(2)/1000);
+        %
+        %base_r = unique(base_r);
+        %base_c = unique(base_c);
+        %trans_r = unique(trans_r);
+        %trans_c = unique(trans_c);
+        %sus_r = unique(sus_r);
+        %sus_c = unique(sus_c);
 
-        % Find the base values and then reshape the array to maintain length
-        neuron_base_vm = nanmean(norm_vms(base_r, base_c), 1);
-        neuron_trans_vm = nanmean(norm_vms(trans_r, trans_c), 1) - neuron_base_vm;
-        neuron_sus_vm = nanmean(norm_vms(sus_r, sus_c), 1) - neuron_base_vm;
+        % % Find the base values and then reshape the array to maintain length
+        %neuron_base_vm = nanmean(norm_vms(base_r, base_c), 1);
+        %neuron_trans_vm = nanmean(norm_vms(trans_r, trans_c), 1) - neuron_base_vm;
+        %neuron_sus_vm = nanmean(norm_vms(sus_r, sus_c), 1) - neuron_base_vm;
 
-        num_neurons = size(neuron_trans_vm, 2);
+        %num_neurons = size(neuron_trans_vm, 2);
  
+        % Store the number of neurons
+        num_neurons = length(nr_idxs);
+        
+        % Grab the Vm from all neurons
+        all_vm = popul_data.all_trial_rawVm(nr_idxs);
+        all_sp_amp = num2cell(popul_data.neuron_spike_amp(:, nr_idxs));
+        all_vm = cellfun(@(vm, sp_amp) vm./sp_amp, all_vm, all_sp_amp, 'UniformOutput', false);
+
+        % Store the neuron timestamps into a cell array for compatibility with cellfun()
+        tim_stamp = popul_data.trace_timestamps(:, nr_idxs);
+        tim_stamp = mat2cell(tim_stamp, size(tim_stamp, 1), ones(1, size(tim_stamp, 2) ) );
+
+        % Calculate the vm for the given period
+        calc_vm = @(nr_vm, idxs) mean(nr_vm(idxs, :), 1);
+
+        % Get the baseline idxs for transient period reflected over the onset into the baseline
+        %get_trans_base_idx = @(times) find(times >= 0 - Multi_func.trans_ped(2)/1000 & times < 0 - Multi_func.trans_ped(1)/1000);
+        %base_trans_idx = cellfun(get_trans_base_idx, tim_stamp, 'UniformOutput', false);
+        
+        % Baseline is 500 ms previous of onset
+        get_trans_base_idx = @(times) find(times > Multi_func.base_ped(1)/1000 & times < Multi_func.base_ped(2)/1000);
+        base_trans_idx = cellfun(get_trans_base_idx, tim_stamp, 'UniformOutput', false);
+        
+        % Get the stim idxs for the transient period
+        get_trans_stim_idx = @(times) find(times >= 0 + Multi_func.trans_ped(1)/1000 & times < 0 + Multi_func.trans_ped(2)/1000);
+        stim_trans_idx = cellfun(get_trans_stim_idx, tim_stamp, 'UniformOutput', false);
+
+        % Calculate the vm for the transient period
+        base_vm = cellfun(calc_vm, all_vm, base_trans_idx, 'UniformOutput', false);
+        stim_vm = cellfun(calc_vm, all_vm, stim_trans_idx, 'UniformOutput', false);
+        
+        pop_trans_vms = cellfun(@(b_vm, s_vm) mean(s_vm - b_vm), base_vm, stim_vm, 'UniformOutput', false);
+        pop_trans_vms = cell2mat(pop_trans_vms);
+
+
+        % Get the baseline idxs for sustained period reflected over the onset into the baseline
+        %get_sus_base_idx = @(times) find(times >= 0 - Multi_func.sus_ped(2)/1000 & times < 0 - Multi_func.sus_ped(1)/1000);
+        %base_sus_idx = cellfun(get_sus_base_idx, tim_stamp, 'UniformOutput', false);
+        
+        % Baseline is the 500 ms previous of onset
+        get_sus_base_idx = @(times) find(times > Multi_func.base_ped(1)/1000 & times < Multi_func.base_ped(2)/1000 );
+        base_sus_idx = cellfun(get_sus_base_idx, tim_stamp, 'UniformOutput', false);
+
+        % Get the stim idxs for the sustained period
+        get_sus_stim_idx = @(times) find(times >= 0 + Multi_func.sus_ped(1)/1000 & times < 0 + Multi_func.sus_ped(2)/1000);
+        stim_sus_idx = cellfun(get_sus_stim_idx, tim_stamp, 'UniformOutput', false);
+
+        % Calculate the firing rate for the sustained period
+        base_vm = cellfun(calc_vm, all_vm, base_sus_idx, 'UniformOutput', false);
+        stim_vm = cellfun(calc_vm, all_vm, stim_sus_idx, 'UniformOutput', false);
+
+        pop_sus_vms = cellfun(@(b_vm, s_vm) mean(s_vm - b_vm), base_vm, stim_vm, 'UniformOutput', false);
+        pop_sus_vms = cell2mat(pop_sus_vms);
+        
+        % Initial p-value testing for each period
+        disp([f_region ' ' f_stim ]);
+        % Testing the sign stuff here
+        trans_vm_p = signtest(pop_trans_vms)
+        sus_vm_p = signtest(pop_sus_vms)
+
         % Plot violins
         labels = [];
         data = [];
-        labels = [labels; repmat({'Trans'}, num_neurons, 1); repmat({'Sus'}, num_neurons, 1)];
-        data = [data; neuron_trans_vm', neuron_sus_vm'];
+        labels = [repmat({'Trans'}, num_neurons, 1); repmat({'Sus'}, num_neurons, 1)];
+        data = [pop_trans_vms'; pop_sus_vms'];
  
         ViolinOpts = Multi_func.get_default_violin();
         violins = violinplot(data, labels, 'GroupOrder', {'Trans', 'Sus'}, ViolinOpts);
@@ -370,26 +493,26 @@ for f_region = fieldnames(region_data)'
         Multi_func.set_default_axis(gca);
 
         
-        %y.Limits = [-1.5, 2];
-        %Multi_func.set_spacing_axis(y, 1, 2);
+        y.Limits = [-1.5, 2];
+        Multi_func.set_spacing_axis(y, 1, 2);
         % Old way of setting axis limits
         % Determine parameters based on what is being plotted
-        if strcmp(f_region, 'r_combine') == 1
-            y.Limits = [-2 8];
-            Multi_func.set_spacing_axis(y, 4, 1);
-        elseif strcmp(f_region, 'r_M1') == 1
-            y.Limits = [-1.5 2];
-            %Multi_func.set_spacing_axis(y, 10, 1);
-        elseif strcmp(f_region, 'r_V1') == 1
-            y.Limits = [-1 2];
-            Multi_func.set_spacing_axis(y, 1, 1);
-        end
+        %if strcmp(f_region, 'r_combine') == 1
+        %    y.Limits = [-2 8];
+        %    Multi_func.set_spacing_axis(y, 4, 1);
+        %elseif strcmp(f_region, 'r_M1') == 1
+        %    y.Limits = [-1.5 2];
+        %    %Multi_func.set_spacing_axis(y, 10, 1);
+        %elseif strcmp(f_region, 'r_V1') == 1
+        %    y.Limits = [-1 2];
+        %    Multi_func.set_spacing_axis(y, 1, 1);
+        %end
 
         title([f_stim(3:end) ' Hz DBS']);
         ylabel('Normalized Vm Change');
 
-        sub_vm_stat_data.(f_region).(f_stim).trans_vm = neuron_trans_vm;
-        sub_vm_stat_data.(f_region).(f_stim).sus_vm = neuron_sus_vm;
+        sub_vm_stat_data.(f_region).(f_stim).trans_vm.(nr_pop) = pop_trans_vms;
+        sub_vm_stat_data.(f_region).(f_stim).sus_vm.(nr_pop) = pop_sus_vms;
     end
     
     sgtitle([f_region(3:end) ' Vm Violins'], 'Interpreter', 'none');
@@ -398,66 +521,14 @@ for f_region = fieldnames(region_data)'
     %saveas(gcf, [figure_path 'Average/' f_region '_population_comp_Vm_violin.eps'], 'epsc');
 end
 
-%% Make Violin plots on Subthreshold Vm for stimulation period
-for f_region = fieldnames(region_data)'
-    f_region = f_region{1};
-    data_bystim = region_data.(f_region);
-    stims = fieldnames(data_bystim);
-    
-    figure('Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
-    tiledlayout(1, length(stims), 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 20, 5, 3]);
-    for f_stim=stims'
-        nexttile;
-        % Plot violins
-        labels = [];
-        data = [];
-        f_stim = f_stim{1};
-        num_neurons = length(data_bystim.(f_stim).neuron_stim_Vm);
-        labels = [labels; repmat({'Stim'}, num_neurons, 1)];
-        data = [data; data_bystim.(f_stim).neuron_stim_Vm'];
- 
-        ViolinOpts = Multi_func.get_default_violin();
-        violins = violinplot(data, labels, 'GroupOrder', {'Stim'}, ViolinOpts);
-
-        violins(1).ViolinColor = {Multi_func.stim_color};
-
-        hold on;
-
-        % Plot individual lines between violins
-        %plot([1, 2], data, '-', 'Color', [0 0 0 0.2]);
-        %hold on;
-        Multi_func.set_default_axis(gca);
-        title([f_stim(3:end) ' Hz DBS']);
-        ylabel('Vm Change');
-        
-        % Change axis cosmetics
-        a = gca; y = a.YAxis;
-        Multi_func.set_default_axis(gca);
-        % Determine parameters based on what is being plotted
-        if strcmp(f_region, 'r_combine') == 1
-            y.Limits = [-10 40];
-            Multi_func.set_spacing_axis(y, 4, 1);
-        elseif strcmp(f_region, 'r_M1') == 1
-            y.Limits = [-8 20];
-            Multi_func.set_spacing_axis(y, 10, 1);
-        elseif strcmp(f_region, 'r_V1') == 1
-            y.Limits = [-5 45];
-            Multi_func.set_spacing_axis(y, 20, 1);
-        end
-
-        sub_vm_stat_data.(f_region).(f_stim).stim_vm = data_bystim.(f_stim).neuron_stim_Vm;
-    end
-    
-    sgtitle([f_region(3:end) ' Sub Vm Violins'], 'Interpreter', 'none');
-    saveas(gcf, [figure_path 'Average/' f_region '_population_comp_stim_Vm_violin.png']);
-    saveas(gcf, [figure_path 'Average/' f_region '_population_comp_stim_Vm_violin.pdf']);
-    %saveas(gcf, [figure_path 'Average/' f_region '_population_comp_Vm_violin.eps'], 'epsc');
-end
-
 %% Violin plots firing rate transient and sustained periods
 % Determine which neuron population to use
+
 nr_pop = 'all_mod';
 %nr_pop = 'non_mod';
+%nr_pop = 'vm_act';
+%nr_pop = 'vm_sup';
+%nr_pop = 'vm_non_mod';
 
 % Struct to identify each group of data
 fr_stat_data = struct();
@@ -478,11 +549,39 @@ for f_region = fieldnames(region_data)'
         
         % Determine specific neuron population to plot
         try
+            % Store neurons based on their Vm modulation
+            nr_trans_act = find([popul_data.Vm_trans_mod_stats.mod] > 0); 
+            nr_sus_act = find([popul_data.Vm_sus_mod_stats.mod] > 0);
+
+            nr_trans_sup = find([popul_data.Vm_trans_mod_stats.mod] < 0); 
+            nr_sus_sup = find([popul_data.Vm_sus_mod_stats.mod] < 0);
+
+            nr_non = find([popul_data.Vm_trans_mod_stats.mod] == 0 ...
+                & [popul_data.Vm_sus_mod_stats.mod] == 0);
+
+            % Consider activated neurons that have sustained activation, or transient activation that do not have sustained suppression
+            nr_act = nr_sus_act;
+            nr_act = unique([nr_act, setdiff(nr_trans_act, nr_sus_sup)]);
+            
+            % Consider suppressed neurons that have sustained suppression, or transient suppression without sustained activation
+            nr_sup = nr_sus_sup;
+            nr_sup = unique([nr_sup, setdiff(nr_trans_sup, nr_sus_act)]);
+            
+            % Remove the neurons that were non-modulated at all
+            non_mod_nr = find(sum(popul_data.mod_matrix, 2) == 0);
+            nr_non = nr_non(~ismember(nr_non, non_mod_nr));
+
             switch nr_pop
                 case 'all_mod'
                     nr_idxs = find(sum(popul_data.mod_matrix, 2) > 0);
                 case 'non_mod'
                     nr_idxs = find(sum(popul_data.mod_matrix, 2) == 0);
+                case 'vm_act'
+                    nr_idxs = nr_act;
+                case 'vm_sup'
+                    nr_idxs = nr_sup;
+                case 'vm_non_mod'
+                    nr_idxs = nr_non;
             end
         catch ME
             disp(ME.message);
@@ -494,16 +593,181 @@ for f_region = fieldnames(region_data)'
         end
 
         nexttile;
+
+        % Calculate the spike rate stuff with the smoothed continuous rate, transient was different, but sustained was basically the same
+        % probably because it averages across a large area
+        
+%        % Store the number of neurons
+%        num_neurons = length(nr_idxs);
+%        
+%        % Grab the FR from all neurons
+%        all_fr = popul_data.neuron_srate_50(:, nr_idxs);
+%        all_fr = num2cell(all_fr, 1);
+%
+%        % Store the neuron timestamps into a cell array for compatibility with cellfun()
+%        tim_stamp = popul_data.trace_timestamps(:, nr_idxs);
+%        tim_stamp = mat2cell(tim_stamp, size(tim_stamp, 1), ones(1, size(tim_stamp, 2) ) );
+%
+%        % Calculate the fr for the given period
+%        calc_fr = @(nr_fr, idxs) mean(nr_fr(idxs, :), 1);
+%
+%
+%        % Get the baseline idxs for transient period
+%        % This is the real one
+%        get_trans_base_idx = @(times) find(times >= 0 - Multi_func.trans_ped(2)/1000 & times < 0 - Multi_func.trans_ped(1)/1000);
+%        base_trans_idx = cellfun(get_trans_base_idx, tim_stamp, 'UniformOutput', false);
+%        
+%        % DEBUGGING checking with 500 ms previous of onset
+%        %get_trans_base_idx = @(times) find(times > 0 - (500/1000) & times < 0);
+%        %base_trans_idx = cellfun(get_trans_base_idx, tim_stamp, 'UniformOutput', false);
+%        
+%        % Get the stim idxs for the transient period
+%        get_trans_stim_idx = @(times) find(times >= 0 + Multi_func.trans_ped(1)/1000 & times < 0 + Multi_func.trans_ped(2)/1000);
+%        stim_trans_idx = cellfun(get_trans_stim_idx, tim_stamp, 'UniformOutput', false);
+%
+%        % Calculate the fr for the transient period
+%        base_fr = cellfun(calc_fr, all_fr, base_trans_idx, 'UniformOutput', false);
+%        stim_fr = cellfun(calc_fr, all_fr, stim_trans_idx, 'UniformOutput', false);
+%        
+%        pop_trans_frs = cellfun(@(b_fr, s_fr) s_fr - b_fr, base_fr, stim_fr, 'UniformOutput', false);
+%        pop_trans_frs = cell2mat(pop_trans_frs);
+%
+%        % Get the baseline idxs for sustained period
+%        %This is the real one
+%        get_sus_base_idx = @(times) find(times >= 0 - Multi_func.sus_ped(2)/1000 & times < 0 - Multi_func.sus_ped(1)/1000);
+%        base_sus_idx = cellfun(get_sus_base_idx, tim_stamp, 'UniformOutput', false);
+%        
+%        % DEBUGGING checking with the 500 ms previous of onset
+%        %get_sus_base_idx = @(times) find(times > 0 - 500/1000 & times < 0 );
+%        %base_sus_idx = cellfun(get_sus_base_idx, tim_stamp, 'UniformOutput', false);
+%
+%        % Get the stim idxs for the sustained period
+%        get_sus_stim_idx = @(times) find(times >= 0 + Multi_func.sus_ped(1)/1000 & times < 0 + Multi_func.sus_ped(2)/1000);
+%        stim_sus_idx = cellfun(get_sus_stim_idx, tim_stamp, 'UniformOutput', false);
+%
+%        % Calculate the firing rate for the sustained period
+%        base_fr = cellfun(calc_fr, all_fr, base_sus_idx, 'UniformOutput', false);
+%        stim_fr = cellfun(calc_fr, all_fr, stim_sus_idx, 'UniformOutput', false);
+%
+%        pop_sus_frs = cellfun(@(b_fr, s_fr) s_fr - b_fr, base_fr, stim_fr, 'UniformOutput', false);
+%        pop_sus_frs = cell2mat(pop_sus_frs);
+%        
+%        % Initial p-value testing for each period
+%        disp([f_region ' ' f_stim ]);
+%        % Testing the sign stuff here
+%        trans_fr_p = signtest(pop_trans_frs)
+%        sus_fr_p = signtest(pop_sus_frs)
+
+
+
+
+        % Calculate firing rate with the sum of spike events per the time of the area
+        
+        % Grab the baseline and period timestamp idxs
+        %a Old way of calculating the transient and sustained period values
+        %tim_stamp = popul_data.trace_timestamps(:, nr_idxs);
+        %[trans_r, trans_c] = find(tim_stamp > Multi_func.trans_ped(1)/1000 & tim_stamp < Multi_func.trans_ped(2)/1000);
+        %[sus_r, sus_c] = find(tim_stamp > Multi_func.sus_ped(1)/1000 & tim_stamp < Multi_func.sus_ped(2)/1000);
+        %[base_r, base_c] = find(tim_stamp > Multi_func.base_ped(1)/1000 & tim_stamp < Multi_func.base_ped(2)/1000);
+        %
+        %base_r = unique(base_r);
+        %base_c = unique(base_c);
+        %trans_r = unique(trans_r);
+        %trans_c = unique(trans_c);
+        %sus_r = unique(sus_r);
+        %sus_c = unique(sus_c);
+
+        % Store the number of neurons
+        num_neurons = length(nr_idxs);
+
+        % Grab the spike raster
+        all_sp = popul_data.all_trial_spike_rasters(nr_idxs);
+
+        % Store the neuron timestamps into a cell array for compatibility with cellfun()
+        tim_stamp = popul_data.trace_timestamps(:, nr_idxs);
+        tim_stamp = mat2cell(tim_stamp, size(tim_stamp, 1), ones(1, size(tim_stamp, 2) ) );
+
+        % Calculate the spike rate for the given period
+        calc_fr = @(nr_sp, idxs, times) sum(nr_sp(idxs, :), 1)./( range(times(idxs), 1 ) ); 
+
+        % Get the baseline idxs for transient period reflected over the onset into the baseline
+        %get_trans_base_idx = @(times) find(times >= 0 - Multi_func.trans_ped(2)/1000 & times < 0 - Multi_func.trans_ped(1)/1000);
+        %base_trans_idx = cellfun(get_trans_base_idx, tim_stamp, 'UniformOutput', false);
+        
+        % Get the baseline as the 500 ms right before onset
+        get_trans_base_idx = @(times) find(times > Multi_func.base_ped(1)/1000 & times < Multi_func.base_ped(2)/1000);
+        base_trans_idx = cellfun(get_trans_base_idx, tim_stamp, 'UniformOutput', false);
+
+        % Get the stim idxs for the transient period
+        get_trans_stim_idx = @(times) find(times >= 0 + Multi_func.trans_ped(1)/1000 & times < 0 + Multi_func.trans_ped(2)/1000);
+        stim_trans_idx = cellfun(get_trans_stim_idx, tim_stamp, 'UniformOutput', false);
+
+        % Calculate the firing rate for the transient period
+        base_fr = cellfun(calc_fr, all_sp, base_trans_idx, tim_stamp, 'UniformOutput', false);
+        stim_fr = cellfun(calc_fr, all_sp, stim_trans_idx, tim_stamp, 'UniformOutput', false);
+        
+        pop_trans_frs = cellfun(@(b_fr, s_fr) mean(s_fr - b_fr), base_fr, stim_fr, 'UniformOutput', false);
+        pop_trans_frs = cell2mat(pop_trans_frs);
+ 
+
+        % Get the baseline idxs for sustained period reflected over the onset into the baseline
+        %get_sus_base_idx = @(times) find(times >= 0 - Multi_func.sus_ped(2)/1000 & times < 0 - Multi_func.sus_ped(1)/1000);
+        %base_sus_idx = cellfun(get_sus_base_idx, tim_stamp, 'UniformOutput', false);
+        
+        % Check the 500 ms just before onset
+        get_sus_base_idx = @(times) find(times > Multi_func.base_ped(1)/1000 & times < Multi_func.base_ped(2)/1000 );
+        base_sus_idx = cellfun(get_sus_base_idx, tim_stamp, 'UniformOutput', false);
+
+        % Get the stim idxs for the sustained period
+        get_sus_stim_idx = @(times) find(times >= 0 + Multi_func.sus_ped(1)/1000 & times < 0 + Multi_func.sus_ped(2)/1000);
+        stim_sus_idx = cellfun(get_sus_stim_idx, tim_stamp, 'UniformOutput', false);
+
+        % Calculate the firing rate for the sustained period
+        base_fr = cellfun(calc_fr, all_sp, base_sus_idx, tim_stamp, 'UniformOutput', false);
+        stim_fr = cellfun(calc_fr, all_sp, stim_sus_idx, tim_stamp, 'UniformOutput', false);
+
+        pop_sus_frs = cellfun(@(b_fr, s_fr) mean(s_fr - b_fr), base_fr, stim_fr, 'UniformOutput', false);
+        pop_sus_frs = cell2mat(pop_sus_frs);
+
+        % Testing the sign stuff here
+        trans_fr_p = signtest(pop_trans_frs);
+        sus_fr_p = signtest(pop_sus_frs);
+        
+        disp([f_region ' ' f_stim ]);
+        disp(['Num neurons ' num2str(length(pop_trans_frs) )]);
+        disp(['Trans fr p=' num2str(trans_fr_p)]);
+        disp(['Sus fr p=' num2str(sus_fr_p)]);
+        fprintf('\n\n');
+        
+
+        %DEBUG
+        if strcmp(f_region, 'r_V1') == 1 && strcmp(f_stim, 'f_40') == 1
+        %    figure;
+        %    plot(ones(size(pop_trans_frs)), pop_trans_frs', '.');
+        %    title('trans');
+        %    
+        %    figure;
+        %    plot(ones(size(pop_sus_frs)), pop_sus_frs', '.');
+        %    title('sus');
+            
+        %    figure;
+        %    nrs_base = cell2mat(cellfun(@(x) mean(x, 'all'), base_fr, 'UniformOutput', false ) );
+        %    nrs_stim = cell2mat(cellfun(@(x) mean(x, 'all'), stim_fr, 'UniformOutput', false ) );
+        %    plot([1, 2], [nrs_base(:), nrs_stim(:)]);
+        %    error('Done plot');;
+        end
+
+
         % Plot violins
         labels = [];
         data = [];
         
-        num_neurons = length(popul_data.neuron_trans_FR(:, nr_idxs));
-        labels = [labels; repmat({'Trans'}, num_neurons, 1); repmat({'Sus'}, num_neurons, 1)];
-        data = [data; popul_data.neuron_trans_FR(:, nr_idxs)', popul_data.neuron_sus_FR(:, nr_idxs)'];
+        labels = [repmat({'Trans'}, num_neurons, 1); repmat({'Sus'}, num_neurons, 1)];
+            
+        data = [pop_trans_frs, pop_sus_frs];
         ViolinOpts = Multi_func.get_default_violin();
         violins = violinplot(data, labels, 'MedianColor', [1 0 0], 'GroupOrder', {'Trans', 'Sus'}, ViolinOpts);
-        
+
         violins(1).ViolinColor = {Multi_func.trans_color};
         violins(2).ViolinColor = {Multi_func.sus_color};
 
@@ -526,16 +790,22 @@ for f_region = fieldnames(region_data)'
             y.Limits = [-10 40];
             Multi_func.set_spacing_axis(y, 4, 1);
         elseif strcmp(f_region, 'r_M1') == 1
-            y.Limits = [-2 20];
+            y.Limits = [-6.5 20];
             Multi_func.set_spacing_axis(y, 5, 1);
         elseif strcmp(f_region, 'r_V1') == 1
-            y.Limits = [-10 70];
+            y.Limits = [-19 70];
             Multi_func.set_spacing_axis(y, 20, 1);
         end
-
+        
         %fr_stat_data.(f_region).(f_stim) = struct();
-        fr_stat_data.(f_region).(f_stim).trans_fr = popul_data.neuron_trans_FR(:, nr_idxs);
-        fr_stat_data.(f_region).(f_stim).sus_fr = popul_data.neuron_sus_FR(:, nr_idxs);
+        fr_stat_data.(f_region).(f_stim).trans_fr.(nr_pop) = pop_trans_frs;
+        fr_stat_data.(f_region).(f_stim).sus_fr.(nr_pop)= pop_sus_frs;
+
+        % Just stop for V1 and 140 Hz stim
+        %if strcmp(f_region, 'r_V1') == 1 && strcmp(f_stim, 'f_140') == 1
+        %    error('pause');
+        %end
+
     end
     
     sgtitle([f_region(3:end) ' Firing Rate Violins'], 'Interpreter', 'none');
@@ -545,7 +815,7 @@ for f_region = fieldnames(region_data)'
 end
 
 %%
-% Show violin plot on stimulation period for Firing Rate 
+% Show violin plot on "stimulation" period for Firing Rate 
 for f_region = fieldnames(region_data)'
     f_region = f_region{1};
     data_bystim = region_data.(f_region);
@@ -614,12 +884,12 @@ for f_region = fieldnames(region_data)'
 end
 
 
-%% Subthreshold Vm showing all DBS pulses
+%% All Vm showing all DBS pulses
 % Flag to determine which populations to plot
 % The variable must be set from 'single_cell_mod'
 %nr_pop = 'all';
-%nr_pop = 'etrain';
-nr_pop = 'non';
+nr_pop = 'etrain';
+%nr_pop = 'non';
 
 % Flag for removing non-modulated neurons from analysis
 remove_nonmod_nrs = 1;
@@ -630,7 +900,7 @@ for f_region = fieldnames(region_data)'
     stims = fieldnames(data_bystim);
     
     figure('Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
-    tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 20, 9, 5.23]);
+    tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 20, 9.5, 5]);
     for f_stim=stims'
         f_stim = f_stim{1};
     
@@ -722,6 +992,7 @@ for f_region = fieldnames(region_data)'
    
     saveas(gcf, [figure_path 'Average/' f_region '_' nr_pop '_Display_All_Pulse_Vm.png']);
     saveas(gcf, [figure_path 'Average/' f_region '_' nr_pop '_Display_All_Pulse_Vm.pdf']);
+    saveas(gcf, [figure_path 'Average/' f_region '_' nr_pop '_Display_All_Pulse_Vm.fig']);
     %saveas(gcf, [figure_path 'Average/' f_region '_Display_All_Pulse_Vm.eps'], 'epsc');
 end
 
@@ -730,8 +1001,8 @@ end
 % Flag to determine which populations to plot
 % The variable must be set from 'single_cell_mod'
 %nr_pop = 'all';
-%nr_pop = 'etrain';
-nr_pop = 'non';
+nr_pop = 'etrain';
+%nr_pop = 'non';
 
 % Flag for removing non-modulated neurons from analysis
 remove_nonmod_nrs = 1;
@@ -769,11 +1040,25 @@ for f_region = fieldnames(region_data)'
         end
 
         timeline = nanmean(popul_data.trace_timestamps, 2);
-        cur_srate = mean(popul_data.neuron_srate_3(:, nr_idxs), 2, 'omitnan');
-        std_srate = std(popul_data.neuron_srate_3(:, nr_idxs), 0, 2, 'omitnan');
-        num_neurons = size(popul_data.neuron_srate_3(:, nr_idxs), 2);
+        
+        Fs = mean(popul_data.framerate);
+
+        % -- Use a proper window for estimating spike rate
+        %cur_srate = mean(popul_data.neuron_srate_3(:, nr_idxs), 2, 'omitnan');
+        %std_srate = std(popul_data.neuron_srate_3(:, nr_idxs), 0, 2, 'omitnan');
+        %num_neurons = size(popul_data.neuron_srate_3(:, nr_idxs), 2);
+        %sem_srate = std_srate./sqrt(num_neurons);
+        % -- End of proper window rate
+
+        % -- Use instantaneous rate
+        cur_srate = mean(popul_data.neuron_spikecounts_raster(:, nr_idxs)*Fs, 2, 'omitnan');
+        std_srate = std(popul_data.neuron_spikecounts_raster(:, nr_idxs)*Fs, 0, 2, 'omitnan');
+        num_neurons = size(popul_data.neuron_spikecounts_raster(:, nr_idxs), 2);
         sem_srate = std_srate./sqrt(num_neurons);
+        % -- End of instantaneous rate
+
         %num_points = size(popul_data.neuron_srate, 1);
+        
         nexttile;
 
         % Plot the subthreshold srate
@@ -790,17 +1075,17 @@ for f_region = fieldnames(region_data)'
 
         % Plot the timescale bar
         posx = -.100;
-        posy = -3;
-        plot([posx, posx + 0.050], [posy posy], 'k', 'LineWidth', 0.5);
+        posy = -8;
+        plot([posx, posx + 0.050], [posy posy], 'k', 'LineWidth', 2);
         text(posx, posy - 0.5, '50ms', 'FontSize', 7);
         hold on;
 
         % Plot the srate scale
-        poxs = .2;
-        posy = 5;
-        srate_scale = 10;
-        plot([posx, posx], [posy, posy + srate_scale], 'k', 'LineWidth', 0.5);
-        text(posx - .01, posy, [num2str(srate_scale) ' FR (Hz)'], 'Rotation', 90, 'FontSize', 7);
+        poxs = -0.5;
+        posy = 400;
+        srate_scale = 100;
+        plot([posx, posx], [posy, posy + srate_scale], 'k', 'LineWidth', 2);
+        text(posx - .02, posy, [num2str(srate_scale) ' FR (Hz)'], 'Rotation', 90);
 
         % Increase timescale resolution
         xlim([0 - .100, max(stim_time) + 0.100]);
@@ -817,7 +1102,14 @@ for f_region = fieldnames(region_data)'
 end
 
 
-%% Calculate statistics for Vm and Firing Rate of Transient and Sustained Period
+%% Stats for Vm and Firing Rate of Transient and Sustained Period
+
+nr_pop = 'all_mod';
+%nr_pop = 'non_mod';
+%nr_pop = 'vm_act';
+%nr_pop = 'vm_sup';
+%nr_pop = 'vm_non_mod';
+
 % signtest for individual: trans, sus, stim
 % signrank for paired, non-independent: 140 trans vs. 140 sus
 % ranksum paired, independent distributions: 140 trans vs 40 trans
@@ -826,10 +1118,12 @@ if exist(stats_log), delete(sprintf('%s', stats_log)), end;
 diary(stats_log);
 diary off
 
+% Gonna use table instead
+stats_t = table();
+
 % Loop through each region and stimulation to perform statistical tests
 for f_region = fieldnames(sub_vm_stat_data)'
     f_region = f_region{1};
-    
         
     for f_stim = fieldnames(sub_vm_stat_data.(f_region))'
         f_stim = f_stim{1};
@@ -850,11 +1144,28 @@ for f_region = fieldnames(sub_vm_stat_data)'
 
             diary on;
             disp(['Period signtest from baseline ' f_ped]);
-            [p, h, stats] = signtest(sub_vm_stat_data.(f_region).(f_stim).(f_ped))
+            [p, h, stats] = signtest(sub_vm_stat_data.(f_region).(f_stim).(f_ped).(nr_pop))
             diary off;
-
+            
+            % Add to stats table
+            stats_t([f_region f_stim], ['vm_' f_ped ' p-val']) = {p};
+            stats_t([f_region f_stim], ['vm_' f_ped ' statistic']) = {stats.sign};
+            
             clear p, h, stats;
         end
+
+        % Perform the trans and sus comparison (Vm)
+        diary on;
+        disp(['Trans Vm vs Sustained Vm Wilcoxon signed rank'])
+        [p, h, stats] = signrank(sub_vm_stat_data.(f_region).(f_stim).trans_vm.(nr_pop), ...
+            sub_vm_stat_data.(f_region).(f_stim).sus_vm.(nr_pop))
+        diary off;
+
+        % Add to stats table
+        stats_t([f_region f_stim], 'vm trans vs sus p-value') = {p};
+        stats_t([f_region f_stim], 'vm trans vs sus statistic') = {stats.signedrank};
+
+        clear p, h, stats;
 
         % Perform individual signtests on firing rate
         for f_ped = fieldnames(fr_stat_data.(f_region).(f_stim))'
@@ -866,24 +1177,86 @@ for f_region = fieldnames(sub_vm_stat_data)'
 
             diary on;
             disp(['Period signtest from baseline ' f_ped]);
-            [p, h, stats] = signtest(fr_stat_data.(f_region).(f_stim).(f_ped))
+            [p, h, stats] = signtest(fr_stat_data.(f_region).(f_stim).(f_ped).(nr_pop))
             diary off;
+            
+            % Add to stats table
+            stats_t([f_region f_stim], ['fr_' f_ped ' p-value']) = {p};
+            stats_t([f_region f_stim], ['fr_' f_ped ' statistic']) = {stats.sign};
 
             clear p, h, stats;
         end
 
-        % Perform the trans and sus comparison (Vm)
-        diary on;
-        disp(['Trans Vm vs Sustained Vm Wilcoxon signed rank'])
-        [p, h, stats] = signrank(sub_vm_stat_data.(f_region).(f_stim).trans_vm, sub_vm_stat_data.(f_region).(f_stim).sus_vm)
-        diary off;
-
-        clear p, h, stats;
-
+        % Perform transient vs sustained firing rate comparison
         diary on;
         disp(['Trans FR vs Sustained FR Wilcoxon signed rank'])
         % Perform the trans and sus comparison (Firign Rate)
-        [p, h, stats] = signrank(fr_stat_data.(f_region).(f_stim).trans_fr, fr_stat_data.(f_region).(f_stim).sus_fr)
+        [p, h, stats] = signrank(fr_stat_data.(f_region).(f_stim).trans_fr.(nr_pop), fr_stat_data.(f_region).(f_stim).sus_fr.(nr_pop))
         diary off;
+
+        % Add to stats table
+        stats_t([f_region f_stim], 'fr trans vs sus p-value') = {p};
+        stats_t([f_region f_stim], 'fr trans vs sus statistic') = {stats.signedrank};
     end
+end
+
+disp(stats_t);
+writetable(stats_t, [figure_path 'Average' f 'Population_pvals_trans_sus_Vm_FR_stats_' nr_pop '.csv'], 'WriteRowNames', true);
+
+
+%% Make Violin plots on Subthreshold Vm for stimulation period
+
+for f_region = fieldnames(region_data)'
+    f_region = f_region{1};
+    data_bystim = region_data.(f_region);
+    stims = fieldnames(data_bystim);
+    
+    figure('Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
+    tiledlayout(1, length(stims), 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 20, 5, 3]);
+    for f_stim=stims'
+        nexttile;
+        % Plot violins
+        labels = [];
+        data = [];
+        f_stim = f_stim{1};
+        num_neurons = length(data_bystim.(f_stim).neuron_stim_Vm);
+        labels = [labels; repmat({'Stim'}, num_neurons, 1)];
+        data = [data; data_bystim.(f_stim).neuron_stim_Vm'];
+ 
+        ViolinOpts = Multi_func.get_default_violin();
+        violins = violinplot(data, labels, 'GroupOrder', {'Stim'}, ViolinOpts);
+
+        violins(1).ViolinColor = {Multi_func.stim_color};
+
+        hold on;
+
+        % Plot individual lines between violins
+        %plot([1, 2], data, '-', 'Color', [0 0 0 0.2]);
+        %hold on;
+        Multi_func.set_default_axis(gca);
+        title([f_stim(3:end) ' Hz DBS']);
+        ylabel('Vm Change');
+        
+        % Change axis cosmetics
+        a = gca; y = a.YAxis;
+        Multi_func.set_default_axis(gca);
+        % Determine parameters based on what is being plotted
+        if strcmp(f_region, 'r_combine') == 1
+            y.Limits = [-10 40];
+            Multi_func.set_spacing_axis(y, 4, 1);
+        elseif strcmp(f_region, 'r_M1') == 1
+            y.Limits = [-8 20];
+            Multi_func.set_spacing_axis(y, 10, 1);
+        elseif strcmp(f_region, 'r_V1') == 1
+            y.Limits = [-5 45];
+            Multi_func.set_spacing_axis(y, 20, 1);
+        end
+
+        sub_vm_stat_data.(f_region).(f_stim).stim_vm = data_bystim.(f_stim).neuron_stim_Vm;
+    end
+    
+    sgtitle([f_region(3:end) ' Sub Vm Violins'], 'Interpreter', 'none');
+    saveas(gcf, [figure_path 'Average/' f_region '_population_comp_stim_Vm_violin.png']);
+    saveas(gcf, [figure_path 'Average/' f_region '_population_comp_stim_Vm_violin.pdf']);
+    %saveas(gcf, [figure_path 'Average/' f_region '_population_comp_Vm_violin.eps'], 'epsc');
 end
