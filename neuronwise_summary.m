@@ -333,7 +333,6 @@ for f_region = fieldnames(region_data)'
         saveas(gcf, [figure_path 'Neuronwise/' f_region '_' f_stim '_Neuronwise_Plot.png']);
         saveas(gcf, [figure_path 'Neuronwise/' f_region '_' f_stim '_Neuronwise_Plot.pdf']);
         savefig(gcf, [figure_path 'Neuronwise/' f_region '_' f_stim '_Neuronwise_Plot.fig']);
-        
         %saveas(gcf, [figure_path 'Neuronwise/' f_region '_' f_stim '_Neuronwise_Plot.eps'], 'epsc');
     end
 end
