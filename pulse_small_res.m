@@ -2,7 +2,6 @@ clear all;
 close all;
 f = filesep;
 
-
 %%% USER Modification
 % Linux server
 local_root_path = '~/Projects/';
@@ -74,8 +73,8 @@ timeline = ( (4+(front_frame_drop:back_frame_drop) )./avg_Fs) - 1;
 
 % Flag to determine which populations to plot
 % The variable must be set from 'single_cell_mod'
-nr_pop = 'all';
-%nr_pop = 'etrain';
+%nr_pop = 'all';
+nr_pop = 'etrain';
 %nr_pop = 'non';
 
 Fr_onset_time = struct();
@@ -177,7 +176,8 @@ for f_region = fieldnames(region_data)'
 end
 
 %% All regions overlay first few pulses Firing Rate
-test_regions = fieldnames(region_data)' %{'r_CA1', 'r_M1'};
+test_regions = fieldnames(region_data)'; 
+%{'r_CA1', 'r_M1'};
 stims = fieldnames(region_data.r_M1)';
 figure('Position', [0 0 , 1000, 1000]);
 tiledlayout(1, length(stims), 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 4, 8.3, 3.5]);
@@ -808,7 +808,7 @@ end
 %% TODO if I ever need to replot this thing again
 %Plot the pulse-triggered Vm
 
-%% Stats on pulse-triggered Vm depolarizations between transient and sustained
+%% Stats on pulse-triggered Vm depolarization magnitude between transient and sustained
 nr_pop = 'etrain';
 stats_log = [figure_path 'Small_Res' f 'Vm_pulse_triggered_deflection_size_' nr_pop];
 
@@ -825,6 +825,7 @@ for f_region = fieldnames(region_data)'
         f_stim = f_stim{1};
         popul_data = data_bystim.(f_stim);
         
+        %TODO check if this variable gets written somewhere else, I kept getting different values for some reason
         % Grab the pulse windows with taking into account the extra_trace
         trans_vms = popul_data.(nr_pop).trans_pulse_trig_Vm(extra_trace+1:end - extra_trace, :);
         sus_vms = popul_data.(nr_pop).sus_pulse_trig_Vm(extra_trace+1:end - extra_trace, :);
@@ -856,10 +857,10 @@ end
 
 %% Spike rate pulse-trggered averaged across all pulses
 % Flag to determine which populations to plot
-% The variable must be set from 'single_cell_mod'
+% The nr_pop uses plv_mod_stats from 'single_cell_mod'
 %nr_pop = 'all';
-%nr_pop = 'etrain';
-nr_pop = 'non_entr';
+nr_pop = 'etrain';
+%nr_pop = 'non_entr';
 
 % Flag for which statistical method to use
 stat_met = 'shuff';
@@ -915,11 +916,16 @@ for f_region = fieldnames(region_data)'
         FR_avg = [];
         all_pulse_fr = [];
         all_pulse_fr_by_neuron = cell(num_neurons, 1);
-            
+        
+        % Store the firing rate at the instaneous onset time
+        all_pulse_onset_inst_fr = [];
+
         % Save transient and sustained period pulse data
         trans_pulse_fr = [];
+        trans_pulse_onset_inst_fr = [];
         trans_pulse_fr_by_neuron = cell(num_neurons, 1);
         sus_pulse_fr = [];
+        sus_pulse_onset_inst_fr = [];
         sus_pulse_fr_by_neuron = cell(num_neurons, 1);
 
         % Looping through each neuron
@@ -941,6 +947,24 @@ for f_region = fieldnames(region_data)'
                 %end_trace_idx = find(pulse_time + nr_avg_pulse_width_time >= popul_data.trace_timestamps(:, nr));
                 %end_trace_idx = end_trace_idx(end);
                 
+                % Store the instaneous onset firing rate time
+                fr_pulse_onset = popul_data.neuron_spikecounts_raster(follow_trace_idx(1), nr)*nr_rate;
+                if fr_pulse_onset < 1 & fr_pulse_onset > 0
+                    error('Pause here');
+                end
+                    
+                all_pulse_onset_inst_fr(end + 1) = fr_pulse_onset;
+                
+                %Transient time
+                if pulse_time >= Multi_func.trans_ped(1)/1000 & pulse_time < Multi_func.trans_ped(2)/1000
+                    trans_pulse_onset_inst_fr(end + 1) = fr_pulse_onset;
+                end
+
+                %Sustained time
+                if pulse_time >= Multi_func.sus_ped(1)/1000 & pulse_time < Multi_func.sus_ped(2)/1000
+                    sus_pulse_onset_inst_fr(end + 1) = fr_pulse_onset;
+                end
+
                 % Store the pulse width for the given neuron preserving relative stimulation period shape
                 fr_pulse_width = popul_data.neuron_spikecounts_raster(start_trace_idx:end_trace_idx, nr)*nr_rate;
                 all_pulse_fr_by_neuron{find(nr == nr_idxs)} = horzcat_pad(all_pulse_fr_by_neuron{find(nr == nr_idxs)}, fr_pulse_width');
@@ -1398,9 +1422,14 @@ for f_region = fieldnames(region_data)'
         tilenum = tilenum + 3;
 
         % Save the two entrained and non-entrained pulse triggered to show in the single cell heatemaps
-        region_data.(f_region).(f_stim).all_pulse_trig_fr = all_pulse_fr;
-        region_data.(f_region).(f_stim).trans_pulse_trig_fr = trans_pulse_fr;
-        region_data.(f_region).(f_stim).sus_pulse_trig_fr = sus_pulse_fr;
+        region_data.(f_region).(f_stim).(nr_pop).all_pulse_trig_fr = all_pulse_fr;
+        region_data.(f_region).(f_stim).(nr_pop).trans_pulse_trig_fr = trans_pulse_fr;
+        region_data.(f_region).(f_stim).(nr_pop).sus_pulse_trig_fr = sus_pulse_fr;
+
+        % This is used to calculate the instaneous firing rate at each pulse for all stimulation pulses
+        region_data.(f_region).(f_stim).(nr_pop).all_pulse_onset_inst_fr = all_pulse_onset_inst_fr;
+        region_data.(f_region).(f_stim).(nr_pop).trans_pulse_onset_inst_fr = trans_pulse_onset_inst_fr;
+        region_data.(f_region).(f_stim).(nr_pop).sus_pulse_onset_inst_fr = sus_pulse_onset_inst_fr;
         
     end
     sgtitle([f_region(3:end) ' Firing Rate pulse-triggered average ' nr_pop], 'Interpreter', 'none');
@@ -1409,6 +1438,52 @@ for f_region = fieldnames(region_data)'
     saveas(gcf, [figure_path 'Small_Res' f f_region '_' nr_pop '_Pulse_Avg_FR.pdf']);
     %savefig(gcf, [figure_path 'Small_Res' f f_region '_' nr_pop '_Pulse_Avg_FR.fig']);
     %saveas(gcf, [figure_path 'Average/' f_region '_All_Pulse_Avg_FR.eps'], 'epsc');
+end
+
+%% Stats on pulse-triggered firing rate magnitude between transient and sustained
+nr_pop = 'etrain';
+stats_log = [figure_path 'Small_Res' f 'FR_pulse_triggered_magnitude_' nr_pop];
+
+if exist(stats_log), delete(sprintf('%s', stats_log)), end;
+diary(stats_log);
+diary off
+
+for f_region = fieldnames(region_data)'
+    f_region = f_region{1};
+    data_bystim = region_data.(f_region);
+    stims = fieldnames(data_bystim);
+
+    for f_stim=stims'
+        f_stim = f_stim{1};
+        popul_data = data_bystim.(f_stim);
+        
+        % Grab the pulse windows with taking into account the extra_trace
+        trans_frs = popul_data.(nr_pop).trans_pulse_trig_fr(extra_trace+1:end - extra_trace, :);
+        sus_frs = popul_data.(nr_pop).sus_pulse_trig_fr(extra_trace+1:end - extra_trace, :);
+
+        % Get the max values within the pulse windows
+        trans_max = max(trans_frs, [], 1);
+        sus_max = max(sus_frs, [], 1);
+        
+        % Perform statisical testing
+        [p_sign, ~, stats] = ranksum(trans_max, sus_max);
+        
+        % Plot the stats info
+        diary on;
+        fprintf('\n\n');
+        disp([f_region ' ' f_stim]);
+        
+        % Find which period is larger
+        if median(trans_max) > median(sus_max)
+            disp('Transient larger');
+        else
+            disp('Sustained larger');
+        end
+
+        disp(['p= ' num2str(p_sign) ' statistic: ' num2str(stats.ranksum)]);
+
+        diary off;
+    end
 end
 
 %% All region All Pulse Vm overlay
