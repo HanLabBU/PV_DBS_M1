@@ -50,7 +50,7 @@ df =pd.read_pickle(interm_data_path)
 print(df.columns)
 
 # %%
-# Perform neuronwise visual flicker triggered
+# Perform all pulses visual flicker triggered
 extra_trace = 3
 
 test_freqs = df['stim_freq'].unique()
