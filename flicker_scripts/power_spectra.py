@@ -46,6 +46,7 @@ warnings.filterwarnings("ignore")
 # Read in pickle file
 interm_data_path =  f + 'home' +f+ 'pierfier' +f+ 'Projects' +f+\
       'Pierre Fabris' +f+ 'PV DBS neocortex' +f+ 'Interm_Data' +f+ 'flicker.pkl'
+
 savefig_path = f + 'home' +f+ 'pierfier' +f+ 'Dropbox' +f+ 'RKC-HanLab'\
       +f+ 'Pierre PV DBS Project Dropbox' +f+ 'Materials' +f+ 'Plots'\
           +f+ 'Flicker' +f+ 'Spectra' +f
@@ -74,6 +75,11 @@ def get_violin_opts():
 # %%
 # Population average power spectra
 
+# Cosmetic parameters
+plt.rcParams['font.size'] = 7
+plt.rcParams['pdf.fonttype'] = 42
+#plt.rcParams['font.family'] = 'arial'
+
 # Reset stats file
 open(savefig_path + 'stats.txt', 'w').close()
 
@@ -91,7 +97,7 @@ nr_pop = 'all'
 #nr_pop = 'plv_nonetrain'
 
 samp_freq = 500
-freq_limit = [1, 200]
+freq_limit = [1, 200] # 12 for smaller plot Set the maximum frequency to show here
 freq_nums = 3*(freq_limit[1] - freq_limit[0])
 wavelet = 'morl'
 
@@ -175,7 +181,7 @@ for stim_freq in test_freqs:
             nr_power_spec_df['trial'] = nr_power_spec_df['trial'].astype('category')
 
 
-        # Calculate the trial-averaged Vm
+        # Calculate the trial-averaged power
         avg_tr_power_df = nr_power_spec_df.groupby(['timeline', 'freq_spec'])['power'].mean()
         avg_tr_power_df = avg_tr_power_df.unstack(level='timeline')
         avg_tr_power_df.sort_index(ascending=False, inplace=True)
@@ -229,6 +235,7 @@ for stim_freq in test_freqs:
     # Print out the number of neurons for each frequency
     print(stim_freq)
     print('Num neurons ' + str(roi_acum + 1))
+    
 
     # Get the 2D average of the heatmap
     avg_power_spec = power_spec_df.groupby(['timeline', 'freq_spec'])['power'].mean()
@@ -243,19 +250,34 @@ for stim_freq in test_freqs:
     heatmap_df = heatmap_df[heatmap_df.columns[t_trimmed_idx]]
     
     cm = 1/2.54
-    plt.figure(figsize=(10.5 * 10* cm, 7 * 10* cm))
-    plt.rcParams['font.size'] = 40
-    surf_p = plt.pcolormesh(display_timeline, heatmap_df.index.values, heatmap_df.values, cmap='jet') #, vmin=-1, vmax=1
-        
-    # Plot the stimultion protocol
+    plt.figure(figsize=(6.2 * cm, 2.5 *  cm))
+    
+    surf_p = plt.pcolormesh(display_timeline, heatmap_df.index.values, heatmap_df.values, cmap=consts.red_purple_blue_cmap) #, vmin=-1, vmax=1
+
+
+    # For the size
+    # 1 for 20 Hz max
+    # 10 for 200 Hz max
+
+    # For position
+    # 10 for 200 Hz max
+    # 3 for 20 Hz max    
+    # Plot the flicker protocol
     plt.plot(display_timeline,
-             2*trial_df[t_trimmed_idx]['flicker_raster'] + 13 + np.max(heatmap_df.index.values), '-b')
+             1*trial_df[t_trimmed_idx]['flicker_raster'] + 3 + np.max(heatmap_df.index.values), '-b', \
+                linewidth=0.3)
     
-    plt.plot([display_timeline[0], display_timeline[-1]], np.ones((2))* (10 + np.max(heatmap_df.index.values)), color=consts.pulse_color)
+
+    # Plot the stimulation protocol
+    plt.plot([display_timeline[0], display_timeline[-1]], np.ones((2))* (2 + np.max(heatmap_df.index.values)), color=consts.pulse_color)
     stim_idx = np.where(trial_df[t_trimmed_idx]['stim_raster'].values == 1)[0]
-    plt.plot(display_timeline[stim_idx], np.ones_like(stim_idx)*(10 + np.max(heatmap_df.index.values)), '|',\
-         linewidth=20,  color=consts.pulse_color)
+    plt.plot(display_timeline[stim_idx], np.ones_like(stim_idx)*(2 + np.max(heatmap_df.index.values)), '|',\
+         linewidth=0.3,  color=consts.pulse_color)
     
+    # For the position
+    # 2 for 20 Hz max
+    # 39 for 200 Hz max
+
     # Remove the spines
     ax = plt.gca()
     ax.spines['top'].set_visible(False)
@@ -265,13 +287,21 @@ for stim_freq in test_freqs:
     plt.ylabel('Frequency (Hz)')
     plt.title(nr_pop + ' Spectra ' + str(stim_freq))
 
+    # Set the spacing for y-axis text
+    ax.tick_params(axis='y', pad=0)
+
+    # Set the position of the main figure in relation to the colorbar
+    ax.set_position((0.15, 0.1, 0.62, 0.82))
+
     # Add colorbar axis
     fig = plt.gcf()
-    cbar_ax = fig.add_axes((0.92, 0.35, 0.02, 0.35))
+    cbar_ax = fig.add_axes((0.80, 0.35, 0.02, 0.35))
     cbar = fig.colorbar(surf_p, label='Normalized Power Change', cax=cbar_ax)
 
     # Set the default colorbar scale similar to main figures
     surf_p.set_clim(-0.2, 0.8)
+
+    #plt.tight_layout()
 
     # If color bar is too high, cap it
     #c_limits = surf_p.get_clim()
@@ -284,7 +314,8 @@ for stim_freq in test_freqs:
     
     # Spectra SVGs are incredibly hard to edit in illustrator
     #plt.savefig(save_filename + '.svg', format='svg')
-    plt.savefig(save_filename + '.png', format='png')
+    #plt.savefig(save_filename + '.png', format='png', dpi=300)
+    plt.savefig(save_filename + '.pdf', format='pdf')
     plt.show()
 
     ## Plot the trial averaged Vm
@@ -304,15 +335,22 @@ for stim_freq in test_freqs:
     #plt.title('Flicker Average: ' + str(freq))
     #plt.show()
 
-    # Make violin plotsW
+    # -- Make violin plots
 
-    # TODO create timeline masks for the below df and just use that as a way to better reference all of these 
-    # also, add a violin plot for the baseline, flicker, stim+flicker, flicker post-stim, then do statistics between each of these periods
-    mask_base_pre = (power_spec_df['timeline'] < 0)
-    mask_flicker_pre = (power_spec_df['timeline'] >= 0) & (power_spec_df['timeline'] < 1)
-    mask_stim = (power_spec_df['timeline'] >= 1) | (power_spec_df['timeline'] < 2)
-    mask_flicker_post = (power_spec_df['timeline'] >= 2) & (power_spec_df['timeline'] < 3)
+    # TODO add a violin plot for the baseline, flicker, stim+flicker, flicker post-stim, then do statistics between each of these periods
     
+    # Full second consideration
+    #mask_base_pre = (power_spec_df['timeline'] < 0)
+    #mask_flicker_pre = (power_spec_df['timeline'] >= 0) & (power_spec_df['timeline'] < 1)
+    #mask_stim = (power_spec_df['timeline'] >= 1) & (power_spec_df['timeline'] < 2)
+    #mask_flicker_post = (power_spec_df['timeline'] >= 2) & (power_spec_df['timeline'] < 3)
+    
+    # Middle 500 ms
+    mask_base_pre = (power_spec_df['timeline'] > -0.750) & (power_spec_df['timeline'] < -0.250)
+    mask_flicker_pre = (power_spec_df['timeline'] >= 0.250) & (power_spec_df['timeline'] < 0.750)
+    mask_stim = (power_spec_df['timeline'] >= 1.250) & (power_spec_df['timeline'] < 1.750)
+    mask_flicker_post = (power_spec_df['timeline'] >= 2.250) & (power_spec_df['timeline'] < 2.750)
+
     mask_8hz_spec = (power_spec_df['freq_spec'] > 7.5) & (power_spec_df['freq_spec'] < 8.5)
 
     # Take the average for each neuron across time
@@ -387,8 +425,8 @@ for stim_freq in test_freqs:
         stats_file.write('\n\n')
 
         # Compare flicker onset period and flicker+DBS only
-        statistic, p_val = stats.mannwhitneyu(data[1], data[2])
-        stats_file.write('Flicker Onset vs. DBS Mann Whitney Test: %s Hz\n' % stim_freq)
+        statistic, p_val = stats.wilcoxon(data[1], data[2])
+        stats_file.write('Flicker Onset vs. DBS sign rank Test: %s Hz\n' % stim_freq)
         stats_file.write('H stat: %s\n' % statistic)
         stats_file.write('P-value: %s\n\n' % p_val)
 
@@ -406,7 +444,7 @@ for stim_freq in test_freqs:
     data_col = flicker_pre_power['power'].values.reshape(-1, 1)
     data_col = np.concatenate((data_col, stim_power['power'].values.reshape(-1, 1)), axis=1)
     data_col = np.concatenate((data_col, flicker_post_power['power'].values.reshape(-1, 1)), axis=1)
-
+    
     eng.workspace['data_col'] = data_col
 
     labels = ['Flicker Onset' for _ in range(len(flicker_pre_power['power'].values))]
@@ -471,7 +509,7 @@ df.to_pickle(interm_data_path)
 # %%
 # Plot the power spectra for each neuron and determine if significantly entrained at 8 Hz during onset period
 samp_freq = 500
-freq_limit = [1, 200]
+freq_limit = [1, 20]
 freq_nums = 3*(freq_limit[1] - freq_limit[0])
 wavelet = 'morl'
 
@@ -493,6 +531,10 @@ for stim_freq in test_freqs:
     
     # Loop through unique FOVs
     roi_acum = 0
+
+    # Keep track of neurons improved or not
+    improv_nrs = 0
+    worse_nrs = 0
     for values in pairings:
         fov_df = stim_df[(stim_df['mouse_id'] == values[0]) & \
                          (stim_df['session_id'] == values[1]) & \
@@ -546,9 +588,36 @@ for stim_freq in test_freqs:
             tr_power_spec_df = pd.concat([tr_power_spec_df, pd.DataFrame(tr_dict)], ignore_index=True, join='outer')
             tr_power_spec_df['trial'] = tr_power_spec_df['trial'].astype('category')
 
-        
+        # Calculate the average power for each time period
+        mask_base_pre = (tr_power_spec_df['timeline'] > -0.750) & (tr_power_spec_df['timeline'] < -0.250)
+        mask_flicker_pre = (tr_power_spec_df['timeline'] >= 0.250) & (tr_power_spec_df['timeline'] < 0.750)
+        mask_stim = (tr_power_spec_df['timeline'] >= 1.250) & (tr_power_spec_df['timeline'] < 1.750)
+        mask_flicker_post = (tr_power_spec_df['timeline'] >= 1.250) & (tr_power_spec_df['timeline'] < 2.750)
 
-        # -- Test for 8 Hz entrainment at the start of flickering
+        mask_8Hz_spec = (tr_power_spec_df['freq_spec'] > 7.5) & (tr_power_spec_df['freq_spec'] < 8.5)
+        
+        nr_base_pre_power = tr_power_spec_df[mask_base_pre & mask_8Hz_spec].groupby(['trial']).mean()
+        nr_flicker_pre_power = tr_power_spec_df[mask_flicker_pre & mask_8Hz_spec].groupby(['trial']).mean()
+        nr_stim_power = tr_power_spec_df[mask_stim & mask_8Hz_spec].groupby(['trial']).mean()
+        nr_flicker_post_power = tr_power_spec_df[mask_flicker_post & mask_8Hz_spec].groupby(['trial']).mean()
+        
+        # Check for Wilcoxon Sign-rank test between flicker onset and estim
+        statistic, wilc_p_val = stats.wilcoxon(nr_flicker_pre_power['power'].values,\
+                                               nr_stim_power['power'].values)
+
+        # Keep track of neurons that improved or did not improved
+        if wilc_p_val < 0.05:
+            print('Found sig neuron p ' + str(wilc_p_val))
+            print(np.mean(nr_stim_power['power'].values - nr_flicker_pre_power['power'].values))
+            
+            print(np.mean(nr_stim_power['power'].values - nr_flicker_pre_power['power'].values) > 0.0)
+            if np.mean(nr_stim_power['power'].values - nr_flicker_pre_power['power'].values) > 0.0:
+                improv_nrs += 1
+                print('Found sig neuron')
+            else:
+                worse_nrs += 1
+
+        # -- (Deprecated) -- Test for 8 Hz entrainment at the start of flickering
         # 8 Hz from baseline period for each trial
         #Note: Using 0 here for the flicker_start because above I have already adjusted the flicker time
         all_tr_base_df = tr_power_spec_df[(tr_power_spec_df['timeline'] < 0)\
@@ -565,18 +634,18 @@ for stim_freq in test_freqs:
 
         avg_flicker_all_tr_df = all_tr_flicker_df.groupby(['trial'])['power'].mean()
 
-        # Wilcoxon sign rank test for significance
+        # Wilcoxon sign rank test for significance from all periods aggregated into 2 categories
         stat, p_value = stats.wilcoxon(avg_base_all_tr_df.values, avg_flicker_all_tr_df.values)
         
         #DEBUG Print out number of trials
-        print(values)
-        print(tr_power_spec_df['trial'].unique().shape)
-        #DEBUG
-        print('p-val: ' + str(p_value))
-        print(np.mean(avg_flicker_all_tr_df.values - avg_base_all_tr_df.values))
-        print(np.transpose(avg_flicker_all_tr_df.values))
-        print(np.transpose(avg_base_all_tr_df.values))
-        print('\n')
+        #print(values)
+        #print(tr_power_spec_df['trial'].unique().shape)
+        ##DEBUG
+        #print('p-val: ' + str(p_value))
+        #print(np.mean(avg_flicker_all_tr_df.values - avg_base_all_tr_df.values))
+        #print(np.transpose(avg_flicker_all_tr_df.values))
+        #print(np.transpose(avg_base_all_tr_df.values))
+        #print('\n')
         # DEBUG
         if np.isnan(p_value):
             raise Exception("Stopping execution")
@@ -596,18 +665,25 @@ for stim_freq in test_freqs:
         # Setup figure
         cm = 1/2.54
         fig, axs = plt.subplots(3, 1, figsize=(3*10.5*cm, 3*10*cm))
-        timeline
+        fig.patch.set_facecolor('white')
 
         # Plot the neuron power spectra
         surf_p = axs[0].pcolormesh(timeline, calc_freqs, nr_2d_power_df.values)
-        fig.colorbar(surf_p)
+        #fig.colorbar(surf_p)
+
+        # Plot the frequency band for 8 Hz
+        axs[0].axhline(y=7.5, color='r')
+        axs[0].axhline(y=8.5, color='r')
 
         # Plot the stimultion protocol
-        axs[0].plot(timeline, 2*trial_df['flicker_raster'] + 13 + np.max(calc_freqs), '-b')
-        axs[0].plot([timeline[0], timeline[-1]], np.ones((2))* (10 + np.max(calc_freqs)), color=consts.pulse_color)
+        axs[0].plot(timeline, 2*trial_df['flicker_raster'] + 1 + np.max(calc_freqs), '-b')
+        axs[0].plot([timeline[0], timeline[-1]], np.ones((2))* (2 + np.max(calc_freqs)), color=consts.pulse_color)
         stim_idx = np.where(trial_df['stim_raster'].values == 1)[0]
-        axs[0].plot(timeline[stim_idx], np.ones_like(stim_idx)*(10 + np.max(calc_freqs)), '|',\
+        axs[0].plot(timeline[stim_idx], np.ones_like(stim_idx)*(2 + np.max(calc_freqs)), '|',\
              linewidth=20,  color=consts.pulse_color)
+
+        # Add the p-value from wilcoxon sign rank
+        axs[0].legend(title='Power p: ' + str(wilc_p_val))
 
         # Plot the neuron sub Vm
         axs[1].plot(timeline, avg_trial_vm.values)
@@ -631,40 +707,43 @@ for stim_freq in test_freqs:
         
         # Filter data frame from column values
         avg_tr_power_df = avg_tr_power_df.reset_index()
-        base_period_data = avg_tr_power_df[\
-            ((avg_tr_power_df['timeline'] < 0) | (avg_tr_power_df['timeline'] > 3)) &\
-            ((avg_tr_power_df['freq_spec'] > 7.5) & (avg_tr_power_df['freq_spec'] < 8.5)) ]
+        mask_8Hz = (avg_tr_power_df['freq_spec'] > 7.5) & (avg_tr_power_df['freq_spec'] < 8.5)
+        base_flick_period_data = avg_tr_power_df[\
+            ((avg_tr_power_df['timeline'] > 0.250) & (avg_tr_power_df['timeline'] > 3)) &\
+            (mask_8Hz) ]
 
-        flicker_only_period_data = avg_tr_power_df[\
-            (((avg_tr_power_df['timeline'] >= 0) & (avg_tr_power_df['timeline'] < 1)) | \
-            ((avg_tr_power_df['timeline'] >= 2) & (avg_tr_power_df['timeline'] < 3)))
-            & ((avg_tr_power_df['freq_spec'] > 7.5) & (avg_tr_power_df['freq_spec'] < 8.5)) ]
+        stim_period_data = avg_tr_power_df[\
+            ((avg_tr_power_df['timeline'] >= 1.250) & (avg_tr_power_df['timeline'] < 1.750)) &\
+             mask_8Hz ]
         
-        dbs_flicker_period_data = avg_tr_power_df[\
-            ((avg_tr_power_df['timeline'] >= 1) & (avg_tr_power_df['timeline'] < 2)) &\
-            ((avg_tr_power_df['freq_spec'] > 7.5) & (avg_tr_power_df['freq_spec'] < 8.5)) ]
+        flicker_offset_period_data = avg_tr_power_df[\
+            ((avg_tr_power_df['timeline'] >= 2.250) & (avg_tr_power_df['timeline'] < 2.750)) &\
+             mask_8Hz ]
         
         # Consolidate all of the 8 Hz data
-        spec_8hz_data = np.array([base_period_data['power'].mean(), \
-                    flicker_only_period_data['power'].mean(), dbs_flicker_period_data['power'].mean()])
+        spec_8hz_data = np.array([base_flick_period_data['power'].mean(), \
+                    stim_period_data['power'].mean(), flicker_offset_period_data['power'].mean()])
 
         axs[2].plot(np.array([1, 2, 3]), spec_8hz_data, '-k')
         axs[2].set_xticks([1, 2, 3])
         axs[2].set_xticklabels(['base', 'flicker', 'dbs+flicker'])
 
         # Add title to identify neuron
-        fig.suptitle("".join(str(values)) + str(stim_freq) + ' Hz ' +\
+        fig.suptitle("_".join([str(e) for e in values]) +"_"+ str(stim_freq) + ' Hz ' +\
                      '8Hz Entrain: ' + str(df.loc[cur_nr_mask, '8entrain'].unique()[0]))
         # Save the individual plots
-        
+
         # Set the individual figure name
-        save_filename = savefig_path + 'Individual' +f + str(values[0]) +'_'+ str(values[1]) \
-                            +'_fov'+ str(values[2]) +'_'+\
+        save_filename = savefig_path + 'Individual' +f + "_".join([str(e) for e in values]) +'_'+\
                             str(stim_freq) + 'Hz_Whole_Period_Average'
 
         # Save figure
-        plt.savefig(save_filename + '.svg', format='svg')
+        #plt.savefig(save_filename + '.svg', format='svg')
         plt.savefig(save_filename + '.png', format='png')
+    
+    print('stim_freq ' + str(stim_freq))
+    print('Improved nrs ' + str(improv_nrs))
+    print('Worse nrs ' + str(worse_nrs))
 
 plt.show()
 df['8entrain'] = df['8entrain'].astype('category')
