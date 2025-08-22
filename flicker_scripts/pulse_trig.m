@@ -5,7 +5,9 @@ close all;
 %%
 f_sep = filesep;
 
+% This is generally for symmetrical before and after of traces
 extra_trace = 3;
+
 
 addpath('..');
 
@@ -134,7 +136,9 @@ end
 
 %% Calculate pulse-triggered average using the individual frame times and flicker onset and offset time
 extra_trace = 0;
+
 stim_time = [1, 2];
+
 % Loop through each stim frequency
 for f_stim = fieldnames(data)'
     f_stim = f_stim{1};
@@ -270,6 +274,162 @@ for f_stim = fieldnames(data)'
     data.(f_stim).stim_offset_t = avg_stim_offset_t;
     data.(f_stim).post_offset_t = avg_post_offset_t;
 end
+
+%% Calculate the pulse-triggered average from the pulse and camera frame time
+% with a specified amount before the pulse onset
+
+% The amount before a trace to use
+pre_trace = 31; % This is about half of the pulse width
+
+stim_time = [1, 2];
+% Loop through each stim frequency
+for f_stim = fieldnames(data)'
+    f_stim = f_stim{1};
+    
+    popul_data = data.(f_stim);
+
+    % Store each period pulses
+    avg_pre_pulse_vm = [];
+    avg_stim_pulse_vm = [];
+    avg_post_pulse_vm = [];
+
+    avg_pre_offset_t = [];
+    avg_stim_offset_t = [];
+    avg_post_offset_t = [];
+
+    all_pulse_frame_time = [];
+    all_pulse_raster = [];
+
+    % Loop through each neuron
+    for f_nr = fieldnames(popul_data.raw_vm)'
+        f_nr = f_nr{1};
+ 
+        % Store each period pulses
+        nr_pre_pulse_vm = [];
+        nr_stim_pulse_vm = [];
+        nr_post_pulse_vm = [];
+        
+        % Store the pulse period swtich off
+        nr_pre_offset_t = [];
+        nr_stim_offset_t = [];
+        nr_post_offset_t = [];
+
+        % DEBUG the trace timepoint between the camera frames and the theoretical time
+        %figure;
+        
+        % TODO plot the flicker timepoints and maybe have it so that all of the figures are saved somewhere
+        % for quick checking
+        pulse_width = diff(popul_data.flicker_times.(f_nr) );
+
+        % Loop through each trial
+        for i = 1:size(popul_data.raw_vm.(f_nr), 2)
+            tr_vm = popul_data.raw_vm.(f_nr)(:, i);
+            
+            % Spike normalize the trace
+            sp_amp = popul_data.sp_amp_raster.(f_nr)(:, i);
+            avg_sp_amp = mean(sp_amp, 'omitnan');
+
+            % Replace if NaN
+            if isnan(avg_sp_amp)
+                avg_sp_amp = 1;
+            end
+            
+            tr_norm_vm = tr_vm/avg_sp_amp;
+
+            % DEBUG plot the trial with the true time and the frame time
+            %plot(true_time, tr_norm_vm + i, '-r'); % , 'LineWidth', 3
+            %hold on;
+            %f_time = popul_data.camera_frame_times.(f_nr);
+            %plot(f_time(:, i), tr_norm_vm + i, '-b');
+            %hold on;
+            %flick_time = popul_data.flicker_times.(f_nr);
+            %plot(flick_time(:, i), repmat(max(tr_norm_vm + i), length(flick_time(:, i)), 1), '|');
+
+            % Loop through each pulse onset times and get the timepoints within each flicker on and off time
+            pulse_on_time = popul_data.flicker_times.(f_nr);
+            pulse_off_time = popul_data.flicker_off_times.(f_nr);
+            trace_time = popul_data.camera_frame_times.(f_nr);
+            for p_idx = 1:length(pulse_on_time) - 1
+                pulse_on = pulse_on_time(p_idx, i);
+                pulse_next = pulse_on_time(p_idx + 1, i);
+                
+                % Store the pulse switch within the duty cycle
+                pulse_offset = pulse_off_time(p_idx, i);
+
+                % Store the current pulse
+                cur_pulse_time_idx = trace_time(:, i) > pulse_on & trace_time(:, i) < pulse_next;
+                pulse_onset_t = find(cur_pulse_time_idx == 1, 1);
+                cur_pulse_time_idx(pulse_onset_t - pre_trace:pulse_onset_t) = 1;
+
+                cur_pulse = tr_norm_vm(cur_pulse_time_idx);
+                %cur_pulse = cur_pulse - cur_pulse(1); %TODO this could be where we use the average of the offset period
+                cur_pulse = cur_pulse - mean(cur_pulse(1:pre_trace), 'omitnan');
+
+                % Store the frame time for the current pulse window
+                cur_pulse_frame_window = trace_time(cur_pulse_time_idx, i);
+                cur_pulse_frame_window = cur_pulse_frame_window - pulse_on; % cur_pulse_frame_window(1) 
+
+                frame_diff = mean(diff(cur_pulse_frame_window));
+                num_frames = floor(mean(pulse_width, 'all')./frame_diff);
+
+                % Chop end piece if the number of frames are too large for the window
+                cur_pulse_frame_window = cur_pulse_frame_window(1:num_frames + pre_trace);
+                cur_pulse = cur_pulse(1:num_frames + pre_trace);
+
+                % Save the pulse raster
+                cur_pulse_raster = zeros(size(cur_pulse_frame_window));
+                cur_pulse_raster( pre_trace:(pre_trace + (num_frames/2 )) ) = 1;
+
+                % Consolidate all pulse windows into one arra
+                all_pulse_frame_time = horzcat_pad(all_pulse_frame_time, cur_pulse_frame_window(:));
+                all_pulse_raster = horzcat_pad(all_pulse_raster, cur_pulse_raster(:));
+
+                %DEBUG check if the array is in sorted order
+                %if length(cur_pulse) == 63 %  ~isnan(all_pulse_frame_time(end, end))
+                %    figure, plot(cur_pulse);
+                %    input('En');
+                %    %error('Testing single pulses');
+                %end
+
+                % Pre-stim
+                if pulse_on < stim_time(1)
+                    nr_pre_pulse_vm = horzcat_pad(nr_pre_pulse_vm, cur_pulse(:));
+                    nr_pre_offset_t = cat(2, nr_pre_offset_t, pulse_offset - pulse_on);
+                % During stim
+                elseif pulse_on > stim_time(1) & pulse_on < stim_time(2)
+                    nr_stim_pulse_vm = horzcat_pad(nr_stim_pulse_vm, cur_pulse(:));
+                    nr_stim_offset_t = cat(2, nr_stim_offset_t, pulse_offset - pulse_on);
+                % Post stim
+                else
+                    nr_post_pulse_vm = horzcat_pad(nr_post_pulse_vm, cur_pulse(:));
+                    nr_post_offset_t = cat(2, nr_post_offset_t, pulse_offset - pulse_on);
+                end
+            end
+        end
+        
+        % Store the average Vm
+        avg_pre_pulse_vm = horzcat_pad(avg_pre_pulse_vm, mean(nr_pre_pulse_vm, 2, 'omitnan'));
+        avg_stim_pulse_vm = horzcat_pad(avg_stim_pulse_vm, mean(nr_stim_pulse_vm, 2, 'omitnan'));
+        avg_post_pulse_vm = horzcat_pad(avg_post_pulse_vm, mean(nr_post_pulse_vm, 2, 'omitnan'));
+
+        avg_pre_offset_t = cat(2, avg_pre_offset_t, mean(nr_pre_offset_t, 'omitnan'));
+        avg_stim_offset_t = cat(2, avg_stim_offset_t, mean(nr_stim_offset_t, 'omitnan'));
+        avg_post_offset_t = cat(2, avg_post_offset_t, mean(nr_post_offset_t, 'omitnan'));
+    end
+
+    % Save all of the data for the respective frequency
+    data.(f_stim).all_pulse_frame_time = all_pulse_frame_time;
+    data.(f_stim).all_pulse_raster = all_pulse_raster;
+
+    data.(f_stim).avg_pre_pulse_vm = avg_pre_pulse_vm;
+    data.(f_stim).avg_stim_pulse_vm = avg_stim_pulse_vm;
+    data.(f_stim).avg_post_pulse_vm = avg_post_pulse_vm;
+
+    data.(f_stim).pre_offset_t = avg_pre_offset_t;
+    data.(f_stim).stim_offset_t = avg_stim_offset_t;
+    data.(f_stim).post_offset_t = avg_post_offset_t;
+end
+
 
 %% Compare point-by-point with t-test
 % Loop through each stim frequency
@@ -427,7 +587,6 @@ for f_stim = fieldnames(data)'
 end
 
 %% Plot pulse-triggered curves from the camera frame triggers
-%TODO need to change all of the variables here for 
 
 % Loop through each stim frequency
 for f_stim = fieldnames(data)'
@@ -439,6 +598,7 @@ for f_stim = fieldnames(data)'
     %timeline = timeline - timeline(1) - extra_trace*(mean(diff(timeline)));
 
     timeline = mean(popul_data.all_pulse_frame_time, 2, 'omitnan') + 2/1000; %; %  
+    avg_pulse_raster = mean(popul_data.all_pulse_raster, 2, 'omitnan');
 
     % Plot the pre, stim, post at once
     avg_pre_vm = mean(popul_data.avg_pre_pulse_vm, 2, 'omitnan');
@@ -481,6 +641,14 @@ for f_stim = fieldnames(data)'
     xline(popul_data.pre_offset_t, 'r--', 'HandleVisibility', 'off');
     hold on;
     xline(popul_data.stim_offset_t, 'b--', 'HandleVisibility', 'off');
+
+    % Plot the flicker raster pulse onset
+    hold on;
+    xline(0, 'b--', 'HandleVisibility', 'off');
+    
+    % Plot the total flicker raster
+    hold on;
+    plot(timeline, avg_pulse_raster);
 
     Multi_func.set_default_axis(gca);
     legend('Location', 'bestoutside');
@@ -541,6 +709,10 @@ for f_stim = fieldnames(data)'
     xline(popul_data.pre_offset_t, 'r--', 'HandleVisibility', 'off');
     hold on;
     xline(popul_data.post_offset_t, 'b--', 'HandleVisibility', 'off');
+
+    % Plot the flicker raster pulse onset
+    hold on;
+    xline(0, 'b--', 'HandleVisibility', 'off');
 
     Multi_func.set_default_axis(gca);
     legend('Location', 'bestoutside');
