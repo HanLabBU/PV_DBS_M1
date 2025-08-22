@@ -39,7 +39,6 @@ pv_data_path = [server_root_path 'eng_research_handata3' f 'Pierre Fabris' f 'PV
 %savefig_path = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Figures' f 'Exemplary' f];
 % handata3 server path
 %savefig_path = [server_root_path 'eng_research_handata3' f 'Pierre Fabris' f 'PV Project' f 'Plots' f];
-savefig_path = Multi_func.save_plot();
 
 
 % Check if the figure path exists
@@ -53,10 +52,25 @@ save_all_data_file = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'In
 %Load the data
 load(save_all_data_file);
 
+%% Setup color variables
+[red_blue_color_cmap] = (cbrewer('div', 'RdBu',500));
+red_blue_color_cmap(red_blue_color_cmap > 1) = 1;
+red_blue_color_cmap(red_blue_color_cmap < 0) = 0;
+red_blue_color_cmap = flipud(red_blue_color_cmap);
+
+[spectral_cmap] = (cbrewer('div', 'Spectral',500));
+spectral_cmap(spectral_cmap > 1) = 1;
+spectral_cmap(spectral_cmap < 0) = 0;
+spectral_cmap = flipud(spectral_cmap);
+
+
+
+savefig_path = Multi_func.save_plot;
+
 %% Read in data for M1
 f_region = 'r_M1';
 data_bystim = region_data.(f_region);
-%% Info for a 140Hz neuron regular polarized
+%% Info for a 140Hz neuron regular polarized <--------
 neuron = '617100_M1_rec20211110_FOV4_140_60';
 trial_num = 3;
 nr_idx = find(contains(data_bystim.f_140.neuron_name, neuron));
@@ -74,8 +88,8 @@ trial_num = 8;
 nr_idx = find(contains(data_bystim.f_40.neuron_name, neuron));
 neuron_data = data_bystim.f_40;
 
-%% Info for a 40Hz example with delta
-neuron = '617100_M1_rec20211110_FOV3_40_60';
+%% Info for a 40Hz example with delta <--------
+neuron = '617100_M1_rec20211110_FOV3_40_60'; 
 trial_num = 4;
 nr_idx = find(contains(data_bystim.f_40.neuron_name, neuron));
 neuron_data = data_bystim.f_40;
@@ -83,12 +97,12 @@ neuron_data = data_bystim.f_40;
 %% Read in data for V1
 f_region = 'r_V1';
 data_bystim = region_data.(f_region);
-%% Info for a 140Hz reguarly depolarized neuron
+%% Info for a 140Hz reguarly depolarized neuron <--------
 neuron = '109558_V1_rec20240110_FOV1_140_90.mat_3';
 trial_num = 1; %5;
 nr_idx = find(contains(data_bystim.f_140.neuron_name, neuron));
 neuron_data = data_bystim.f_140;
-%% Info for a 40Hz hyperpolarized neuron
+%% Info for a 40Hz hyperpolarized neuron <--------
 neuron = '96334_V1_rec20231120_FOV1_40_150.mat_1';
 trial_num = 10;
 nr_idx = find(contains(data_bystim.f_40.neuron_name, neuron));
@@ -96,7 +110,7 @@ neuron_data = data_bystim.f_40;
 
 %% Plot lined example trial, all trial heatmaps, and trial-averaged
 figure('Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
-tiledlayout(3, 1, 'TileSpacing', 'tight', 'Padding', 'tight', 'Units', 'centimeters', 'InnerPosition', [4 5 7 7.88]);
+tiledlayout(4, 1, 'TileSpacing', 'tight', 'Padding', 'tight', 'Units', 'centimeters', 'InnerPosition', [4 5 7 8.5]);
 timeline = neuron_data.trace_timestamps(:, nr_idx);
 
 %-- Plot example trial
@@ -115,15 +129,21 @@ plot(timeline(spike_idx), ones(size(spike_idx)).*(max(raw_tr(spike_idx)./tr_nois
 hold on;
 
 % Plot the stim pulses
-stim_idx = neuron_data.stim_timestamps(:, nr_idx);
-plot(stim_idx, ones(size(stim_idx))*(max(raw_tr(spike_idx)./tr_noise) + 3.5), '|k');
-hold on;
-plot(timeline, ones(size(timeline))*(max(raw_tr(spike_idx)./tr_noise) + 3.5), '-k');
-hold on;
+%stim_idx = neuron_data.stim_timestamps(:, nr_idx);
+%plot(stim_idx, ones(size(stim_idx))*(max(raw_tr(spike_idx)./tr_noise) + 3.5), '|k');
+%hold on;
+%plot(timeline, ones(size(timeline))*(max(raw_tr(spike_idx)./tr_noise) + 3.5), '-k');
+%hold on;
 
 plot([min(timeline) min(timeline)], [-5 0], 'b', 'LineWidth', 2)
+hold on;
 
 xlim([min(timeline) max(timeline)]);
+
+% Add DBS bar
+hold on;
+Multi_func.plot_dbs_bar([0, 1], (max(raw_tr(spike_idx)./tr_noise) + 3.5), '');
+
 ax = gca;
 ax.YAxis.Visible = 'off';
 Multi_func.set_default_axis(gca);
@@ -146,6 +166,17 @@ ylabel('Trial #');
 cb  = colorbar;
 cb.Label.String = 'SBR';
 hold on;
+
+%colormap(spectral_cmap);
+colormap(Multi_func.red_purple_blue_color);
+%colormap(Multi_func.get_red_blue_cmap());
+%Old colorscheme
+%colormap(jet*.8);
+
+% Reset scale with the limits to the max value of whats plotted
+cb = colorbar;
+max_ax = max(abs(cb.Limits));
+caxis([-max_ax max_ax]);
 
 xlim([min(timeline) max(timeline)]);
 ylim([0.5 size(vm_map, 1)]);
@@ -179,11 +210,44 @@ hold on;
 plot([min(timeline) min(timeline)], [-5 0], 'b', 'LineWidth', 2)
 
 xlim([min(timeline) max(timeline)]);
-xlabel('Time from onset (s)');
 ax = gca;
 ax.YAxis.Visible = 'off';
 Multi_func.set_default_axis(gca);
 
+%-- Plot the spectra for this single neuron
+nexttile;
+nr_pow = neuron_data.all_trial_rawvm_power_spec{nr_idx};
+nr_idx
+
+base_idxs = find(neuron_data.trace_timestamps(:, nr_idx) < neuron_data.stim_timestamps(1, nr_idx));
+stim_idxs = find(neuron_data.trace_timestamps(:, nr_idx) >= neuron_data.stim_timestamps(1, nr_idx)& ...
+neuron_data.trace_timestamps(:, nr_idx) <= neuron_data.stim_timestamps(end, nr_idx) );
+
+base_pow = mean(nr_pow(:, base_idxs, :), 2);
+stim_pow = mean(nr_pow(:, stim_idxs, :), 2);
+
+nr_pow = (nr_pow - base_pow) ./(base_pow + stim_pow);
+
+surface(timeline, ... 
+        nanmean(neuron_data.neuron_rawvm_spec_freq(:, :, nr_idx), 2), ...
+        mean(nr_pow, 3, 'omitnan'), 'CDataMapping', 'scaled', 'FaceColor', 'texturemap', 'edgecolor', 'none');
+
+% Reset scale with the limits to the max value of whats plotted
+cb = colorbar;
+max_ax = max(abs(cb.Limits));
+caxis([-max_ax max_ax]);
+
+% Add colorbar
+a = colorbar;
+set(a, 'TickDirection', 'out');
+a.Ticks = linspace(a.Limits(1), a.Limits(2), 3);
+a.TickLabels = num2cell(round(linspace(a.Limits(1), a.Limits(2), 3), 1));
+a.Label.String = 'Relative Power';
+
+Multi_func.set_default_axis(gca);
+xlabel('Time from Stim onset(s)');
+xlim([-0.80 2.05]);
+ylabel('Freq (Hz)');
 
 % Save figure
 saveas(gcf, [savefig_path 'Exemplary' f neuron '_heatmap.png']);
