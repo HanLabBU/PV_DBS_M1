@@ -29,7 +29,7 @@ importlib.reload(consts)
 
 from open_ephys.analysis import Session
 
-%matplotlib tk
+%matplotlib inline
 
 f = os.sep
 
@@ -45,6 +45,8 @@ print(df.columns)
 test_freqs = df['stim_freq'].unique()
 cm = 0.394
 zsco = 1
+# Cosmetic parameters
+plt.rcParams['pdf.fonttype'] = 42
 
 # Determine whether or not to display names
 display_names = 0
@@ -103,7 +105,7 @@ for freq in test_freqs:
     plt.rcParams['font.size'] = 14
 
     fig, ax = plt.subplots(1, 2)
-    fig.set_size_inches(40*cm, 35*cm)
+    fig.set_size_inches(30*cm, 20*cm)
 
     ax[0].set_position(Bbox.from_extents(1, 1, 40*cm, 35*cm))
     ax[0].spines['top'].set_visible(False)
@@ -115,7 +117,7 @@ for freq in test_freqs:
         vm_df = vm_df.apply(stats.zscore, axis=1)
 
     # Plot the heatmap
-    surf_plot = ax[0].pcolormesh(timeline, block_idx, vm_df.values)
+    surf_plot = ax[0].pcolormesh(timeline, block_idx, vm_df.values, cmap=consts.red_purple_blue_cmap, rasterized=True)
 
     # Move legend depending on whether or not names are displayed
     if display_names == 1:
@@ -169,6 +171,7 @@ for freq in test_freqs:
 
     # Reduce the X limits to zoom-in and save all trials
     og_xlim = ax[0].get_xlim()
+    og_ylim = ax[0].get_ylim()
     ax[0].set_xlim(0.9, 2)
     fig.savefig(savefig_path + 'ZoomFlick_Summary_Blocks_Vm_' + str(freq) + '.png', format='png')
     fig.savefig(savefig_path + 'ZoomFlick_Summary_Blocks_Vm_' + str(freq) + '.pdf', format='pdf')
@@ -216,8 +219,15 @@ for freq in test_freqs:
     #fig.tight_layout()
     fig.subplots_adjust(left=0.2, right=0.85, top=0.85, bottom=0.2, wspace=.03)
     
-    fig.savefig(savefig_path + 'Summary_Blocks_Vm_' + str(freq) + ' ' + str(display_names) + '.png', format='png')
-    fig.savefig(savefig_path + 'Summary_Blocks_Vm_' + str(freq) + ' ' + str(display_names) + '.pdf', format='pdf')
+    # Save the rasterized image 
+    #fig.savefig(savefig_path + 'Summary_Blocks_Vm_' + str(freq) + ' ' + str(zsco) + '.png', format='png', dpi=600)
+#
+    ## Delete surface plot and resize the axes to then save the vector graphics
+    #surf_plot.remove()
+    #ax[0].set_xlim(og_xlim)
+    #ax[0].set_ylim(og_ylim)
+    
+    fig.savefig(savefig_path + 'Summary_Blocks_Vm_' + str(freq) + ' ' + str(zsco) + '.pdf', format='pdf')
     
 
 plt.show()
