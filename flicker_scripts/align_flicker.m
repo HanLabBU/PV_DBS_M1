@@ -27,7 +27,8 @@ ignore_dict = Multi_func.csv_to_struct('flicker_ignore.csv');
 %% Parameters for recordings
 total_frames = 2500;
 total_time = 5.0258; % in Sec
-soft_Fs = total_frames/total_time;
+soft_Fs = total_frames/total_time; % soft here refers to software
+theo_Fs = 500; % theo refers to theoretical
 
 front_frame_drop = 14;
 
@@ -43,9 +44,10 @@ stim_chan = 36;
 % Store all of the data here
 data = struct;
 
-%TODO need to find a 40 Hz ephys file as a model ephys
+% Store neuron recording that had more than 10 trials in, for debugging purposes
+more_than_10 = {};
 
-for i= 1:length(matfiles) % 49 %
+for i= 1:length(matfiles) % 34:36 %
     i
     matfile = fullfile(matfiles(i).folder, matfiles(i).name)
     
@@ -100,7 +102,7 @@ for i= 1:length(matfiles) % 49 %
         all_frame_times = Multi_func.get_ephys_rise_times(D.Timestamps, D.Data(frame_chan, :)');
         all_flick_times = Multi_func.get_ephys_rise_times(D.Timestamps, D.Data(flick_chan, :)');
         all_flickoff_times = flip(Multi_func.get_ephys_rise_times(flip(D.Timestamps), flip(D.Data(flick_chan, :)') ) );
-    
+        
     catch ME
         % Use the original ADC channel ports
         % Grab the trial start times
@@ -111,12 +113,22 @@ for i= 1:length(matfiles) % 49 %
         all_flickoff_times = flip(Multi_func.get_ephys_rise_times(flip(D.Timestamps), flip(D.Data(3, :)') ) );
     end
     
+        % debugging purposes, found ephys file with more than 10 trials!!
+        if length(all_start_times) > 10 % & ~contains(ephys_path, 'mod_')
+            disp('foujnd');
+            more_than_10{end + 1} = {ephys_path, length(all_start_times)};
+        end
+
     % Grab the trials that need to be ignored
-    mouse_fn = fieldnames(ignore_dict);
-    mouse_idx = find(contains(mouse_fn, name_parts{1})); % Use the name split
-    mouse_f = mouse_fn(mouse_idx);
-    fov_num = erase(cur_fov, 'fov');
-    ign_trials = ignore_dict.(mouse_f{1}).(['rec_' num2str(name_parts{2})]).(['FOV' fov_num]).(f_stim).ROI1;
+    try
+        mouse_fn = fieldnames(ignore_dict);
+        mouse_idx = find(contains(mouse_fn, name_parts{1})); % Use the name split
+        mouse_f = mouse_fn(mouse_idx);
+        fov_num = erase(cur_fov, 'fov');
+        ign_trials = ignore_dict.(mouse_f{1}).(['rec_' num2str(name_parts{2})]).(['FOV' fov_num]).(f_stim).ROI1;
+    catch ME
+        ign_trials = [];
+    end
 
     % Loop through each trial to align
     raw_vm = [];
@@ -125,7 +137,18 @@ for i= 1:length(matfiles) % 49 %
     stim_times = [];
     flicker_times = [];
     flicker_off_times = [];
-    for tr_i = 1:min([length(all_start_times), length(unique(trace_data.roi_list.trial_vec))])
+
+    %TODO I am thinking I should add a condition if there are more trials than the ephys has. Then I can just concatenate extra trials to the ephys data
+    
+    % Repeat the last trial start time for neurons that have more trials than the ephys amount
+    diff_trials = max(unique(trace_data.roi_list.trial_vec)) - length(all_start_times);
+    all_start_times(end + 1:end + diff_trials) = all_start_times(end);
+    % Quick check
+    %if diff_trials > 1
+    %error('Pause here');
+    %end
+
+    for tr_i = unique(trace_data.roi_list.trial_vec)
         
         % Skip trial if it is in the trials array
         if ismember(tr_i, ign_trials)
@@ -133,17 +156,19 @@ for i= 1:length(matfiles) % 49 %
         end
 
         trace = trace_data.roi_list.traces(tr_i == trace_data.roi_list.trial_vec);
-        trace = trace(front_frame_drop:end);
+        trace = trace(front_frame_drop + 1:end);
+        
+        % Detrend the trace
+        trace_mov = movmean(trace, theo_Fs);
+        trace = (trace - trace_mov)./trace_mov;
         
         % Grab the time frames
         tr_all_frame_times = all_frame_times(all_frame_times > all_start_times(tr_i));
-        tr_all_frame_times = tr_all_frame_times(front_frame_drop:end);
+        tr_all_frame_times = tr_all_frame_times(front_frame_drop + 1:end);
         tr_all_frame_times = tr_all_frame_times(1:length(trace));
-       
 
         % Grab the flicker times
         tr_flicker_times = all_flick_times(all_flick_times > tr_all_frame_times(1) & all_flick_times < tr_all_frame_times(end) );
-        
 
         tr_flickeroffset_times = all_flickoff_times(all_flickoff_times > tr_all_frame_times(1) & all_flickoff_times < tr_all_frame_times(end) );
  
@@ -161,6 +186,12 @@ for i= 1:length(matfiles) % 49 %
         % Store the Vm
         raw_vm = [raw_vm, trace(:)];
     
+        % Subtract the times by the flicker onset time
+        tr_all_frame_times = tr_all_frame_times - tr_flicker_times(1);
+        tr_all_stim_times = tr_all_stim_times - tr_flicker_times(1);
+        tr_flickeroffset_times = tr_flickeroffset_times - tr_flicker_times(1);
+        tr_flicker_times = tr_flicker_times - tr_flicker_times(1);
+            
         % Store the times
         camera_frame_times = [camera_frame_times, tr_all_frame_times(:)];
         stim_times = [stim_times, tr_all_stim_times(:)];
@@ -189,6 +220,11 @@ for i= 1:length(matfiles) % 49 %
         %tr_flicker_times(1) - tr_all_frame_times(1)
     end
 
+    % If all trials were ignored, do not save the current neuron to the population data
+    if isempty(raw_vm)
+        continue
+    end
+
     %-- Save all of the properties to data struct
     
     % Check if neuron data exists
@@ -211,7 +247,7 @@ for i= 1:length(matfiles) % 49 %
     data.(f_stim).stim_times.(f_nr) = stim_times;
     data.(f_stim).flicker_off_times.(f_nr) = flicker_off_times;
     data.(f_stim).flicker_times.(f_nr) = flicker_times;
-    data.(f_stim).nr_name = nr_name;
+    data.(f_stim).nr_name.(f_nr) = nr_name;
 end
 
 %% Save to matfile
