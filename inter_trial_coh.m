@@ -58,6 +58,7 @@ load(save_all_data_file);
 %    region_data = Multi_func.combine_regions_old(region_data);
 %end
 
+%%
 if all_regions == 1
     region_data = Multi_func.combine_regions(region_data);
 end
@@ -102,17 +103,20 @@ for f_region = fieldnames(region_data)'
         nr_base_itc = [];
         nr_post_itc = [];
         
+
         neuron_trial_map = {};
+        nr_itc_map = {};
 
         % Loop through each neuron
-        for neuron=1:length(data_bystim.(f_stim).neuron_hilbfilt)
-            
-            if sep_neurons_by_freq == 1 && data_bystim.(f_stim).has_low_freq(neuron) == ~use_low_freq
+        for neuron=1:length(data_bystim.(f_stim).neuron_rawvm_hilbfilt)
+            if exist('sep_neurons_by_freq', 'var') && ...
+                    sep_neurons_by_freq == 1 && ...
+                    data_bystim.(f_stim).has_low_freq(neuron) == ~use_low_freq
                 disp('Skipped');
                 continue;                
             end
 
-            cur_fourcoeff = data_bystim.(f_stim).neuron_hilbfilt{neuron};
+            cur_fourcoeff = data_bystim.(f_stim).neuron_rawvm_hilbfilt{neuron};
             itc_map = abs(mean(cur_fourcoeff./abs(cur_fourcoeff), 3, 'omitnan'));
  
             % Append neuron's ITC values to population wide
@@ -121,6 +125,9 @@ for f_region = fieldnames(region_data)'
             
             % Get the trial's Vm for current neuron
             neuron_trial_map{end + 1} = data_bystim.(f_stim).all_trial_rawVm{neuron};
+            
+            % Append the complete itc for current neuron
+            nr_itc_map{end + 1} = itc_map;
         end        
 
         % Sort neurons based on the ITC value after stimulation period
@@ -134,6 +141,7 @@ for f_region = fieldnames(region_data)'
         region_data.(f_region).(f_stim).itc_sorted_neuron_trials_map = sorted_trials;
         region_data.(f_region).(f_stim).itc_neuron_baseline = nr_base_itc;
         region_data.(f_region).(f_stim).itc_neuron_post = nr_post_itc;
+        region_data.(f_region).(f_stim).nr_itc_map= nr_itc_map;
     end
 end
 
@@ -350,6 +358,234 @@ for f_region = fieldnames(region_data)'
 
 end
 
+%% TODO Perform a significance test comparing the ITC values 500 ms before stim onset and 500 ms after stim offset for each neuron, but will probably need to do multiple comparisons 
+
+% Neuron population to use
+nr_pop = 'all';
+%nr_pop = 'etrain';
+%nr_pop = 'non';
+
+% The frequency to test for ITC difference between baseline and offset period
+freq_idx = 5;
+wind_dist = 500; % in ms
+for f_region = fieldnames(region_data)'
+    f_region = f_region{1};
+    data_bystim = region_data.(f_region);
+    stims = fieldnames(data_bystim);
+
+    % Loop through stim frequencies
+    for f_stim = stims'
+        f_stim = f_stim{1};
+
+        popul_data = data_bystim.(f_stim);
+
+        % Check if there is an entrained field in the population data
+        try
+            switch nr_pop
+                case 'etrain'
+                    nr_idxs = find([popul_data.plv_mod_stats.mod] > 0);
+                case 'non'
+                    nr_idxs = find([popul_data.plv_mod_stats.mod] < 0);
+                case 'first_half'
+                    nr_idxs = find([popul_data.plv_mod_stats.first_mod] > 0);
+                case 'second_half'
+                    nr_idxs = find([popul_data.plv_mod_stats.last_mod] > 0);
+                case 'all'
+                    nr_idxs = 1:length(popul_data.plv_mod_stats);
+            end
+        catch ME
+            disp(ME.message);
+        end
+
+        % Filter out the neurons that were non-modulated at all
+        if remove_nonmod_nrs == 1
+            non_mod_nr = find(sum(popul_data.mod_matrix, 2) == 0);
+            nr_idxs = nr_idxs(~ismember(nr_idxs, non_mod_nr));
+        end
+            
+        % Store the p-values
+        p_vals = [];
+
+        % Store the current conditions ITCs
+        cond_base_itc = [];
+        cond_offset_itc = [];
+
+        % Loop through each neuron
+        for nr=1:length(popul_data.neuron_name)
+            cur_itc_map = popul_data.nr_itc_map{nr};
+            timeline = popul_data.trace_timestamps(:, nr);
+            base_idxs = find(timeline < 0 & timeline > 0 - wind_dist./1000);
+            offset_idxs = find(timeline > 1 & timeline < 1 + wind_dist./1000);
+
+            base_itc = cur_itc_map(freq_idx, base_idxs);
+            offset_itc = cur_itc_map(freq_idx, offset_idxs);
+
+            % Compare whether there is significant ITC between base and post
+            [p,h,stats] = ranksum(base_itc, offset_itc);
+           
+            
+            % Only plot if the offset_ITC is higher than the baseline
+            if mean(offset_itc) < mean(base_itc)
+                continue;
+            end
+
+            figure;
+            tiledlayout(2, 1);
+            
+            % Plot all of the trials together
+            nexttile;
+            vm_map = [];
+            % Loop through each trial of given neuron
+            for i = 1:size(popul_data.all_trial_rawVm{nr}, 2)
+                trace_noise = popul_data.all_trial_trace_noise{nr}(i);
+            
+                % Add the trace with SBR as value
+                vm_map = [vm_map; popul_data.all_trial_rawVm{nr}(:, i)'./trace_noise];
+            end
+            imagesc('XData', timeline, 'YData', 1:size(vm_map, 1), 'CData', vm_map);
+            ylabel('Trial #');
+            cb  = colorbar;
+            cb.Label.String = 'SBR';
+            
+            xlim([min(timeline) max(timeline)]);
+            ylim([0.5 size(vm_map, 1)]);
+
+            ax = gca;
+            set(ax, 'Color', 'none', 'Box', 'on', 'TickDir', 'out', 'linewidth', 0.2);
+        
+            % Plot the ITC and whether the difference is significant
+            nexttile;
+            imagesc('XData', timeline, 'YData', 1:size(popul_data.nr_itc_map{nr}, 1), 'CData', popul_data.nr_itc_map{nr});
+            
+            xlim([min(timeline) max(timeline)]);
+            ylim([0.5 size(popul_data.nr_itc_map{nr}, 1)]);
+
+            ax = gca;
+            set(ax, 'Color', 'none', 'Box', 'on', 'TickDir', 'out', 'linewidth', 0.2);
+            hold on;
+            plot(0, 0);
+            legend(['p= ' num2str(p)]);
+
+            sgtitle([f_region ' ' f_stim], 'Interpreter', 'none');
+
+            % Store the p-values and ITC values
+            p_vals = [p_vals, p];
+            cond_base_itc = [cond_base_itc, base_itc];
+            cond_offset_itc = [cond_offset_itc, offset_itc];
+        end
+
+        % Make violin plots
+        figure('Position', [0 0 1100 500]);
+        tiledlayout(1, 2);
+        
+        nexttile;
+        data = [cond_base_itc, cond_offset_itc];
+        labels = [repmat({'Base'}, 1, length(cond_base_itc)), repmat({'Offset'}, 1, length(cond_offset_itc)) ];
+        
+        ViolinOpts = Multi_func.get_default_violin();
+        violins = violinplot(data, labels, 'GroupOrder', {'Base', 'Offset'}, ViolinOpts);
+        ylabel('ITC');
+
+        title(['ITC values before/after stim wind=' num2str(wind_dist)]);
+
+        nexttile;
+        pop_itc = cat(3, popul_data.nr_itc_map{:});
+        imagesc('XData', timeline, 'YData', 1:size(popul_data.nr_itc_map{nr}, 1), 'CData', mean(pop_itc, 3));
+        
+        xlim([min(timeline) max(timeline)]);
+        ylim([0.5 size(popul_data.nr_itc_map{nr}, 1)]);
+        xlabel('Time');
+        ylabel('Frequency');
+
+        ax = gca;
+        set(ax, 'Color', 'none', 'Box', 'on', 'TickDir', 'out', 'linewidth', 0.2);
+
+        title(['Population Average ITC']);
+
+        sgtitle([f_region ' ' f_stim], 'Interpreter', 'none');
+    end
+end
+
+%TODO do a heatmap of just the probed frequency for each neuron and sort by the subtraction of the two 
+%% Plot the frequency of interest ITC sorted for all neurons
+
+% Neuron population to use
+nr_pop = 'all';
+%nr_pop = 'etrain';
+%nr_pop = 'non';
+
+% The frequency to test for ITC difference between baseline and offset period
+freq_idx = 5;
+wind_dist = 500; % in ms
+
+for f_region = fieldnames(region_data)'
+    f_region = f_region{1};
+    data_bystim = region_data.(f_region);
+    stims = fieldnames(data_bystim);
+
+    for f_stim=stims'
+        f_stim = f_stim{1};
+        
+        popul_data = data_bystim.(f_stim);
+        
+        try
+            switch nr_pop
+                case 'etrain'
+                    nr_idxs = find([popul_data.plv_mod_stats.mod] > 0);
+                case 'non'
+                    nr_idxs = find([popul_data.plv_mod_stats.mod] < 0);
+                case 'first_half'
+                    nr_idxs = find([popul_data.plv_mod_stats.first_mod] > 0);
+                case 'second_half'
+                    nr_idxs = find([popul_data.plv_mod_stats.last_mod] > 0);
+                case 'all'
+                    nr_idxs = 1:length(popul_data.plv_mod_stats);
+            end
+        catch ME
+            disp(ME.message);
+        end
+
+        % Filter out the neurons that were non-modulated at all
+        if remove_nonmod_nrs == 1
+            non_mod_nr = find(sum(popul_data.mod_matrix, 2) == 0);
+            nr_idxs = nr_idxs(~ismember(nr_idxs, non_mod_nr));
+        end
+
+        % Grab the probed frequency for all neurons
+        nr_itcs = cell2mat(cellfun(@(itc_map) itc_map(freq_idx, :)', ... 
+            popul_data.nr_itc_map, 'UniformOutput', false));
+        
+        timeline = mean(popul_data.trace_timestamps(:, nr_idxs), 2, 'omitnan');
+        base_idxs = find(timeline < 0 & timeline > 0 - wind_dist./1000);
+        offset_idxs = find(timeline > 1 & timeline < 1 + wind_dist./1000);
+
+        diff_itc = mean(nr_itcs(base_idxs, :), 1) - mean(nr_itcs(offset_idxs, :), 1);
+
+        % Sort by ITC differences
+        [~, sort_i] = sort(diff_itc);
+
+        % Sort the ITC probe frequency
+        sorted_itcs = nr_itcs(:, sort_i)';
+
+        figure;
+        imagesc('XData', timeline, 'YData', 1:size(sorted_itcs, 1), 'CData', sorted_itcs);
+        ylabel('Trial #');
+        cb  = colorbar;
+        cb.Label.String = 'SBR';
+        
+        xlim([min(timeline) max(timeline)]);
+        ylim([0.5 size(sorted_itcs, 1)]);
+
+        ax = gca;
+        set(ax, 'Color', 'none', 'Box', 'on', 'TickDir', 'out', 'linewidth', 0.2);
+
+        sgtitle([f_region ' ' f_stim], 'Interpreter', 'none');
+
+    end
+end
+
+
+
 %TODO perform statistical test between each group for each condition
 % Essentially just the counts similar to individual entrainment and modulation of the other characteristics
 
@@ -532,7 +768,10 @@ title('All 40Hz Neurons ITC Base vs Stim comparison');
 saveas(gcf, [figure_path 'ITC' f '40Hz_base_vs_stim.pdf']);
 saveas(gcf, [figure_path 'ITC' f '40Hz_base_vs_stim.png']);
 
-%% Perform statistical test
+
+
+
+%% Perform statistical test, this is above 0.5 which I gues was an arbitrary decision
 [p, h, stats] = signrank(nr_base_itc, nr_post_itc)
 signrank_itc_base_post_stats = struct();
 signrank_itc_base_post_stats.p = p
