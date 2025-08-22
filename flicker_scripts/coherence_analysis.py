@@ -78,11 +78,12 @@ def get_violin_opts():
 # %% 
 # Calculate the wavelet coherence by using pycwt
 samp_freq = 500
-freq_limit = [1, 40]
+freq_limit = [1, 20]
 freq_nums = 3*(freq_limit[1] - freq_limit[0])
 
 # Reset stats file
 open(savefig_path + 'Individual' +f+ 'single_cell_coh_stats.txt', 'w').close()
+open(savefig_path + 'stats.txt', 'w').close()
 
 # Cosmetic parameters
 plt.rcParams['pdf.fonttype'] = 42
@@ -229,39 +230,24 @@ for stim_freq in test_freqs:
         avg_tr_coh_df['neuron'] = cur_nr_id
         avg_tr_coh_df['neuron'] = avg_tr_coh_df['neuron'].astype('category')
 
-        ##--Plot neuron average coherence
-        #TODO plot the individual spectral power with the coherences as well
-        #cm = 1/2.54
-        #plt.figure(figsize=(24 * cm, 12 * cm))
-        #
-        ## Setup neuron coherence heatmap
-        #nr_heatmap_df = avg_tr_coh_df.copy()
-        #nr_heatmap_df = nr_heatmap_df.pivot(index='freq_spec', columns='timeline', values='power')
-        #
-        #surf_p = plt.pcolormesh(timeline, nr_heatmap_df.index.values, nr_heatmap_df.values, cmap='jet')
-        #
-        ## Remove the spines
-        #ax = plt.gca()
-        #ax.spines['top'].set_visible(False)
-        #
-        ##Labels
-        #plt.xlabel('Time from flicker onset (s)')
-        #plt.ylabel('Frequency (Hz)')
-        #plt.title('Coherence ' + avg_tr_coh_df['neuron'].unique()[0] +"_"+ str(stim_freq))
-        #
-        ## Save neuron coherence
-        #save_filename = savefig_path + 'Individual' +f+ 'Coh_'+ avg_tr_coh_df['neuron'].unique()[0] +"_"+ str(stim_freq)
-        #plt.savefig(save_filename +'.png', format='png')
+        
 
         # Append neuron average to population dataframe
         pop_coh_df = pd.concat([pop_coh_df, avg_tr_coh_df], ignore_index=True, join='outer')
         pop_coh_df['neuron'] = pop_coh_df['neuron'].astype('category')
 
         #--Perform multi-comparison of the power between the stim periods
-        mask_base_pre = (nr_coh_df['timeline'] < 0)
-        mask_flicker_pre = (nr_coh_df['timeline'] >= 0) & (nr_coh_df['timeline'] < 1)
-        mask_stim = (nr_coh_df['timeline'] >= 1) & (nr_coh_df['timeline'] < 2)
-        mask_flicker_post = (nr_coh_df['timeline'] >= 2) & (nr_coh_df['timeline'] < 3)
+
+        # Considering full second period
+        #mask_base_pre = (nr_coh_df['timeline'] < 0)
+        #mask_flicker_pre = (nr_coh_df['timeline'] >= 0) & (nr_coh_df['timeline'] < 1)
+        #mask_stim = (nr_coh_df['timeline'] >= 1) & (nr_coh_df['timeline'] < 2)
+        #mask_flicker_post = (nr_coh_df['timeline'] >= 2) & (nr_coh_df['timeline'] < 3)
+
+        mask_base_pre = (nr_coh_df['timeline'] > -0.750) & (nr_coh_df['timeline'] < -0.250)
+        mask_flicker_pre = (nr_coh_df['timeline'] >= 0.250) & (nr_coh_df['timeline'] < 0.750)
+        mask_stim = (nr_coh_df['timeline'] >= 1.250) & (nr_coh_df['timeline'] < 1.750)
+        mask_flicker_post = (nr_coh_df['timeline'] >= 1.250) & (nr_coh_df['timeline'] < 2.750)
 
         mask_8Hz_spec = (nr_coh_df['freq_spec'] > 7.5) & (nr_coh_df['freq_spec'] < 8.5)
 
@@ -290,8 +276,10 @@ for stim_freq in test_freqs:
                 raise Exception('Found nan')
 
             stats_file.write("------"+ cur_nr_id +'_'+ str(stim_freq) +"------\n")
+            
             # Wilcoxon sign-rank for flicker_onset vs stim periods
             statistic, p_val = stats.wilcoxon(data[1], data[2])
+            wilc_p_val = p_val
             stats_file.write('Sign-Rank Test\n')
             stats_file.write('Statistic: ' + str(statistic) + '\n')
             stats_file.write('P-value: ' + str(p_val) + '\n')
@@ -329,6 +317,32 @@ for stim_freq in test_freqs:
             stats_file.write(str(p_values))
 
             stats_file.write('\n\n')
+
+        ##--Plot neuron average coherence
+        #TODO plot the individual spectral power with the coherences as well
+        cm = 1/2.54
+        plt.figure(figsize=(24 * cm, 12 * cm))
+        
+        # Setup neuron coherence heatmap
+        nr_heatmap_df = avg_tr_coh_df.copy()
+        nr_heatmap_df = nr_heatmap_df.pivot(index='freq_spec', columns='timeline', values='power')
+        
+        surf_p = plt.pcolormesh(timeline, nr_heatmap_df.index.values, nr_heatmap_df.values, cmap='jet')
+        
+        # Remove the spines
+        ax = plt.gca()
+        ax.spines['top'].set_visible(False)
+        
+        #Labels
+        plt.xlabel('Time from flicker onset (s)')
+        plt.ylabel('Frequency (Hz)')
+        plt.title('Coherence ' + avg_tr_coh_df['neuron'].unique()[0] +"_"+ str(stim_freq))
+        
+        plt.legend(title='Wilc p:' + str(wilc_p_val))
+
+        # Save neuron coherence
+        save_filename = savefig_path + 'Individual' +f+ 'Coh_'+ avg_tr_coh_df['neuron'].unique()[0] +"_"+ str(stim_freq)
+        plt.savefig(save_filename +'.png', format='png')
 
         #DEBUG
         #raise Exception('Save neuron plot')
@@ -428,10 +442,17 @@ for stim_freq in test_freqs:
     plt.savefig(save_filename +'.png', format='png')
 
     # Consolidate the powers for each period and keep as a population
-    mask_base_pre = (pop_coh_df['timeline'] < 0)
-    mask_flicker_pre = (pop_coh_df['timeline'] >= 0) & (pop_coh_df['timeline'] < 1)
-    mask_stim = (pop_coh_df['timeline'] >= 1) & (pop_coh_df['timeline'] < 2)
-    mask_flicker_post = (pop_coh_df['timeline'] >= 2) & (pop_coh_df['timeline'] < 3)
+    # This method uses the full second
+    #mask_base_pre = (pop_coh_df['timeline'] < 0)
+    #mask_flicker_pre = (pop_coh_df['timeline'] >= 0) & (pop_coh_df['timeline'] < 1)
+    #mask_stim = (pop_coh_df['timeline'] >= 1) & (pop_coh_df['timeline'] < 2)
+    #mask_flicker_post = (pop_coh_df['timeline'] >= 2) & (pop_coh_df['timeline'] < 3)
+
+    # Use the middle 500 ms
+    mask_base_pre = (pop_coh_df['timeline'] > -0.750) & (pop_coh_df['timeline'] < -.250)
+    mask_flicker_pre = (pop_coh_df['timeline'] >= 0.250) & (pop_coh_df['timeline'] < 0.750)
+    mask_stim = (pop_coh_df['timeline'] >= 1.250) & (pop_coh_df['timeline'] < 1.750)
+    mask_flicker_post = (pop_coh_df['timeline'] >= 2.250) & (pop_coh_df['timeline'] < 2.750)
 
     mask_8Hz_spec = (pop_coh_df['freq_spec'] > 7.5) & (pop_coh_df['freq_spec'] < 8.5)
 
@@ -455,12 +476,7 @@ for stim_freq in test_freqs:
     labels = ['Flicker Onset' for _ in range(len(pop_flicker_pre_power['power'].values))]
     labels.extend(['STIM' for _ in range(len(pop_stim_power['power'].values))])
     labels.extend(['Flicker Post' for _ in range(len(pop_flicker_post_power['power'].values))])
-    eng.workspace['labels'] = labels
 
-    # Transfer the data variable
-    #data = nr_base_pre_power['power'].values.reshape(-1, 1)
-    #data = np.concatenate((data, nr_flicker_pre_power['power'].values.reshape(-1, 1)), axis=1)
-    #data = np.concatenate((data, nr_stim_power['power'].values.reshape(-1, 1)), axis=1)
 
     # Plot the violins in MATLAB
     eng.feval('figure', 'Renderer', 'Painters', nargout=0)
@@ -497,7 +513,39 @@ for stim_freq in test_freqs:
 
     eng.eval(matlab_exp, nargout=0)
 
+    # Transpose the data for easier statistics calculation
+    # Actually, I think its because python is row major and MATALB (From above) is column major
+    data_col = np.transpose(data_col)
 
+    # Perform stats on coherence data
+    with open(savefig_path + 'stats.txt', 'a') as stats_file:
+        # Perform statistical tests to determine if the 8 Hz is actually reduced
+        statistic, p_val = stats.kruskal(data_col[0], data_col[1], data_col[2])
+
+        stats_file.write('Kruskal Wallis Test for all periods: %s Hz\n' % stim_freq)
+        stats_file.write('H stat: %s\n' % statistic)
+        stats_file.write('P-value: %s\n' % p_val)
+
+        # Perform post hoc comaparisons test
+        p_values = posthocs.posthoc_dunn(data_col)
+        stats_file.write('Post-hoc Dunn Test\n')
+        stats_file.write('| flick_on|  ESTIM |flick_po|\n')
+        stats_file.write(str(p_values))
+
+        stats_file.write('\n\n')
+
+    # Perform sign-rank on just the flicker onset and stim
+    with open(savefig_path + 'stats.txt', 'a') as stats_file:
+        statistic, p_val = stats.wilcoxon(data_col[0], data_col[1])
+
+        # Write Kruskal Wallis data
+        stats_file.write('Sign Rank Test %s Hz\n' % stim_freq)
+        stats_file.write('H stat: %s\n' % statistic)
+        stats_file.write('P-value: %s\n' % p_val)
+
+        stats_file.write('\n\n')
+        
+        
 #TODO might also need to compare to MATLAB's wavelet coherence method
 
 # %%
