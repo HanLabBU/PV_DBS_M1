@@ -19,11 +19,12 @@ data_path = [server_rootpath 'Yangyang_Wang' f 'PV_V1_LED_SomArchon' f];
 
 % if 1: Have user select folder to use for the quick check
 % if 0: Recursively search root data_path to find area folders
-select_folder = 0;
+select_folder = 1;
 
 % TODO change to flicker experiment matfiles
 if select_folder == 1
     [path] = uigetdir(data_path, 'Select the root folder that holds trial folders');
+    list_dirs = {path};
 else
     %Looking for diretories that contain an 'area' in the subfolder item
     list = dir([data_path '**/*flicker*.mat']);
@@ -63,8 +64,16 @@ for path_i = 1:length(list_dirs)
                 trace_mov = movmean(raw_trace, Fs);
         
                 % Flips the trace as well
-                detrend_trace = (raw_trace - trace_mov)./trace_mov;
+                detrend_trace = -1*(raw_trace - trace_mov);
         
+                %DEBUG
+                figure;
+                tiledlayout(2, 1);
+                nexttile;
+                plot(detrend_trace);
+                nexttile;
+                plot(raw_trace);
+                    
                 roi_vm = horzcat_pad(roi_vm, detrend_trace);
                 
                 % Perform spike detection SomArchon version on detrended trace
