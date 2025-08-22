@@ -235,12 +235,16 @@ for stim_freq in test_freqs:
         # Plot the distribution
         ax[fov_i, 0].hist(shuf_plv_adj, bins=1000, alpha=0.7, color='black')
         ax[fov_i, 0].vlines(x=[obs_plv2], ymin=0.5, ymax=10, linestyles='-', colors=color)
-        
+        ax[fov_i, 0].set_xlim(0, 1)
+
         # Plot the PLVs across the needed frequency range
         ax[fov_i, 2].plot(freqs, plvs, label='PLVs')
 
-        fig.tight_layout()
-        plt.show()
+        #DEBUG
+        print(fov_i)
+
+    fig.tight_layout()
+    plt.show()
 
     #raise Exception('Stopping Execution')    
 df['plv_etrain'] = df['plv_etrain'].astype('category')
