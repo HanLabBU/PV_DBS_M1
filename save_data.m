@@ -524,19 +524,19 @@ for f_region = fieldnames(region_matfiles)'
                 data_bystim.(f_stim).framerate(end + 1) = mean(cur_roi_Fs);
                     
                 % Save all of the transient and sustained information
-                %temp = data_bystim.(f_stim).neuron_trans_Vm;
-                %data_bystim.(f_stim).neuron_trans_Vm = horzcat_pad(temp, mean(cur_roi_trans_Vm) - mean(cur_roi_base_Vm));
-                %temp = data_bystim.(f_stim).neuron_sus_Vm;
-                %data_bystim.(f_stim).neuron_sus_Vm = horzcat_pad(temp, mean(cur_roi_sus_Vm) - mean(cur_roi_base_Vm));
-                %temp = data_bystim.(f_stim).neuron_stim_Vm;
-                %data_bystim.(f_stim).neuron_stim_Vm = horzcat_pad(temp, mean(cur_roi_stim_Vm) - mean(cur_roi_base_Vm));
+                temp = data_bystim.(f_stim).neuron_trans_Vm;
+                data_bystim.(f_stim).neuron_trans_Vm = horzcat_pad(temp, mean(cur_roi_trans_Vm) - mean(cur_roi_base_Vm));
+                temp = data_bystim.(f_stim).neuron_sus_Vm;
+                data_bystim.(f_stim).neuron_sus_Vm = horzcat_pad(temp, mean(cur_roi_sus_Vm) - mean(cur_roi_base_Vm));
+                temp = data_bystim.(f_stim).neuron_stim_Vm;
+                data_bystim.(f_stim).neuron_stim_Vm = horzcat_pad(temp, mean(cur_roi_stim_Vm) - mean(cur_roi_base_Vm));
                 
-                %temp = data_bystim.(f_stim).neuron_trans_FR;
-                %data_bystim.(f_stim).neuron_trans_FR = horzcat_pad(temp, mean(cur_roi_trans_FR) - mean(cur_roi_base_FR));
-                %temp = data_bystim.(f_stim).neuron_sus_FR;
-                %data_bystim.(f_stim).neuron_sus_FR = horzcat_pad(temp, mean(cur_roi_sus_FR) - mean(cur_roi_base_FR));
-                %temp = data_bystim.(f_stim).neuron_stim_FR;
-                %data_bystim.(f_stim).neuron_stim_FR = horzcat_pad(temp, mean(cur_roi_stim_FR) - mean(cur_roi_base_FR));
+                temp = data_bystim.(f_stim).neuron_trans_FR;
+                data_bystim.(f_stim).neuron_trans_FR = horzcat_pad(temp, mean(cur_roi_trans_FR) - mean(cur_roi_base_FR));
+                temp = data_bystim.(f_stim).neuron_sus_FR;
+                data_bystim.(f_stim).neuron_sus_FR = horzcat_pad(temp, mean(cur_roi_sus_FR) - mean(cur_roi_base_FR));
+                temp = data_bystim.(f_stim).neuron_stim_FR;
+                data_bystim.(f_stim).neuron_stim_FR = horzcat_pad(temp, mean(cur_roi_stim_FR) - mean(cur_roi_base_FR));
 
                 % Calculate and save frequency data
                 % Old way of just using the neuron average Vm to start the Spectra calculation
@@ -577,8 +577,13 @@ for f_region = fieldnames(region_matfiles)'
     region_data.(f_region) = data_bystim;
 end
 
+
 % Check if there is already an interm_data file
 % If there is, then just replace the regions that were created
+
+disp('Current Region Data Fields');
+region_data
+
 if isfile(save_all_data_file)
     data = load(save_all_data_file);
     
