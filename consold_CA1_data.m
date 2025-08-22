@@ -261,6 +261,12 @@ for f_region = regions'
                     cur_fov_tracenoises = horzcat_pad(cur_fov_tracenoises, cur_trace_noise);
 
                     cur_spike_amp = trial_data.spike_info.spike_amplitude{1};
+
+                    % set to Nan if there is no spikes for this trial
+                    if isempty(cur_spike_amp)
+                        cur_spike_amp = [NaN];
+                    end
+
                     cur_fov_spike_amp = horzcat_pad(cur_fov_spike_amp, cur_spike_amp');
 
                     % Calculate spikerate with a window size of 100
