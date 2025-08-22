@@ -78,13 +78,13 @@ for f_region = fieldnames(region_data)'
         % Create a figure that includes: raw, spikes, and SubVm
         figure('Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 40 40]);
         %tiledlayout(1, 2, 'TileSpacing', 'none', 'Padding', 'loose', 'Units', 'centimeters', 'InnerPosition', [4 5 8 8]);
-        tiledlayout(1, 2, 'TileSpacing', 'none', 'Padding', 'loose', 'Units', 'centimeters', 'InnerPosition', [3 20 8.13 8.482]);
+        tiledlayout(1, 2, 'TileSpacing', 'none', 'Padding', 'loose', 'Units', 'centimeters', 'InnerPosition', [3 4 8.13 8.482]);
         
         % Plot the raw traces
         nexttile;
         
         % Calculate the sort order for Vm based on depolarization during stimulation phase
-        nr_trans_dep = nanmean(data_bystim.(f_stim).neuron_Vm(avg_Fs:2*avg_Fs, :), 1);
+        nr_trans_dep = nanmean(data_bystim.(f_stim).neuron_RawVm(avg_Fs:2*avg_Fs, :), 1);
         [~, I] = sort(nr_trans_dep);
         I = flip(I);
 
@@ -104,7 +104,9 @@ for f_region = fieldnames(region_data)'
         end
         imagesc('XData', timeline, 'YData', 1:size(data_map, 1), 'CData', data_map);
 
-        a = colorbar;
+        % Specify the colorbar
+        colormap(Multi_func.red_purple_blue_color);
+        a= colorbar;
         a.Label.String = 'Vm';
 
         % Set color limits if there was already
@@ -122,11 +124,11 @@ for f_region = fieldnames(region_data)'
         yticks(neuron_mid);
         yticklabels(1:length(neuron_mid))
 
-        xlabel('Time from Stim onset(sec)');
-        xlim([-.7 2.05]);
+        xlabel('Time from Stim onset(S)');
+        xlim([min(timeline) max(timeline)]);
         ylim([0 size(data_map, 1)]);
         ylabel('Neuron (Black outlines trials of each neuron)');
-        title('Normalized Traces', 'Interpreter', 'none');
+        title('Normalized Vm', 'Interpreter', 'none');
 
         % Plot the raster plot
         nexttile;  
@@ -157,7 +159,7 @@ for f_region = fieldnames(region_data)'
         ax = gca;
         ax.YAxis.Visible = 'off';
         Multi_func.set_default_axis(gca);
-        xlabel('Time from Stim onset(sec)');
+        xlabel('Time from Stim onset(S)');
         
         ylim([0 index]);
         set(gca, 'YTick', []);
@@ -170,7 +172,7 @@ for f_region = fieldnames(region_data)'
             xlim([-.7 2.05]);
         end
 
-        title('Raster Plots', 'Interpreter', 'none');
+        title('Raster', 'Interpreter', 'none');
 
         sgtitle([ f_region ' ' f_stim ' Neuronwise'], 'Interpreter', 'none');
         saveas(gcf, [figure_path 'Neuronwise/' f_region '_' f_stim '_Neuronwise_Plot.png']);
