@@ -2,6 +2,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy import signal
+from matplotlib.colors import LinearSegmentedColormap
 
 # File meant to store all static variables
 
@@ -13,6 +14,13 @@ stim_color = np.array([20, 33, 61])/255
 
 # Color for the pulse bars
 pulse_color = np.array([170, 176, 97])/255
+
+# Red purplse blue colormap
+red_purple_blue_cmap = LinearSegmentedColormap.from_list("rpb_cmap",\
+        [(0.0, tuple(val / 255 for val in (0, 119, 182))),
+         (0.5, tuple(val / 255 for val in (230, 230, 250))),
+         (1.0, tuple(val / 255 for val in (214, 40, 40)))\
+            ])
 
 # Find the starts of each of the burst periods
 def find_start_idx(raster):
@@ -33,6 +41,27 @@ def find_start_idx(raster):
             gap_idx = np.append(gap_idx, stim_idx[index + 1])
 
     return gap_idx
+
+# Normalize signals across columns
+def norm_signals(sig_mat):
+    return (sig_mat - np.min(sig_mat, axis=0))/(np.max(sig_mat, axis=0) - np.min(sig_mat, axis=0))
+
+# Calculate the wavelet coherence from two wavelet info
+def wav_coherence(wt1, wt2):
+    S_xy = np.conj(wt1) * wt2
+    S_xx = np.abs(wt1)**2
+    S_yy = np.abs(wt2)**2
+
+    print(np.abs(S_xy)**2)
+
+    #print((np.abs(S_xy)**2)[10][10])
+    #print(S_yy[10][10])
+    #print(S_xx[10][10])
+    #print((S_xx*S_yy)[10][10])
+    #print('\n')
+
+    return np.abs(S_xy)**2 / (S_xx * S_yy)
+    
 
 
 def get_ephys_rise_indices(ephys_signal):
