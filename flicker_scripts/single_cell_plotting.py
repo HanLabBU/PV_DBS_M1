@@ -220,8 +220,6 @@ zsco = 1
 #nr_pop = 'plv_etrain'
 #nr_pop = 'plv_nonetrain'
 
-
-
 # Loop through each stim frequency
 test_freqs = df['stim_freq'].unique() # [40]
 for freq in test_freqs:
