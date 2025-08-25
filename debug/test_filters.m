@@ -53,3 +53,29 @@ plot(1000*t, fir_sig(80, :), 'DisplayName', '80 Hz filtered');
 legend();
 xlim([900 1100]);
 title('FIR signal');
+
+%% Check frequency sweep and range
+freqs = [1:1:200];
+sweep = [];
+
+for i = 1:length(freqs)
+    sweep(:, i) = [freqs(i)*0.95; freqs(i)*1.05];
+end
+
+% Plot all of the frequency ranges
+figure;
+for i = 1:length(freqs)
+    plot([freqs(i), freqs(i)], sweep(:, i), '-k');
+    hold on;
+end
+yline([40 140]);
+hold on;
+xlabel('Probing Frequency (Hz)');
+ylabel('Frequency range for probed frequency (Hz)');
+disp('40 Hz Range');
+disp(sweep(:, 40));
+
+disp('140 Hz Range');
+disp(sweep(:, 140));
+
+%% TODO maybe add random timepoints to compare PLVs across all signals
