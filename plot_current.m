@@ -55,7 +55,7 @@ disp('Finished Loading Data');
 % Note: Need to only do this once, otherwise neuron names will keep getting appended
 % to the end of region_data
 
-% Check if there are more than XX number of neurons for V1, if there are,
+% Check if there are more than 27 number of neurons for V1, if there are,
 % it means that the flicker experiment data was already added
 if ~(length(region_data.r_V1.f_40.neuron_name) > 27)
     T = readtable([savepath 'Current' f 'flicker_current.csv']);

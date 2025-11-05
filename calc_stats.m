@@ -11,6 +11,9 @@ server_root_path = '~/handata_server/eng_research_handata3/';
 % Windows server
 %local_root_path = 'Z:\';
 
+% Save the figure path
+figure_path = Multi_func.save_plot;
+
 % Data on server
 %pv_data_path = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'PV_Data' f];
 % Data on local linux machine
@@ -50,6 +53,115 @@ for f_region=fieldnames(region_data)'
     
     %DEBUG displaying all of the mice names
     %sort(mouse_names)
+end
+
+%% Create table showing all estim-only neurons from the regular stimulation experiments
+estim_nr_t = table();
+
+nr_num = 1;
+for f_region = fieldnames(region_data)'
+    f_region = f_region{1};
+    data_bystim = region_data.(f_region);
+    stims = fieldnames(data_bystim);
+
+    % Skip CA1 neurons from this plot
+    if strcmp(f_region, 'r_CA1') == 1
+        continue;
+    end
+
+    % Loop through stim frequencies
+    for f_stim = stims'
+
+        f_stim = f_stim{1};
+        popul_data = data_bystim.(f_stim);
+        
+        % Loop through each neuron
+        for nr_i = 1:length(popul_data.neuron_name(:)')
+            nr_i;
+            
+            % Parse out recording info
+            name_parts = strsplit(popul_data.neuron_name{nr_i}, "_");
+            mouse_name = name_parts{1};
+
+            % Find and grab the current value
+            idxs = contains(name_parts, 'mat');
+            
+            % Current amplitude is attached to the extension
+            if ~isempty(regexp(name_parts{idxs}, '\d', 'once'))
+                name_parts{idxs};
+                current = strsplit(name_parts{idxs}, '.');
+                current = current{1};
+            else
+                % Current is the previous entry from the "_" split
+                idxs = find(idxs == 1);
+                current = name_parts{idxs - 1};
+            end
+
+            % Enter the neuron identification info
+            estim_nr_t(num2str(nr_num), 'Mouse_ID') = {mouse_name};
+            %estim_nr_t(num2str(nr_num), 'Neuron_ID') = {popul_data.neuron_name{nr_i}};
+            estim_nr_t(num2str(nr_num), 'Brain Region') = {f_region(3:end)};
+            
+            % Enter the stimulation parameters
+            estim_nr_t{num2str(nr_num), 'Current'} = str2num(current);
+            estim_nr_t{num2str(nr_num), 'Stim Frequency'} = str2num(f_stim(3:end));
+
+            % Enter the statistical significances for each neuron
+            temp_plv = [popul_data.plv_mod_stats.obs_PLV2];
+            temp_plv_mod = [popul_data.plv_mod_stats.mod];
+            %estim_nr_t(num2str(nr_num), 'PLV') = {[num2str(temp_plv(nr_i)) ' (' num2str(temp_plv_mod(nr_i)) ')' ]};
+            estim_nr_t{num2str(nr_num), 'PLV Stat'} = temp_plv(nr_i);
+            estim_nr_t{num2str(nr_num), 'PLV Sign'} = temp_plv_mod(nr_i);
+
+            temp_vm = [popul_data.Vm_trans_mod_stats.p_sign];
+            temp_vm_mod = [popul_data.Vm_trans_mod_stats.mod];
+            %estim_nr_t(num2str(nr_num), 'Vm Transient') = {[num2str(temp_vm(nr_i)) ' (' num2str(temp_vm_mod(nr_i)) ')' ]};
+            estim_nr_t{num2str(nr_num), 'Vm Transient Stat'} = temp_vm(nr_i);
+            estim_nr_t{num2str(nr_num), 'Vm Transient Sign'} = temp_vm_mod(nr_i);
+
+            
+            temp_vm = [popul_data.Vm_sus_mod_stats.p_sign];
+            temp_vm_mod = [popul_data.Vm_sus_mod_stats.mod];
+            %estim_nr_t(num2str(nr_num), 'Vm Sustained') = {[num2str(temp_vm(nr_i)) ' (' num2str(temp_vm_mod(nr_i)) ')' ]};
+            estim_nr_t{num2str(nr_num), 'Vm Sustained Stat'} = temp_vm(nr_i);
+            estim_nr_t{num2str(nr_num), 'Vm Sustained Sign'} = temp_vm_mod(nr_i);
+            
+            temp_fr = [popul_data.fr_trans_mod_stats.p_sign];
+            temp_fr_mod = [popul_data.fr_trans_mod_stats.mod];
+            %estim_nr_t(num2str(nr_num), 'fr Transient') = {[num2str(temp_fr(nr_i)) ' (' num2str(temp_fr_mod(nr_i)) ')' ]};
+            estim_nr_t{num2str(nr_num), 'fr Transient Stat'} = temp_fr(nr_i);
+            estim_nr_t{num2str(nr_num), 'fr Transient Sign'} = temp_fr_mod(nr_i);
+
+            
+            temp_fr = [popul_data.fr_sus_mod_stats.p_sign];
+            temp_fr_mod = [popul_data.fr_sus_mod_stats.mod];
+            %estim_nr_t(num2str(nr_num), 'fr Sustained') = {[num2str(temp_fr(nr_i)) ' (' num2str(temp_fr_mod(nr_i)) ')' ]};
+            estim_nr_t{num2str(nr_num), 'fr Sustained Stat'} = temp_fr(nr_i);
+            estim_nr_t{num2str(nr_num), 'fr Sustained Sign'} = temp_fr_mod(nr_i);
+            
+            % Indicate if neurons were modulated or non-modulated at all
+            modulated = sum(popul_data.mod_matrix(nr_i, :));
+            estim_nr_t{num2str(nr_num), 'Modulated'} = modulated;
+
+            % Increment neuron number
+            nr_num = nr_num + 1;
+        end
+    end
+end
+
+estim_nr_t
+writetable(estim_nr_t, [figure_path 'Neuronwise' f 'Neurons_Estim_Only_Data.csv'], 'WriteRowNames', true);
+
+%% Print out unique mice
+stim_mice = unique(estim_nr_t.Mouse_ID);
+
+% Print out the corresponding brain region
+for m=stim_mice'
+    m = m{1};
+    idx = ismember(estim_nr_t.Mouse_ID, m);
+    idx = find(idx == 1);
+    idx = idx(1);
+    disp([m estim_nr_t.("Brain Region")(idx)]);
 end
 
 %% -- (Deprecated) -- This is an old method

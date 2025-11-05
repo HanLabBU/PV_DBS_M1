@@ -715,7 +715,7 @@ for f_region = fieldnames(region_data)'
         %end
 
         % Add all of the counts to table
-        stats_t([f_region f_stim], 'Vm Trans Act') = {length(vm_trans_act_nr)};
+        stats_t([f_region f_nr_istim], 'Vm Trans Act') = {length(vm_trans_act_nr)};
         stats_t([f_region f_stim], 'Vm sus Act') = {length(vm_sus_act_nr)};
 
         stats_t([f_region f_stim], 'Vm Trans Sup') = {length(vm_trans_sup_nr)};
