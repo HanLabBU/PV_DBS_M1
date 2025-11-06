@@ -56,7 +56,6 @@ end
 %Load the data
 load(save_all_data_file);
 
-
 if all_regions == 1
     region_data = Multi_func.combine_regions(region_data);
 end
@@ -101,9 +100,9 @@ for f_region = fieldnames(region_data)'
             % Function that waits for a function and matrix and then returns a function waiting for a column value
             applyFunToColi = @(func, mat) (@(col) func(mat(:, col)));
             % Aply the filtering function with the whole trial matrix, so all is left is waiting for a column number
-            partial_apply = applyFunToColi(filt_trial, stim_data.all_trial_SubVm{nr});
+            partial_apply = applyFunToColi(filt_trial, stim_data.all_trial_rawVm{nr});
             % Iterate through each column trial and concatenate all o fthe results
-            vm_phases{nr} = arrayfun(partial_apply, [1:size(stim_data.all_trial_SubVm{nr}, 2)]' , 'UniformOutput', false); 
+            vm_phases{nr} = arrayfun(partial_apply, [1:size(stim_data.all_trial_rawVm{nr}, 2)]' , 'UniformOutput', false); 
             % 
             vm_phases{nr} = cat(3, vm_phases{nr}{:});
         
@@ -152,7 +151,7 @@ for f_region = fieldnames(region_data)'
 end
 
 %% Loop and plot all of the dbs-vm stuff
-freqs = [1:200];
+freqs = Multi_func.entr_freqs;
 for f_region = fieldnames(region_data)'
     f_region = f_region{1};
     data_bystim = region_data.(f_region);
@@ -182,9 +181,9 @@ for f_region = fieldnames(region_data)'
         %hold on;
 
         % Plot stim data with error bars
-        stim_plvs_mean = nanmean(stim_data.stim_dbsvm_plvs_adj, 1);
-        stim_plvs_std = nanstd(stim_data.stim_dbsvm_plvs_adj, 1);
-        num_stim_plvs = size(stim_data.stim_dbsvm_plvs_adj, 1);
+        stim_plvs_mean = nanmean(stim_data.stim_dbsvm_plvs_adj, 2)';
+        stim_plvs_std = nanstd(stim_data.stim_dbsvm_plvs_adj, [], 2)';
+        num_stim_plvs = size(stim_data.stim_dbsvm_plvs_adj, 2);
         stim_plvs_sem = stim_plvs_std./sqrt(num_stim_plvs);
         
         fill_h = fill([freqs, flip(freqs)], [[stim_plvs_mean + stim_plvs_sem], flip(stim_plvs_mean - stim_plvs_sem)], [0.5 0.5 0.5]);
@@ -195,8 +194,12 @@ for f_region = fieldnames(region_data)'
         hold on;
         
         ax = gca;
-        set(ax,'Xscale','log');
-        legend({'base', 'stim'}, 'Location', 'west');
+        
+        %set(ax,'Xscale','log');
+        xlabel('Frequency (Hz)');
+        ylabel('PLV');
+        
+        %legend({'base', 'stim'}, 'Location', 'west');
         ax.Units = 'centimeters';
         ax.InnerPosition = [2 2 3.91 3.24];
 

@@ -373,7 +373,7 @@ num_iter = 500;
 wind_dist = 1000/1000; %ms
 
 % Determine whether or not to show figures
-show_figures = 0;
+show_figures = 1;
 
 % Loop through regions
 for f_region = fieldnames(region_data)'
@@ -390,8 +390,6 @@ for f_region = fieldnames(region_data)'
         plv_freq = str2num(erase(f_stim, 'f_'));
         avg_Fs = mean(popul_data.framerate, 'omitnan');
  
-        
-            disp('Fig created');
 
         % Check if plv_mod_stats already exists
         %try
@@ -402,8 +400,12 @@ for f_region = fieldnames(region_data)'
         %end
 
         if show_figures == 1
+            disp('Fig created');
             figure('Position', [0, 0, 800, 1800]);
-            tiledlayout(length(popul_data.neuron_name), 2, 'TileSpacing', 'none', 'Padding', 'none');
+            %tiledlayout(length(popul_data.neuron_name), 2, 'TileSpacing', 'tight', 'Padding', 'none');
+            t = tiledlayout(length(popul_data.neuron_name), 1, 'TileSpacing', 'tight', 'Padding', 'none');
+            xlabel(t, 'PLVs');
+            ylabel(t, 'Counts');
         end
 
         for nr=1:length(popul_data.neuron_name)
@@ -520,17 +522,17 @@ for f_region = fieldnames(region_data)'
     
             if show_figures == 1
                 %DEBUG Plot the raw trials with spike phase information
-                nexttile;
-                all_trs = popul_data.all_trial_rawVm{nr};
-                all_trs = Multi_func.raw_filt(all_trs, plv_freq, avg_Fs);
-                norm_trs = Multi_func.norm_signals(all_trs);
-                plot(norm_trs + repmat(1:size(norm_trs, 2), size(norm_trs, 1), 1));
-                hold on;
-                xline(find(dbs_raster == 1));
-                 %plot(find(dbs_raster == 1), 1.2.*size(norm_trs, 2).*ones(sum(dbs_raster), 1), '|');
-                xlim([700 800]);
+%                 nexttile;
+%                 all_trs = popul_data.all_trial_rawVm{nr};
+%                 all_trs = Multi_func.raw_filt(all_trs, plv_freq, avg_Fs);
+%                 norm_trs = Multi_func.norm_signals(all_trs);
+%                 plot(norm_trs + repmat(1:size(norm_trs, 2), size(norm_trs, 1), 1));
+%                 hold on;
+%                 xline(find(dbs_raster == 1));
+%                  %plot(find(dbs_raster == 1), 1.2.*size(norm_trs, 2).*ones(sum(dbs_raster), 1), '|');
+%                 xlim([700 800]);
 
-                sgtitle([f_region ' ' f_stim], 'Interpreter', 'none');
+                sgtitle([f_region(3:end) ' ' f_stim(3:end)], 'Interpreter', 'none');
             end
 
             % Store the PLV data into the neuron structure
