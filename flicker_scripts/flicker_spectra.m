@@ -288,7 +288,7 @@ for f_stim = fieldnames(data)'
 end
 
 %% Stats for single-Cell level power spectra
-for f_stim = fieldnames(data)'
+for f_stim = fieldnames(data)' %{'f_140'} %
     f_stim = f_stim{1};
     popul_data = data.(f_stim);
 
@@ -311,7 +311,7 @@ for f_stim = fieldnames(data)'
     end
 
     % Loop through each neuron and calculate significance
-    for f_nr = fieldnames(popul_data.spec_pow)'
+    for f_nr = fieldnames(popul_data.spec_pow)' %{'n_12'}%
         f_nr = f_nr{1};
         
         for vpo = voices_per_octaves
@@ -330,9 +330,9 @@ for f_stim = fieldnames(data)'
             stim_idxs = find(interp_time > 1.250 & interp_time < 1.750);
             flick_offset_idxs = find(interp_time > 2.250 & interp_time < 2.750);
 
-            flicker_onset_pow = mean(mean(nr_pow(flick_freq_idxs, flicker_onset_idxs, :), 2), 1);
+            flicker_onset_pow = mean(mean(nr_pow(flick_freq_idxs, flick_onset_idxs, :), 2), 1);
             stim_pow = mean(mean(nr_pow(flick_freq_idxs, stim_idxs, :), 2), 1);
-            flicker_offset_pow = mean(mean(nr_pow(flick_freq_idxs, flicker_offset_idxs, :), 2), 1);
+            flicker_offset_pow = mean(mean(nr_pow(flick_freq_idxs, flick_offset_idxs, :), 2), 1);
             
             flicker_onset_pow = squeeze(flicker_onset_pow);
             stim_pow = squeeze(stim_pow);
@@ -345,7 +345,7 @@ for f_stim = fieldnames(data)'
             pow_vals.(vpo).onset.(f_nr) = flicker_onset_pow(:);
             pow_vals.(vpo).stim.(f_nr) = stim_pow(:);
 
-            pow_vals.(vpo).stats.(f_nr) = sr_p(:);
+            pow_vals.(vpo).stats.(f_nr) = sr_p(:);;
 
             if sr_p < 0.05
                 if mean(stim_pow -  flicker_onset_pow) > 0
@@ -641,7 +641,7 @@ for f_stim = fieldnames(data)'
     interp_time = popul_data.interp_time;
     
     % Loop through each neuron's coherence values
-    for f_nr = fieldnames(popul_data.spec_wcoh)'
+    for f_nr = fieldnames(popul_data.nr_name)'
         f_nr = f_nr{1};
  
         % Store individual neuron's coherence values across different voicesPerOctave
