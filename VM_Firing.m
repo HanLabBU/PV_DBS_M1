@@ -148,15 +148,15 @@ for f_region = fieldnames(region_data)'
  
         % Determine parameters based on what is being plotted
         if strcmp(f_region, 'r_combine') == 1 && cur_win_srate == 50
-            Multi_func.plot_dbs_bar([0, 1], 7, [f_stim(3:end) ' Hz DBS']);
+            Multi_func.plot_dbs_bar([0, 1], 7, [f_stim(3:end) ' Hz']);
             y.Limits = [-2 8];
             Multi_func.set_spacing_axis(y, 2, 1);
         elseif strcmp(f_region, 'r_M1') == 1 && cur_win_srate == 50
-            Multi_func.plot_dbs_bar([0, 1], 4, [f_stim(3:end) ' Hz DBS']);
+            Multi_func.plot_dbs_bar([0, 1], 4, [f_stim(3:end) ' Hz']);
             y.Limits = [-2 5];
             Multi_func.set_spacing_axis(y, 2, 1);
         elseif strcmp(f_region, 'r_V1') == 1 && cur_win_srate == 50
-            Multi_func.plot_dbs_bar([0, 1], 18, [f_stim(3:end) ' Hz DBS']);
+            Multi_func.plot_dbs_bar([0, 1], 18, [f_stim(3:end) ' Hz']);
             y.Limits = [-5 20];
             Multi_func.set_spacing_axis(y, 5, 1);
         
@@ -166,7 +166,7 @@ for f_region = fieldnames(region_data)'
         end
 
         if cur_win_srate == 3
-            Multi_func.plot_dbs_bar([0, 1], y.Limits(2), [f_stim(3:end) ' Hz DBS']);
+            Multi_func.plot_dbs_bar([0, 1], y.Limits(2), [f_stim(3:end) ' Hz']);
         end
         
 
@@ -179,7 +179,7 @@ for f_region = fieldnames(region_data)'
         else
             xlim([-1 2.05]);
         end
-        ylabel('Firing Rate Change (Hz)');
+        ylabel('Firing Rate Change (Spikes/sec)');
         %title(f_stim(3:end), 'Interpreter', 'none');
     end
     sgtitle([f_region(3:end) ' Average Spike rate'], 'Interpreter', 'none');
@@ -282,17 +282,17 @@ for f_region = fieldnames(region_data)'
         end
         
         % Plot a DBS bar generically
-        Multi_func.plot_dbs_bar([0, 1], max(cur_Vm)+ 0.3, [f_stim(3:end) ' Hz DBS']);
+        Multi_func.plot_dbs_bar([0, 1], max(cur_Vm)+ 0.3, [f_stim(3:end) ' Hz']);
 
         % Determine limits based on what is plotted
         %if strcmp(f_region, 'r_M1') == 1
-        %    Multi_func.plot_dbs_bar([0, 1], , [f_stim(3:end) 'Hz DBS']);
+        %    Multi_func.plot_dbs_bar([0, 1], , [f_stim(3:end) 'Hz']);
         %    y.Limits = [-5 10];
         %    Multi_func.set_spacing_axis(y, 5, 1);
         %elseif strcmp(f_region, 'r_combine') == 1
         %    y.Limits = [-2 8];
         %elseif strcmp(f_region, 'r_V1') == 1
-        %    Multi_func.plot_dbs_bar([0, 1], 18, [f_stim(3:end) 'Hz DBS']);
+        %    Multi_func.plot_dbs_bar([0, 1], 18, [f_stim(3:end) 'Hz']);
         %    y.Limits = [-10 20];
         %    Multi_func.set_spacing_axis(y, 10, 1);
         %end
@@ -508,7 +508,7 @@ for f_region = fieldnames(region_data)'
         %    Multi_func.set_spacing_axis(y, 1, 1);
         %end
 
-        title([f_stim(3:end) ' Hz DBS']);
+        title([f_stim(3:end) ' Hz']);
         ylabel('Normalized Vm Change');
 
         sub_vm_stat_data.(f_region).(f_stim).trans_vm.(nr_pop) = pop_trans_vms;
@@ -778,8 +778,8 @@ for f_region = fieldnames(region_data)'
         %plot([1, 2], data, '-', 'Color', [0 0 0 0.2]);
         %hold on;
         Multi_func.set_default_axis(gca);
-        title([f_stim(3:end) ' Hz DBS']);
-        ylabel('Firing Rate Change (Hz)');
+        title([f_stim(3:end) ' Hz']);
+        ylabel({'Firing Rate Change', '(Spikes/sec)'});
         
         % Change axis cosmetics
         a = gca; y = a.YAxis;
@@ -871,8 +871,8 @@ for f_region = fieldnames(region_data)'
         end
         yticklabels(ylab);
         
-        title([f_stim(3:end) ' Hz DBS']);
-        ylabel('Firing Rate Change (Hz)');
+        title([f_stim(3:end) ' Hz']);
+        ylabel({'Firing Rate Change', '(Spikes/sec)'});
 
         fr_stat_data.(f_region).(f_stim).stim_fr = data_bystim.(f_stim).neuron_stim_FR;
     end
@@ -1085,7 +1085,7 @@ for f_region = fieldnames(region_data)'
         posy = 400;
         srate_scale = 100;
         plot([posx, posx], [posy, posy + srate_scale], 'k', 'LineWidth', 2);
-        text(posx - .02, posy, [num2str(srate_scale) ' FR (Hz)'], 'Rotation', 90);
+        text(posx - .02, posy, [num2str(srate_scale) ' FR (Spikes/sec)'], 'Rotation', 90);
 
         % Increase timescale resolution
         xlim([0 - .100, max(stim_time) + 0.100]);
@@ -1234,7 +1234,7 @@ for f_region = fieldnames(region_data)'
         %plot([1, 2], data, '-', 'Color', [0 0 0 0.2]);
         %hold on;
         Multi_func.set_default_axis(gca);
-        title([f_stim(3:end) ' Hz DBS']);
+        title([f_stim(3:end) ' Hz']);
         ylabel('Vm Change');
         
         % Change axis cosmetics
