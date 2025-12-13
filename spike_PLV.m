@@ -68,7 +68,7 @@ field1 = {'r_M1'};
 avg_Fs = mean(region_data.(field1{1}).f_40.framerate, 'omitnan');
 
 %% Loop through and calculate spike-Vm PLV values for all region and conditions
-freqs = [1:200];
+freqs = Multi_func.entr_freqs;
 
 % Flag to use low frequency oscillation
 use_low_freq = 0;
@@ -163,8 +163,8 @@ end
 
 % Flag to determine which populations to plot
 % The variable must be set from 'single_cell_mod'
-%nr_pop = 'all';
-nr_pop = 'etrain';
+nr_pop = 'all';
+%nr_pop = 'etrain';
 %nr_pop = 'non';
 
 %low_freqs = [1:50]; % Deprecated??
@@ -174,6 +174,11 @@ for f_region = fieldnames(region_data)'
     data_bystim = region_data.(f_region);
     stims = fieldnames(data_bystim);
     
+    if strcmp(f_region, 'r_CA1') == 1
+        continue;
+    end
+
+
     % Loop through stim conditions
     for f_stim=stims'
         f_stim = f_stim{1};
@@ -194,11 +199,11 @@ for f_region = fieldnames(region_data)'
         end
 
         % Setup figure with set dimensions
-        figure('Renderer', 'painters', 'Position', [5, 5, 1000, 1000]);
+        figure('Renderer', 'painters', 'Position', [5, 5, 500, 500]);
 
         ax = gca;
         ax.Units = 'centimeters';
-        ax.InnerPosition = [2 2 5 4.0];
+        ax.InnerPosition = [2 2 2.9 2.9];
         
         % Plot base data with error bars
         base_plvs_mean = nanmean(popul_data.base_spikevm_plvs_adj(nr_idxs, :), 1);
@@ -236,7 +241,7 @@ for f_region = fieldnames(region_data)'
         xlabel('Frequency (Hz)');
 
         ylabel('Spike-Vm PLV^2');
-        ylim([-0.07 0.5]);
+        ylim([-0.07 1]);
         title([f_region(3:end) ' ' f_stim(3:end) ' ' nr_pop], 'Interpreter', 'none');
         saveas(gcf, [figure_path 'PLV' f 'PLV_spike_vm_' f_region '_' nr_pop '_' f_stim '.png']);
         saveas(gcf, [figure_path 'PLV' f 'PLV_spike_vm_' f_region '_' nr_pop '_' f_stim '.pdf']);
@@ -267,11 +272,11 @@ end
 freqs = [1:200];
 
 % Determine the neuron population
-%nr_pop = 'all';
-nr_pop = 'etrain';
+nr_pop = 'all';
+%nr_pop = 'etrain';
 %nr_pop = 'non';
 
-stats_log = [figure_path 'PLV' f 'spikevm_plv_stats' nr_pop];
+stats_log = [figure_path 'PLV' f 'spikevm_plv_stats_' nr_pop];
 if exist(stats_log), delete(sprintf('%s', stats_log)), end;
 diary(stats_log);
 diary off
@@ -282,6 +287,10 @@ for f_region = fieldnames(region_data)'
     data_bystim = region_data.(f_region);
     stims = fieldnames(data_bystim);
     
+    if strcmp(f_region, 'r_CA1') == 1
+        continue;
+    end
+
     % Loop through stim conditions
     for f_stim=stims'
         f_stim = f_stim{1};
@@ -329,10 +338,10 @@ for f_region = fieldnames(region_data)'
         xlim([0 3]);
         ylim([0 1]);
 
-        if strcmp(f_region, 'r_M1') && strcmp(f_stim, 'f_140')
-            disp('op');
-            error('asd');
-        end
+%         if strcmp(f_region, 'r_M1') && strcmp(f_stim, 'f_140')
+%             disp('op');
+%             error('asd');
+%         end
     end
 end
 
