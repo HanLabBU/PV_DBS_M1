@@ -110,6 +110,7 @@ for f_region = fieldnames(region_matfiles)'
 
         % Trace stuff
         data_bystim.(f_stim).framerate = [];
+        data_bystim.(f_stim).orig_framerate = [];
         data_bystim.(f_stim).all_trial_SubVm = {};
         data_bystim.(f_stim).neuron_SubVm = [];
         data_bystim.(f_stim).neuron_RawVm = [];
@@ -195,6 +196,7 @@ for f_region = fieldnames(region_matfiles)'
                 
                 % Collect all data for individual ROIs
                 cur_roi_Fs = [];
+                cur_roi_orig_Fs = [];
                 cur_roi_subVm = [];
                 cur_roi_rawtraces = [];
                 cur_roi_tracenoises = [];
@@ -239,7 +241,10 @@ for f_region = fieldnames(region_matfiles)'
                     % Store the camera framerate
                     all_Fs(end+1) = trial_data.camera_framerate;
                     cur_roi_Fs(end + 1) = trial_data.camera_framerate;
-
+                    
+                    % Store original framerate
+                    cur_roi_orig_Fs(end + 1) = trial_data.orig_camera_framerate;
+                    
                     % Store all of the timestamp info
                     stim_start = raw_trial_data.raw_stimulation_time(1);
                     
@@ -523,6 +528,10 @@ for f_region = fieldnames(region_matfiles)'
                 % Save framerate
                 data_bystim.(f_stim).framerate(end + 1) = mean(cur_roi_Fs);
                     
+                % Save original framerate
+                temp = data_bystim.(f_stim).orig_framerate;
+                data_bystim.(f_stim).orig_framerate = horzcat_pad(temp, cur_roi_orig_Fs(:));
+
                 % Save all of the transient and sustained information
                 temp = data_bystim.(f_stim).neuron_trans_Vm;
                 data_bystim.(f_stim).neuron_trans_Vm = horzcat_pad(temp, mean(cur_roi_trans_Vm) - mean(cur_roi_base_Vm));
