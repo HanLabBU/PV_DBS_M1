@@ -75,24 +75,28 @@ red_blue_color_cmap = flipud(red_blue_color_cmap);
 % Flag to determine which populations to plot
 % The variable must be set from 'single_cell_mod'
 %nr_pop = 'all';
-%nr_pop = 'etrain';
-nr_pop = 'non';
+nr_pop = 'etrain';
+%nr_pop = 'non';
 %nr_pop = 'first_half'
 %nr_pop = 'second_half'
 
 % Flag for removing non-modulated neurons from analysis
 remove_nonmod_nrs = 1;
 
+% For interpolating the frequency space
+freq_lin = linspace(min(Multi_func.entr_freqs), max(Multi_func.entr_freqs), 200);
+
 for f_region = fieldnames(region_data)'
     f_region = f_region{1};
     data_bystim = region_data.(f_region);
     stims = fieldnames(data_bystim);
-    figure('visible', 'on', 'Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
-    tiledlayout(1, length(stims), 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [1, 10, 16.62, 4]); % ORiginal [1, 10, 16.62, 2.26]);
+    
     % Loop through each stimulation parameter
     for f_stim=stims'
         f_stim = f_stim{1};
-
+        
+        figure('visible', 'on', 'Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
+    
         popul_data = data_bystim.(f_stim);
 
         % Check if there is an entrained field in the population data
@@ -118,8 +122,6 @@ for f_region = fieldnames(region_data)'
             non_mod_nr = find(sum(popul_data.mod_matrix, 2) == 0);
             nr_idxs = nr_idxs(~ismember(nr_idxs, non_mod_nr));
         end
-
-        nexttile;
         
         % Get the trace timestamps
         timeline = nanmean(popul_data.trace_timestamps, 2)';
@@ -149,11 +151,20 @@ for f_region = fieldnames(region_data)'
                                 nr_idxs, 'UniformOutput', false);
         
         cur_spec_pow = cat(3, cur_spec_pow{:});
-
-        surface(timeline, ... 
-                nanmean(popul_data.neuron_rawvm_spec_freq(:, :, nr_idxs), 3), ...
-                nanmean(cur_spec_pow, 3), 'CDataMapping', 'scaled', 'FaceColor', 'texturemap', 'edgecolor', 'none');
         
+        avg_f = mean(popul_data.neuron_rawvm_spec_freq, 3);
+        avg_pow = mean(cur_spec_pow, 3, 'omitnan');
+
+        % Interpolate frequency for easier heatmap plotting
+        pow_interp = interp1(avg_f, avg_pow, freq_lin);
+
+%         surface(timeline, ... 
+%                 nanmean(popul_data.neuron_rawvm_spec_freq(:, :, nr_idxs), 3), ...
+%                 nanmean(cur_spec_pow, 3), 'CDataMapping', 'scaled', 'FaceColor', 'texturemap', 'edgecolor', 'none');
+        
+        imagesc(timeline, freq_lin, pow_interp);
+        axis xy;
+
         %colormap(Multi_func.red_green_blue_color);
         %colormap(Multi_func.red_yellow_blue_color);
         colormap(Multi_func.red_purple_blue_color);
@@ -164,7 +175,11 @@ for f_region = fieldnames(region_data)'
         Multi_func.plot_dbs_bar([0, 1], 205, '');
 
         caxis([-0.4 0.4]);
-        
+        ax = gca;
+        ax.Units = 'centimeters';
+        ax.Position = [2 2 3 3];
+        orig_pos = ax.Position;
+
         % Only have color bar for 40Hz
         if strcmp(f_stim, 'f_40') == 1
             a = colorbar;
@@ -172,25 +187,35 @@ for f_region = fieldnames(region_data)'
             a.Ticks = linspace(a.Limits(1), a.Limits(2), 5);
             a.TickLabels = num2cell(round(linspace(a.Limits(1), a.Limits(2), 5), 1));
             a.Label.String = 'Relative Power';
+
+            % Resize original spectra axis
+            drawnow;
+            ax.Position = orig_pos;
+            ax.Position 
+            %a.Position = [orig_pos(1)+orig_pos(3), orig_pos(2), 2, orig_pos(4)];
         end
+        
 
         Multi_func.set_default_axis(gca);
         xlabel('Time from Stim onset(s)');
         xlim([-0.80 2.05]);
         ylim([0 205]);
         ylabel('Freq (Hz)');
-        title(f_stim(3:end), 'Interpreter', 'none');
+        
+        %title(f_stim(3:end), 'Interpreter', 'none');
 
         % Save the spectra data into the region_data structure
         region_data.(f_region).(f_stim).ab_norm_pow_spec = cur_spec_pow;
-    end
-    sgtitle([ f_region ' Time Series Spectra with (x - A)/(A + B) normalization individually ' nr_pop], 'Interpreter', 'none');
+
+        sgtitle([ f_region '_' f_stim ' Time Series Spectra with (x - A)/(A + B) normalization individually ' nr_pop], 'Interpreter', 'none');
     
-    saveas(gcf, [figure_path 'Spectra/' f_region '_' nr_pop '_A_B_Normalization_Time_Spectra.png']);
-    saveas(gcf, [figure_path 'Spectra/' f_region '_' nr_pop '_A_B_Normalization_Time_Spectra.pdf']);
-    savefig(gcf, [figure_path 'Spectra/' f_region '_' nr_pop '_A_B_Normalization_Time_Spectra.fig']);
-    %saveas(gcf, [figure_path 'Spectra/' f_region '_A_B_Normalization_Time_Spectra.eps'], 'epsc');
-    %savefig(gcf, [figure_path 'Spectra/' f_region '_A_B_Normalization_Time_Spectra.fig']);
+        saveas(gcf, [figure_path 'Spectra/' f_region '_'  f_stim '_' nr_pop '_A_B_Normalization_Time_Spectra.png']);
+        saveas(gcf, [figure_path 'Spectra/' f_region '_'  f_stim '_' nr_pop '_A_B_Normalization_Time_Spectra.pdf']);
+        savefig(gcf, [figure_path 'Spectra/' f_region '_' f_stim '_' nr_pop '_A_B_Normalization_Time_Spectra.fig']);
+        %saveas(gcf, [figure_path 'Spectra/' f_region '_A_B_Normalization_Time_Spectra.eps'], 'epsc');
+        %savefig(gcf, [figure_path 'Spectra/' f_region '_A_B_Normalization_Time_Spectra.fig']);
+    end
+    
 end
 
 %% Compute the PSD from the A_B normalization
