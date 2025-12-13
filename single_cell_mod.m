@@ -13,7 +13,7 @@ server_root_path = '~/handata_server/eng_research_handata3/';
 
 exclude_200ms = 1;
 
-% Parameters for frames to chop off
+% Parameters for frames to chFop off
 if ~exclude_200ms
     front_frame_drop = 15;
 else 
@@ -369,6 +369,8 @@ end
 % This is used to determine between entrained and non-entrained neurons
 % Creates 'plv_mod_stats' field
 
+% Specify randomization paramters
+rng(123);
 num_iter = 500;
 wind_dist = 1000/1000; %ms
 
@@ -717,7 +719,7 @@ for f_region = fieldnames(region_data)'
         %end
 
         % Add all of the counts to table
-        stats_t([f_region f_nr_istim], 'Vm Trans Act') = {length(vm_trans_act_nr)};
+        stats_t([f_region f_stim], 'Vm Trans Act') = {length(vm_trans_act_nr)};
         stats_t([f_region f_stim], 'Vm sus Act') = {length(vm_sus_act_nr)};
 
         stats_t([f_region f_stim], 'Vm Trans Sup') = {length(vm_trans_sup_nr)};
@@ -1224,6 +1226,28 @@ for f_region = fieldnames(region_data)'
     end
 end
 
+%% TODO plot the entrained and non-entrained PLV frequency sweep
+% Loop through regions
+for f_region = fieldnames(region_data)'
+    f_region = f_region{1};
+    data_bystim = region_data.(f_region);
+    stims = fieldnames(data_bystim);
+
+    % Loop through stim frequencies
+    for f_stim = stims'
+        f_stim = f_stim{1};
+        popul_data = data_bystim.(f_stim);
+        
+        % Grab the neurons that were entrained
+        entr_idxs = find([popul_data.plv_mod_stats.mod] > 0);
+        nonentr_idxs = find([popul_data.plv_mod_stats.mod] < 0);
+
+
+    end
+end
+
+%% END of plotting maybe??
+
 %% 
 % Debugging script to determine the sustained mods for each region
 T = array2table([region_data.r_M1.f_140.fr_sus_mod_stats.mod]);
@@ -1640,6 +1664,7 @@ for f_region = fieldnames(region_data)'
             
             ylim([0.5 size(pulse_heatmap, 1) + 0.5]);
             xlabel('Time from onset (ms)');
+            ylabel('Neuron #');
             
             if strcmp(f_ped, 'sus') == 1
                 colormap(Multi_func.red_purple_blue_color);
@@ -1724,8 +1749,8 @@ end
 % Note:To use ''
 
 %plot_mode = 'pow'; % Use stimulation frequency power spectra for each neuron
-%plot_mode = 'Vm'; % Use the trial averaged Vm
-plot_mode = 'pulse'; % use Pulse-triggered average
+plot_mode = 'Vm'; % Use the trial averaged Vm
+%plot_mode = 'pulse'; % use Pulse-triggered average
 freqs = Multi_func.entr_freqs;
 extra_trace = 3;
 
@@ -1981,70 +2006,71 @@ for f_region = fieldnames(region_data)'
         end
 
         % Plot the population average PLV for each group entrainment
-        %nexttile;
-        %
-        %fill_h = fill([freqs'; flip(freqs)'], ...
-        %        [non_plv_avg + non_plv_sem; flipud(non_plv_avg - non_plv_sem)], ...
-        %        Multi_func.non_color, 'HandleVisibility', 'off');
-        %Multi_func.set_fill_properties(fill_h);
+        nexttile;
+        
+        fill_h = fill([freqs'; flip(freqs)'], ...
+               [non_plv_avg + non_plv_sem; flipud(non_plv_avg - non_plv_sem)], ...
+               Multi_func.non_color, 'HandleVisibility', 'off');
+        Multi_func.set_fill_properties(fill_h);
 
-        %fill_h.EdgeAlpha = 0;
-        %hold on;
-        %plot(freqs', non_plv_avg, 'DisplayName', 'Non-entrained', 'Color', Multi_func.non_color);
+        fill_h.EdgeAlpha = 0;
+        hold on;
+        plot(freqs', non_plv_avg, 'DisplayName', 'Non-entrained', 'Color', Multi_func.non_color);
 
-        %hold on;
-        %fill_h = fill([freqs'; flip(freqs)'], ...
-        %        [etrain_plv_avg + etrain_plv_sem; flipud(etrain_plv_avg - etrain_plv_sem)], ...
-        %        Multi_func.act_color, 'HandleVisibility', 'off');
-        %Multi_func.set_fill_properties(fill_h);
-        %fill_h.EdgeAlpha = 0;
-        %hold on;
-        %plot(freqs', etrain_plv_avg, 'DisplayName', 'Entrained', 'Color', Multi_func.act_color);
-        %hold on;
+        hold on;
+        fill_h = fill([freqs'; flip(freqs)'], ...
+               [etrain_plv_avg + etrain_plv_sem; flipud(etrain_plv_avg - etrain_plv_sem)], ...
+               Multi_func.act_color, 'HandleVisibility', 'off');
+        Multi_func.set_fill_properties(fill_h);
+        fill_h.EdgeAlpha = 0;
+        hold on;
+        plot(freqs', etrain_plv_avg, 'DisplayName', 'Entrained', 'Color', Multi_func.act_color);
+        hold on;
 
-        %set(gca, 'XScale', 'log');
-        %Multi_func.set_default_axis(gca);
-        %legend();
-        %ylabel('DBS-Vm PLV^2');
-        %xlabel('Frequency (Hz)');
+        set(gca, 'XScale', 'log');
+        Multi_func.set_default_axis(gca);
+        legend();
+        ylabel('DBS-Vm PLV^2');
+        xlabel('Frequency (Hz)');
         % -- Done plotting the population average for each group entrainment
 
+        % Uncomment if we want to show pulse-triggered average
         % Plot the pulse-triggered average for both entrained and non-entrained
-        nexttile;
-        etrain_pulse_avg = mean(pop_etrain_pulse, 2);
-        etrain_pulse_sem = std(pop_etrain_pulse, 0, 2)./sqrt(size(pop_etrain_pulse, 2));
-        non_pulse_avg = mean(pop_non_pulse, 2);
-        non_pulse_sem = std(pop_non_pulse, 0, 2)./sqrt(size(pop_non_pulse, 2));
- 
-        % Plot the Non-Entrained pulse-triggered average
-        fill_h = fill([timeline, flip(timeline)], ...
-            [non_pulse_avg + non_pulse_sem; flipud(non_pulse_avg - non_pulse_sem)], ...
-            Multi_func.non_color, 'HandleVisibility', 'off');
-        Multi_func.set_fill_properties(fill_h);
-        fill_h.EdgeAlpha = 0;
-        hold on;
-        plot(timeline, non_pulse_avg, 'DisplayName', 'Non-entrained', 'Color', Multi_func.non_color);
-        hold on;
-
-        % Plot the Entrained pulse-triggered average
-        fill_h = fill([timeline, flip(timeline)], ...
-            [etrain_pulse_avg + etrain_pulse_sem; flipud(etrain_pulse_avg - etrain_pulse_sem)], ...
-            Multi_func.act_color, 'HandleVisibility', 'off');
-        Multi_func.set_fill_properties(fill_h);
-        fill_h.EdgeAlpha = 0;
-        hold on;
-        plot(timeline, etrain_pulse_avg, 'DisplayName', 'Entrained', 'Color', Multi_func.act_color);
-        hold on;
-        Multi_func.set_default_axis(gca);
-
-        xlim([min(timeline) - .01, max(timeline)]);
-        xline([0:nr_avg_pulse_width_time*1000:nr_avg_pulse_width_time*1000], ...
-            'Color', Multi_func.pulse_color, 'LineWidth', 2, ...
-            'HandleVisibility', 'off');
-        hold on;
-        legend();
-        xlabel('Time from pulse onset (S)');
-        ylabel('Normalized Vm');
+%         nexttile;
+%         etrain_pulse_avg = mean(pop_etrain_pulse, 2);
+%         etrain_pulse_sem = std(pop_etrain_pulse, 0, 2)./sqrt(size(pop_etrain_pulse, 2));
+%         non_pulse_avg = mean(pop_non_pulse, 2);
+%         non_pulse_sem = std(pop_non_pulse, 0, 2)./sqrt(size(pop_non_pulse, 2));
+%  
+%         % Plot the Non-Entrained pulse-triggered average
+%         fill_h = fill([timeline, flip(timeline)], ...
+%             [non_pulse_avg + non_pulse_sem; flipud(non_pulse_avg - non_pulse_sem)], ...
+%             Multi_func.non_color, 'HandleVisibility', 'off');
+%         Multi_func.set_fill_properties(fill_h);
+%         fill_h.EdgeAlpha = 0;
+%         hold on;
+%         plot(timeline, non_pulse_avg, 'DisplayName', 'Non-entrained', 'Color', Multi_func.non_color);
+%         hold on;
+% 
+%         % Plot the Entrained pulse-triggered average
+%         fill_h = fill([timeline, flip(timeline)], ...
+%             [etrain_pulse_avg + etrain_pulse_sem; flipud(etrain_pulse_avg - etrain_pulse_sem)], ...
+%             Multi_func.act_color, 'HandleVisibility', 'off');
+%         Multi_func.set_fill_properties(fill_h);
+%         fill_h.EdgeAlpha = 0;
+%         hold on;
+%         plot(timeline, etrain_pulse_avg, 'DisplayName', 'Entrained', 'Color', Multi_func.act_color);
+%         hold on;
+%         Multi_func.set_default_axis(gca);
+% 
+%         xlim([min(timeline) - .01, max(timeline)]);
+%         xline([0:nr_avg_pulse_width_time*1000:nr_avg_pulse_width_time*1000], ...
+%             'Color', Multi_func.pulse_color, 'LineWidth', 2, ...
+%             'HandleVisibility', 'off');
+%         hold on;
+%         legend();
+%         xlabel('Time from pulse onset (S)');
+%         ylabel('Normalized Vm');
 
         % Plot each neuron's PLV for all frequencies
         nexttile;
@@ -2084,81 +2110,81 @@ for f_region = fieldnames(region_data)'
     end
 end
 
-%% Calculate the cross-correlation of the stimulation period for all neurons
-
-for f_region = fieldnames(region_data)'
-    f_region = f_region{1};
-    data_bystim = region_data.(f_region);
-    stims = fieldnames(data_bystim);
-
-    % Loop through stim frequencies
-    for f_stim = stims'
-        f_stim = f_stim{1};
-        popul_data = data_bystim.(f_stim);
-        
-        % Get average framerate
-        avg_Fs = mean(popul_data.framerate, 'omitnan');
-
-        % Figure for each condition
-        figure('Position', [0, 0, 800, 2000]);
-        tiledlayout(length(popul_data.neuron_name), 2, 'TileSpacing', 'none', 'Padding', 'none');
-
-        % Iterate through neurons
-        for nr=1:length(popul_data.neuron_name)
-            
-            % Grab the stimulation idxs
-            nr_timeline = popul_data.trace_timestamps(:, nr);
-            stim_idx = find(nr_timeline > 0 & nr_timeline < 1);
-
-            % De-mean and calculate the auto-correlation
-            de_mean = @(col_idx) xcorr(popul_data.all_trial_SubVm{nr}(stim_idx, col_idx) ...
-                                    - mean(popul_data.all_trial_SubVm{nr}(stim_idx, col_idx)));
-            
-
-            [corrs, lags] = arrayfun(de_mean, [1:size(popul_data.all_trial_SubVm{nr}, 2)], 'UniformOutput', false);
-            
-            % Calculate the average correlations and lags
-            avg_corrs = mean(cat(2, corrs{:}), 2);
-            avg_lags = mean(cat(1, lags{:})', 2);
-            sem_corrs = std(cat(2, corrs{:}), [], 2)./sqrt(length(corrs));
-
-            % Chop the data in half because it is symmetrical
-            avg_corrs = avg_corrs(ceil(length(avg_corrs)/2):end);
-            avg_lags = avg_lags(ceil(length(avg_lags))./2:end);
-            sem_corrs = sem_corrs(ceil(length(sem_corrs))./2:end);
-
-            % Calculate the fft of the average cross-correlation
-            fft_y = fft(avg_corrs);
-            sig_length = length(avg_corrs);
-            freq_domain = (avg_Fs/sig_length)*(0:sig_length - 1);
-
-            % Plot the auto-correlation
-            nexttile;
-            fill_h = fill([avg_lags; flip(avg_lags)], ...
-                [avg_corrs + sem_corrs; flipud(avg_corrs - sem_corrs)], ...
-                [0 0 1] , 'HandleVisibility', 'off');
-            Multi_func.set_fill_properties(fill_h);
-            hold on;
-            plot(avg_lags, avg_corrs);
-            xlim([-200 200]);
-
-            % Plot the fourier-transform
-            nexttile;
-            
-            % Check if the PLV mod is high or low
-            if popul_data.plv_mod_stats(nr).mod > 0
-                cur_color = 'g';
-            else
-                cur_color = 'r';
-            end
-            plot(freq_domain, abs(fft_y), 'Color', cur_color);
-            xlim([5 200]);
-        end
-
-        % Title of condition
-        sgtitle([f_region ' ' f_stim], 'Interpreter', 'none');
-    end
-end
+% %% Calculate the cross-correlation of the stimulation period for all neurons
+% % This is computationally intensive
+% for f_region = fieldnames(region_data)'
+%     f_region = f_region{1};
+%     data_bystim = region_data.(f_region);
+%     stims = fieldnames(data_bystim);
+% 
+%     % Loop through stim frequencies
+%     for f_stim = stims'
+%         f_stim = f_stim{1};
+%         popul_data = data_bystim.(f_stim);
+%         
+%         % Get average framerate
+%         avg_Fs = mean(popul_data.framerate, 'omitnan');
+% 
+%         % Figure for each condition
+%         figure('Position', [0, 0, 800, 2000]);
+%         tiledlayout(length(popul_data.neuron_name), 2, 'TileSpacing', 'none', 'Padding', 'none');
+% 
+%         % Iterate through neurons
+%         for nr=1:length(popul_data.neuron_name)
+%             
+%             % Grab the stimulation idxs
+%             nr_timeline = popul_data.trace_timestamps(:, nr);
+%             stim_idx = find(nr_timeline > 0 & nr_timeline < 1);
+% 
+%             % De-mean and calculate the auto-correlation
+%             de_mean = @(col_idx) xcorr(popul_data.all_trial_SubVm{nr}(stim_idx, col_idx) ...
+%                                     - mean(popul_data.all_trial_SubVm{nr}(stim_idx, col_idx)));
+%             
+% 
+%             [corrs, lags] = arrayfun(de_mean, [1:size(popul_data.all_trial_SubVm{nr}, 2)], 'UniformOutput', false);
+%             
+%             % Calculate the average correlations and lags
+%             avg_corrs = mean(cat(2, corrs{:}), 2);
+%             avg_lags = mean(cat(1, lags{:})', 2);
+%             sem_corrs = std(cat(2, corrs{:}), [], 2)./sqrt(length(corrs));
+% 
+%             % Chop the data in half because it is symmetrical
+%             avg_corrs = avg_corrs(ceil(length(avg_corrs)/2):end);
+%             avg_lags = avg_lags(ceil(length(avg_lags))./2:end);
+%             sem_corrs = sem_corrs(ceil(length(sem_corrs))./2:end);
+% 
+%             % Calculate the fft of the average cross-correlation
+%             fft_y = fft(avg_corrs);
+%             sig_length = length(avg_corrs);
+%             freq_domain = (avg_Fs/sig_length)*(0:sig_length - 1);
+% 
+%             % Plot the auto-correlation
+%             nexttile;
+%             fill_h = fill([avg_lags; flip(avg_lags)], ...
+%                 [avg_corrs + sem_corrs; flipud(avg_corrs - sem_corrs)], ...
+%                 [0 0 1] , 'HandleVisibility', 'off');
+%             Multi_func.set_fill_properties(fill_h);
+%             hold on;
+%             plot(avg_lags, avg_corrs);
+%             xlim([-200 200]);
+% 
+%             % Plot the fourier-transform
+%             nexttile;
+%             
+%             % Check if the PLV mod is high or low
+%             if popul_data.plv_mod_stats(nr).mod > 0
+%                 cur_color = 'g';
+%             else
+%                 cur_color = 'r';
+%             end
+%             plot(freq_domain, abs(fft_y), 'Color', cur_color);
+%             xlim([5 200]);
+%         end
+% 
+%         % Title of condition
+%         sgtitle([f_region ' ' f_stim], 'Interpreter', 'none');
+%     end
+% end
 
 %% Display the number of modulated stuff
 for f_region = fieldnames(region_data)'
