@@ -150,6 +150,141 @@ for f_region = fieldnames(region_data)'
     end
 end
 
+%% Calculate each cell's shuffled DBS-Vm PLV for the frequency sweep
+
+% Specify randomization parameters
+rng(123);
+num_iter = 500;
+
+freqs = Multi_func.entr_freqs;
+
+% Loop through regions
+for f_region = fieldnames(region_data)'
+    f_region = f_region{1};
+    data_bystim = region_data.(f_region);
+    stims = fieldnames(data_bystim);
+    
+    
+
+    % Loop through stim frequencies
+    for f_stim = stims'
+        f_stim = f_stim{1};
+        popul_data = data_bystim.(f_stim);
+
+        avg_fs = mean(popul_data.framerate, 'omitnan');
+
+        % Struct for all of the shuffled data across frequencies
+        all_shuf_plv = struct;
+        
+        % Loop through each neuron
+        tic;
+        for nr=1:length(popul_data.neuron_name) %1 %TODO change back 
+            % Try to do vectorization for the frequency
+            vm_phases = {};
+
+            % Function that waits for a whole signal to be passed then perform filtering 
+            %with constants freq and samp_freq
+            filt_trial = @(trial) (angle(Multi_func.filt_data(trial, freqs, avg_Fs)));
+            
+            % Function that waits for a function and matrix and then returns a function waiting for a column value
+            applyFunToColi = @(func, mat) (@(col) func(mat(:, col)));
+            % Aply the filtering function with the whole trial matrix, so all is left is waiting for a column number
+            partial_apply = applyFunToColi(filt_trial, popul_data.all_trial_rawVm{nr});
+            % Iterate through each column trial and concatenate all o fthe results
+            vm_phases = arrayfun(partial_apply, [1:size(popul_data.all_trial_rawVm{nr}, 2)]' , 'UniformOutput', false);  
+            vm_phases = cat(3, vm_phases{:});
+
+            % Create stimulation raster points in trace timepoints
+            nr_stim_time = reshape(popul_data.stim_timestamps(:, nr), 1, []);
+            nr_frame_time = popul_data.trace_timestamps(:, nr);
+            diffs = abs(nr_stim_time - nr_frame_time);
+            [~, stim_idx_i] = min(diffs, [], 1);
+           
+            dbs_raster = zeros(size(nr_frame_time));
+            dbs_raster(stim_idx_i) = 1;
+            dbs_rasters = repmat(dbs_raster, 1, size(vm_phases, 3));
+
+            shuf_plv_wfreqs = zeros(length(freqs), num_iter);
+            shuf_plv_adj_wfreqs = [];
+
+            % Shuffle the DBS pulses and calculate the PLV for each
+            % iteration
+            parfor(i=1:num_iter, 5)
+                % Need to figure out how to randomly place DBS trains
+                % within each frequency for each trial
+
+                % Randomly select stim onset time
+                onset_rand = randi(last_index, 1, size(vm_phases, 3));
+                
+                % Reset the starting stim_idx for each trial and keep the spacing between indices the same
+                rand_stim_idx = repmat(stim_idx_i' - stim_idx_i(1), 1, size(vm_phases, 3)) + onset_rand;
+                    
+                col_ind_mat = repmat(1:size(rand_stim_idx, 2), size(rand_stim_idx, 1), 1);
+                stim_rasters_wfreqs = zeros(size(dbs_rasters));   
+                stim_rasters_wfreqs(sub2ind(size(stim_rasters_wfreqs),...
+                                     rand_stim_idx(:),...
+                                     col_ind_mat(:))) = 1;
+
+                [sh_PLV_wfreqs, sh_PLV2_wfreqs, ~] = Multi_func.spike_field_PLV(vm_phases, stim_rasters_wfreqs, 0, 10);
+                % Store shuffled plvs for all frequencies
+                % Rows are the frequencies and columns are the individual
+                shuf_plv_wfreqs(:, i) = sh_PLV_wfreqs;
+                shuf_plv_adj_wfreqs(:, i) = sh_PLV2_wfreqs;
+            
+            end
+            toc
+            % Save the shuffled data
+            all_shuf_plv(nr).shuf_plv_wfreqs = shuf_plv_wfreqs;
+            all_shuf_plv(nr).shuf_plv_adj_wfreqs = shuf_plv_adj_wfreqs;
+            
+        end
+        
+        region_data.(f_region).(f_stim).shuf_plv_data = all_shuf_plv;
+    end
+end
+
+%% Plot the shuffled distribution with each frequency to check that values are shuffled
+freqs = Multi_func.entr_freqs;
+for f_region = fieldnames(region_data)'
+    f_region = f_region{1};
+    data_bystim = region_data.(f_region);
+    stims = fieldnames(data_bystim);
+
+    % Loop through stim frequencies
+    for f_stim = stims'
+        f_stim = f_stim{1};
+        popul_data = data_bystim.(f_stim);
+        stim_freq = str2num(f_stim(3:end));
+        figure('Position', [100 100 1500 2000]);
+        tiledlayout(length(popul_data.neuron_name), 2, 'TileSpacing','tight', 'Padding','loose');
+            
+        % Loop through each neuron
+        for nr=1:length(popul_data.neuron_name)
+            nexttile;
+            
+            histogram(popul_data.shuf_plv_data(nr).shuf_plv_adj_wfreqs([1:stim_freq-1, stim_freq+1:end], :), 1000);
+            
+            nexttile;
+            histogram(popul_data.shuf_plv_data(nr).shuf_plv_adj_wfreqs(stim_freq, :), 1000);
+            
+%             % Just plot the shuffled in one plot with Y being the frequency
+%             f_x = min(freqs):5:max(freqs);
+% 
+%             tic
+%             for i= f_x
+%                 nexttile;
+%                 histogram(popul_data.shuf_plv_data(nr).shuf_plv_adj_wfreqs(i, :), 1000);
+%                 title(num2str(i));
+%             end
+%             toc
+%             % Dont do all 200, just some linspace of them
+%             %TODO create histograms maybe?
+%             xlabel('PLV');
+        end
+    end
+end
+
+
 %% Loop and plot all of the dbs-vm stuff
 freqs = Multi_func.entr_freqs;
 for f_region = fieldnames(region_data)'
@@ -161,7 +296,8 @@ for f_region = fieldnames(region_data)'
     for f_stim=stims'
         f_stim = f_stim{1};
         stim_data = data_bystim.(f_stim);
-        
+        stim_freq = str2num(f_stim(3:end));
+
         figure;
         
         % Baseline PLV does not make sense for DBS
@@ -180,6 +316,29 @@ for f_region = fieldnames(region_data)'
         %Multi_func.set_fill_properties(fill_h);
         %hold on;
 
+        % Plot the shuffled distribution for each frequency
+        %shuf_plvs = arrayfun(@(x) disp(x.shuf_plv_adj_wfreqs), stim_data.shuf_plv_data, ...
+        %    'UniformOutput',false);
+
+
+        shuf_plvs = arrayfun(@(x) mean(x.shuf_plv_adj_wfreqs, 2), stim_data.shuf_plv_data, ...
+            'UniformOutput',false);
+        shuf_plvs = cat(2, shuf_plvs{:});
+        
+        shuf_plvs_mean = nanmean(shuf_plvs, 2)';
+        shuf_plvs_std = nanstd(shuf_plvs, [], 2)';
+        num_shuf_plvs = size(shuf_plvs, 2);
+        shuf_plvs_sem = shuf_plvs_std./sqrt(num_shuf_plvs);
+ 
+        fill_h = fill([freqs, flip(freqs)], [[shuf_plvs_mean + shuf_plvs_sem], flip(shuf_plvs_mean - shuf_plvs_sem)], [0.5 0.5 0.5]);
+        Multi_func.set_fill_properties(fill_h);
+        hold on;
+        plot(freqs, shuf_plvs_mean, 'color', Multi_func.shuf_color);
+        hold on;
+        fill_h = fill([freqs, flip(freqs)], [[shuf_plvs_mean + shuf_plvs_sem], flip(shuf_plvs_mean - shuf_plvs_sem)], [0.5 0.5 0.5]);
+        Multi_func.set_fill_properties(fill_h);
+        hold on;
+
         % Plot stim data with error bars
         stim_plvs_mean = nanmean(stim_data.stim_dbsvm_plvs_adj, 2)';
         stim_plvs_std = nanstd(stim_data.stim_dbsvm_plvs_adj, [], 2)';
@@ -197,14 +356,20 @@ for f_region = fieldnames(region_data)'
         
         %set(ax,'Xscale','log');
         xlabel('Frequency (Hz)');
-        ylabel('PLV');
+        ylabel('Pulse-Vm PLV^2');
         
         %legend({'base', 'stim'}, 'Location', 'west');
         ax.Units = 'centimeters';
-        ax.InnerPosition = [2 2 3.91 3.24];
+        %ax.InnerPosition = [2 2 3.91 3.24];% Old dimensions
+        ax.InnerPosition = [2 2 3 3];
+        
+        
+        % Test significance between shuffled and observed for stimulation
+        % frequency
+        p = signrank(stim_data.stim_dbsvm_plvs_adj(stim_freq, :), shuf_plvs(stim_freq, :));
 
-        %ylim([-0.07 0.5]);
-        title([f_region(3:end) ' ' f_stim(3:end)], 'Interpreter', 'none');
+        ylim([-0.07 1]);
+        title([f_stim(3:end) ' ' f_region(3:end) ' Hz p=' num2str(p)], 'Interpreter', 'none');
         saveas(gcf, [figure_path 'PLV' f 'PLV_dbsvm_' f_region '_' f_stim '.png']);
         saveas(gcf, [figure_path 'PLV' f 'PLV_dbsvm_' f_region '_' f_stim '.pdf']);
         
