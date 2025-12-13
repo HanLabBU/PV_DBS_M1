@@ -482,7 +482,7 @@ Multi_func.set_default_axis(gca);
 saveas(gcf, [savepath 'Current/' '2d_currents_per_mouse_by_region_frequency.png']);
 saveas(gcf, [savepath 'Current/' '2d_currents_per_mouse_by_region_frequency.pdf']);
 
-%% Plotting current from days to surgery for each neuron separate plots for 
+%% Plotting current from first day of imaging for each neuron separate plots for 
 % each brain region and stimulation frequency
 
 % Red: 140Hz
@@ -505,8 +505,6 @@ for f_region = fieldnames(region_data)'
     data_bystim = region_data.(f_region);
     stims = fieldnames(data_bystim);
 
-    
- 
     % Loop through stim frequencies
     for f_stim = stims'
         f_stim = f_stim{1};
@@ -518,6 +516,8 @@ for f_region = fieldnames(region_data)'
         days_amp_map = [];
         % Keep track of neurons plotted
         neurons_plotted = [];
+        mouse_line_width = 4;
+        %set(gca, 'ColorOrder', hsv(10), 'NextPlot', 'replacechildren')
 
         % Loop through each neuron
         for nr=1:length(popul_data.neuron_name)
@@ -530,6 +530,10 @@ for f_region = fieldnames(region_data)'
 
             % Find all of the neurons that come from the same mouse
             same_m_nrs = find(contains(popul_data.neuron_name, tokens{1}) == 1);
+
+            %DEBUG
+            disp(tokens{1});
+            disp(popul_data.neuron_name(same_m_nrs));
  
             % Grab the first recording date
             get_third = @(c_array) datetime(erase(c_array{3}, 'rec'), 'InputFormat', 'yyyyMMdd');
@@ -578,12 +582,15 @@ for f_region = fieldnames(region_data)'
                 %    plot_str(end+1) = '+';
                 %end
 
-                % Set the frequency stuff
-                if strcmp(f_stim, 'f_40') == 1
-                    plot_str(end+1) = 'b';
-                elseif strcmp(f_stim, 'f_140') == 1
-                    plot_str(end+1) = 'r';
-                end
+                % Originally Set the frequency stuff
+                %if strcmp(f_stim, 'f_40') == 1
+                %    plot_str(end+1) = 'b';
+                %elseif strcmp(f_stim, 'f_140') == 1
+                %    plot_str(end+1) = 'r';
+                %end
+                
+                % Set default to dark
+                plot_str(end + 1) = 'k';
 
                 % Increment the marker size for repeated points
                 % Need to shift the index for days from first because 0 is not a primary index
@@ -596,14 +603,16 @@ for f_region = fieldnames(region_data)'
 
                 % Plot data point
                 hold on;
-                plot(days_from_first, str2num(amp_str), plot_str, 'MarkerSize', 4 + 4*days_amp_map(days_from_first + 1, str2num(amp_str)));
+                plot(days_from_first, str2num(amp_str), plot_str, ...
+                    'HandleVisibility', 'off', ...
+                    'MarkerSize', 4 + 4*days_amp_map(days_from_first + 1, str2num(amp_str)));
                 hold on;
 
                 % Keep track of points
                 same_m_nrs_pts(:, end + 1) = [days_from_first; str2num(amp_str)];
 
-                %DEBUG
-                disp(length(same_m_nrs_pts));
+                %EBUG
+                %disp(length(same_m_nrs_pts));
             end
             
 
@@ -618,10 +627,21 @@ for f_region = fieldnames(region_data)'
                 elseif strcmp(f_stim, 'f_140') == 1
                     color = 'r';
                 end
+                
+
                 % Old plotting with the same color for the frequency
                 %plot(same_m_nrs_pts(1, i), same_m_nrs_pts(2, i), '-', 'Color', color);
-                plot(same_m_nrs_pts(1, i), same_m_nrs_pts(2, i), '-');
-
+                
+                % Plot a line if neurons have different amperages,
+                % otherwise just plot a point
+                if length(unique(same_m_nrs_pts(1, :))) == 1 && length(unique(same_m_nrs_pts(2, :))) == 1 
+                    plot(same_m_nrs_pts(1, 1), same_m_nrs_pts(2, 1), '.', 'MarkerSize', 2.5*mouse_line_width, 'DisplayName', tokens{1});
+                    hold on;
+                else
+                    plot(same_m_nrs_pts(1, i), same_m_nrs_pts(2, i), '-', ...
+                        'LineWidth', mouse_line_width, ...
+                        'DisplayName', tokens{1});
+                end
                 % If wanted to use distinct color for each mouse
                 %if isfield(mouse_color, ['m_' tokens{1}])
                 %    color = mouse_color.(['m_' tokens{1}]);
@@ -631,7 +651,17 @@ for f_region = fieldnames(region_data)'
                 %    mouse_color.(['m_' tokens{1}]) = get(plot_h, 'Color');
                 %end
                 hold on;
+
+                mouse_line_width = mouse_line_width - 0.5;
             end
+
+
+            % EBUG
+            %if strcmp(f_region, 'r_M1') == 1 && strcmp(f_stim, 'f_40') == 1 
+            %    pause(3);
+            %    drawnow;
+            %end
+
         end
 
         %DEBUG, something is wrong with this code
@@ -658,36 +688,38 @@ for f_region = fieldnames(region_data)'
 
 % Labels
     xlabel('Days since first recording (days)');
-    ylabel('Amperage (uamp)');
-    
+    ylabel("Amperage \n (uamp)");
+    %ylabel({'Amperage',  '(uamp)'});
+
     % Set the axis
     Multi_func.set_default_axis(gca);
     y_limits = ylim;
-    ylim([0 y_limits(2)]);
+    y_range = range(y_limits);
+    ylim([0, y_limits(2) + .1*y_range]); % scaled lower end y_limits(1) - .1*y_range
 
     % Make x-axis conditional by brain region
-    if strcmp(f_region, 'r_M1') == 1
-        x_limits = xlim;
-        xlim([-1 x_limits(2)]);
-    elseif strcmp(f_region, 'r_V1') == 1
-        x_limits = xlim;
-        xlim([-10 x_limits(2)]);
-    end
+    %if strcmp(f_region, 'r_M1') == 1
+    %    x_limits = xlim;
+    %    xlim([-10 x_limits(2)]);
+    %elseif strcmp(f_region, 'r_V1') == 1
+    %    x_limits = xlim;
+    %    xlim([-40 x_limits(2)]);
+    %end
+    x_limits = xlim;
+    x_range = range(x_limits);
+    xlim([x_limits(1) - .1*x_range, x_limits(2) + .1*x_range]);
 
-    % Add legend label for each item
-    hold on;
-    text(400, 600, '+: V1 region');
-    hold on;
-    text(400, 580, 'o: M1 region');
-    hold on;
-    text(400, 560, '140Hz', 'Color', 'r');
-    hold on;
-    text(400, 540, '40Hz', 'Color', 'b');
-    hold on;
-
+    legend();
     % Title
     title([f_region ' ' f_stim], 'Interpreter', 'none');
-        
+    
+    ax = gca;
+    ax.Units = "centimeters";
+    ax.InnerPosition = [10 10 5.9828 5.1729 ];
+set(gcf,'Units','centimeters');
+    fontsize(gcf, 10, "points");
+
+
     saveas(gcf, [savepath 'Current/' f_region '_' f_stim '_2d_currents_per_mouse_by_frequency.png']);
     saveas(gcf, [savepath 'Current/' f_region '_' f_stim '_2d_currents_per_mouse_by_frequency.pdf']);
 
@@ -1095,11 +1127,22 @@ for f_region = fieldnames(region_data)'
         violinOpts = Multi_func.get_default_violin();
         violinplot(data(:)', labels, violinOpts);
 
+        Multi_func.set_default_axis(gca);
+    
+        ax = gca;
+        ax.Units = "centimeters";
+        ax.InnerPosition = [10 10 10 10 ]; % 5.9828 5.1729
+
+        fontsize(gcf, 10, 'points');
+       
+        % Labels
+        xlabel('Mouse ID');
+        ylabel('Amperage (uamp)');
         % Save plot for this stimulation condition
-        
+
         % Title
-        title([f_region ' ' f_stim], 'Interpreter', 'none');
-        
+        title([f_region ' ' f_stim ' ' num2str(day_to_plot)], 'Interpreter', 'none');
+
         saveas(gcf, [savepath 'Current/' f_region '_' f_stim '_day' num2str(day_to_plot) '_Current_Mouse_Violin.png']);
         saveas(gcf, [savepath 'Current/' f_region '_' f_stim '_day' num2str(day_to_plot) '_Current_Mouse_Violin.png']);
     end
@@ -1114,18 +1157,15 @@ for f_region = fieldnames(region_data)'
     %text(400, 540, '40Hz', 'Color', 'b');
     %hold on;
     
-    y_val = 600;
-    for mouse_f=fieldnames(mouse_color)'
-        mouse_f = mouse_f{1};
-        text(450, y_val, '--', 'Color', mouse_color.(mouse_f), 'FontWeight', 'bold');
-        y_val = y_val - 20;
-    end
-    % Labels
-    xlabel('Days since first recording (days)');
-    ylabel('Amperage (uamp)');
+    %y_val = 600;
+    %for mouse_f=fieldnames(mouse_color)'
+    %    mouse_f = mouse_f{1};
+    %    text(450, y_val, '--', 'Color', mouse_color.(mouse_f), 'FontWeight', 'bold');
+    %    y_val = y_val - 20;
+    %end
+   
     
     % Set the axis
-    Multi_func.set_default_axis(gca);
 %     y_limits = ylim;
 %     ylim([0 y_limits(2)]);
 % 
