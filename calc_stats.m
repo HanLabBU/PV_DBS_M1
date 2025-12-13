@@ -69,7 +69,7 @@ for f_region = fieldnames(region_data)'
         continue;
     end
 
-    % Loop through stim frequencies
+    % Loop through stim frequenciesd
     for f_stim = stims'
 
         f_stim = f_stim{1};
@@ -83,7 +83,7 @@ for f_region = fieldnames(region_data)'
             name_parts = strsplit(popul_data.neuron_name{nr_i}, "_");
             mouse_name = name_parts{1};
 
-            % Find and grab the current value
+            % Find and grab the current amperage value
             idxs = contains(name_parts, 'mat');
             
             % Current amplitude is attached to the extension
