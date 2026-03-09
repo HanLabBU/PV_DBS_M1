@@ -109,6 +109,7 @@ nr_idx = find(contains(data_bystim.f_40.neuron_name, neuron));
 neuron_data = data_bystim.f_40;
 
 %% Plot lined example trial, all trial heatmaps, and trial-averaged
+% This requires using neuron info from the above selected subsection
 figure('Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
 tiledlayout(4, 1, 'TileSpacing', 'tight', 'Padding', 'tight', 'Units', 'centimeters', 'InnerPosition', [4 5 7 8.5]);
 timeline = neuron_data.trace_timestamps(:, nr_idx);
@@ -253,7 +254,233 @@ ylabel('Freq (Hz)');
 saveas(gcf, [savefig_path 'Exemplary' f neuron '_heatmap.png']);
 saveas(gcf, [savefig_path 'Exemplary' f neuron '_heatmap.pdf']);
 
+%% -- Show single neuron example of phase locking to stimulation with summary pulse-triggered Vm average
+% for that neuron
 
+%% TODO find a neuron that was deemed entrained
+f_region = 'r_V1';
+data_bystim = region_data.(f_region);
+
+%neuron = '23072_V1_rec20220407_FOV1_140_180_.mat_1'; % idx is 20
+neuron = '109557_V1_rec20240110_FOV1_140_120.mat_7'; % idx 7
+
+nr_idx = find(contains(data_bystim.f_140.neuron_name, neuron));
+popul_data = data_bystim.f_140;
+
+%% Plot single neuron's pulse-triggered Vm
+timeline = [ [0:size(popul_data.nr_pulse_windows{nr_idx}, 1) - 1] - extra_trace]*1000./popul_data.framerate(nr_idx);
+
+% Calculate the average Vm and the shuffled Vm
+avg_vm = mean(popul_data.nr_pulse_windows{nr_idx}, 2, 'omitnan');
+sem_vm = std(popul_data.nr_pulse_windows{nr_idx}, 0, 2, 'omitnan')./sqrt(size(popul_data.nr_pulse_windows{nr_idx}, 2));
+
+% Calculate the shuffled distribution error bars
+low_pulse_perc = prctile(popul_data.nr_shuf_pulses{nr_idx}, 2.5, 2);
+high_pulse_perc = prctile(popul_data.nr_shuf_pulses{nr_idx}, 97.5, 2);
+shuf_pulse_mean = mean(popul_data.nr_shuf_pulses{nr_idx}, 2);
+
+% Find Vm that is significantly higher than the shuffled
+sig_idx = find(avg_vm > high_pulse_perc);
+% Find Vm that is significantly lower than the shuffled
+sig_idx = [find(avg_vm < low_pulse_perc); sig_idx ];
+sig_idx(sig_idx <= extra_trace + 1 | sig_idx > size(popul_data.nr_pulse_windows{nr_idx}, 1) - extra_trace - 1) = [];
+
+figure;
+
+% Plot pulse triggered Vm
+fill_h = fill([timeline, flip(timeline)], [avg_vm + sem_vm; flipud(avg_vm - sem_vm)], [0.5 0.5 0.5]);
+if ~isempty(fill_h)
+    Multi_func.set_fill_properties(fill_h);
+end
+hold on;
+plot(timeline, avg_vm, 'k', 'LineWidth', 1);
+hold on;
+
+% Plot the percentile Vm
+plot(timeline, [low_pulse_perc high_pulse_perc], '--', 'Color', Multi_func.shuf_color);
+hold on;
+plot(timeline, shuf_pulse_mean, 'Color', Multi_func.shuf_color);
+hold on;
+
+% Plot siginificant points with larger markerSizes
+plot(timeline(sig_idx), avg_vm(sig_idx), 'b.', 'MarkerSize', 10);
+hold on;
+
+% Plot the pulse bars
+xline([timeline(extra_trace + 1), timeline(size(popul_data.nr_pulse_windows{nr_idx}, 1) - extra_trace)], ...
+    'Color', Multi_func.pulse_color, 'LineWidth', 2);
+hold on;
+Multi_func.set_default_axis(gca);
+ylabel('Normalized Vm');
+xlabel('Time from pulse(ms)');
+
+%% Plot single-cells PLV with frequency sweep
+freqs = Multi_func.entr_freqs;
+
+% Calculate the avg PLVs and SEMs
+shuf_plvs_mean = mean(popul_data.shuf_plv_data(nr_idx).shuf_plv_adj_wfreqs, 2, 'omitnan')';
+num_plvs = size(popul_data.shuf_plv_data(nr_idx).shuf_plv_adj_wfreqs ,2);
+shuf_plvs_sem = std(popul_data.shuf_plv_data(nr_idx).shuf_plv_adj_wfreqs, 0, 2, 'omitnan')'./sqrt(num_plvs);
+
+% Calculate the percentiles
+high_plv_prc = prctile(popul_data.shuf_plv_data(nr_idx).shuf_plv_adj_wfreqs',97.5);
+half_plv_prc = prctile(popul_data.shuf_plv_data(nr_idx).shuf_plv_adj_wfreqs',50);
+low_plv_prc = prctile(popul_data.shuf_plv_data(nr_idx).shuf_plv_adj_wfreqs',2.5);
+
+figure;
+% Plot the shuffled distribution for all frequencies
+%fill_h = fill([freqs, flip(freqs)], [[shuf_plvs_mean + shuf_plvs_sem], flip(shuf_plvs_mean - shuf_plvs_sem)], [0.5 0.5 0.5]);
+%        Multi_func.set_fill_properties(fill_h);
+fill_h = fill([freqs, flip(freqs)], [[high_plv_prc], flip(low_plv_prc)], [0.5 0.5 0.5]);
+        Multi_func.set_fill_properties(fill_h);
+
+hold on;
+plot(freqs, half_plv_prc, 'color', Multi_func.shuf_color);
+%plot(freqs, shuf_plvs_mean, 'color', Multi_func.shuf_color);
+hold on;
+plot(freqs, popul_data.stim_dbsvm_plvs_adj(:, nr_idx), 'color', Multi_func.stim_color);
+
+Multi_func.set_default_axis(gca);
+xlabel('Frequency (Hz)');
+ylabel('Pulse-Vm PLV^2');
+
+%% Plot each neuron their single cell pulse-triggered Vm and PLV sweep
+
+% Loop through regions
+for f_region = fieldnames(region_data)'
+    f_region = f_region{1};
+    data_bystim = region_data.(f_region);
+    stims = fieldnames(data_bystim);
+
+    % Skip CA1 neurons from this plot
+    if strcmp(f_region, 'r_CA1') == 1
+        continue;
+    end
+    
+    % Loop through stim frequencies
+    for f_stim = stims'
+        f_stim = f_stim{1};
+        popul_data = data_bystim.(f_stim);
+
+        % Loop through each neuron
+        tic;
+        for nr=1:length(popul_data.neuron_name)
+
+            % Calculate the average Vm and the shuffled Vm
+            avg_vm = mean(popul_data.nr_pulse_windows{nr}, 2, 'omitnan');
+            sem_vm = std(popul_data.nr_pulse_windows{nr}, 0, 2, 'omitnan')./sqrt(size(popul_data.nr_pulse_windows{nr}, 2));
+
+            % Calculate the shuffled distribution error bars
+            low_pulse_perc = prctile(popul_data.nr_shuf_pulses{nr}, 2.5, 2);
+            high_pulse_perc = prctile(popul_data.nr_shuf_pulses{nr}, 97.5, 2);
+            shuf_pulse_mean = mean(popul_data.nr_shuf_pulses{nr}, 2);
+
+            % Find Vm that is significantly higher than the shuffled
+            sig_idx = find(avg_vm > high_pulse_perc);
+            % Find Vm that is significantly lower than the shuffled
+            sig_idx = [find(avg_vm < low_pulse_perc); sig_idx ];
+            sig_idx(sig_idx <= extra_trace + 1 | sig_idx > size(popul_data.nr_pulse_windows{nr}, 1) - extra_trace - 1) = [];
+
+            % Calculate the avg PLVs and SEMs
+            shuf_plvs_mean = mean(popul_data.shuf_plv_data(nr).shuf_plv_adj_wfreqs, 2, 'omitnan')';
+            num_plvs = size(popul_data.shuf_plv_data(nr).shuf_plv_adj_wfreqs ,2);
+            shuf_plvs_sem = std(popul_data.shuf_plv_data(nr).shuf_plv_adj_wfreqs, 0, 2, 'omitnan')'./sqrt(num_plvs);
+
+            % Calculate the percentiles
+            high_plv_prc = prctile(popul_data.shuf_plv_data(nr).shuf_plv_adj_wfreqs',97.5);
+            half_plv_prc = prctile(popul_data.shuf_plv_data(nr).shuf_plv_adj_wfreqs',50);
+            low_plv_prc = prctile(popul_data.shuf_plv_data(nr).shuf_plv_adj_wfreqs',2.5);
+
+            % -- Start figure plotting
+
+            figure('Position', [200 200 1500 1000]);
+            tiledlayout(3, 1, 'Units', 'centimeters', 'InnerPosition', [20 2 7.5 11]);
+            
+            % Plot the average Vm
+            nexttile;
+            timeline = popul_data.trace_timestamps(:, nr);
+
+            plot(timeline, mean(popul_data.all_trial_rawVm{nr}./popul_data.neuron_spike_amp(nr), 2, 'omitnan'), 'k');
+            %xlim([0 1]);
+            Multi_func.set_default_axis(gca);
+            xlabel('Time from onset (s)');
+            ylabel('Normalized Vm');
+            ax = gca;
+            ax.XAxis.TickLabelGapOffset = -1;
+            ax.YAxis.TickLabelGapOffset = -1;
+
+            % Plot the PLV with frequency sweep
+            nexttile;
+
+            % Show the shuffled distribution for all frequencies
+            %fill_h = fill([freqs, flip(freqs)], [[shuf_plvs_mean + shuf_plvs_sem], flip(shuf_plvs_mean - shuf_plvs_sem)], [0.5 0.5 0.5]);
+            %        Multi_func.set_fill_properties(fill_h);
+            fill_h = fill([freqs, flip(freqs)], [[high_plv_prc], flip(low_plv_prc)], [0.5 0.5 0.5]);
+            Multi_func.set_fill_properties(fill_h);
+
+            hold on;
+            plot(freqs, half_plv_prc, 'color', Multi_func.shuf_color);
+            %plot(freqs, shuf_plvs_mean, 'color', Multi_func.shuf_color);
+            hold on;
+            plot(freqs, popul_data.stim_dbsvm_plvs_adj(:, nr), 'color', Multi_func.stim_color);
+
+            Multi_func.set_default_axis(gca);
+            xlabel('Frequency (Hz)');
+            ylabel('Pulse-Vm PLV^2');
+            ax = gca;
+            ax.XAxis.TickLabelGapOffset = -1;
+            ax.YAxis.TickLabelGapOffset = -1;
+
+            % Plot the pulse-triggered average
+            nexttile;
+
+            timeline = [ [0:size(popul_data.nr_pulse_windows{nr}, 1) - 1] - extra_trace]*1000./popul_data.framerate(nr);
+
+            fill_h = fill([timeline, flip(timeline)], [avg_vm + sem_vm; flipud(avg_vm - sem_vm)], [0.5 0.5 0.5]);
+            if ~isempty(fill_h)
+                Multi_func.set_fill_properties(fill_h);
+            end
+            hold on;
+            plot(timeline, avg_vm, 'k', 'LineWidth', 1);
+            hold on;
+
+            % Plot the percentile Vm
+            plot(timeline, [ ...
+                low_pulse_perc high_pulse_perc], '--', 'Color', Multi_func.shuf_color);
+            hold on;
+            plot(timeline, shuf_pulse_mean, 'Color', Multi_func.shuf_color);
+            hold on;
+
+            % Plot siginificant points with larger markerSizes
+            plot(timeline(sig_idx), avg_vm(sig_idx), 'b.', 'MarkerSize', 10);
+            hold on;
+
+            % Plot the pulse bars
+            xline([timeline(extra_trace + 1), timeline(size(popul_data.nr_pulse_windows{nr}, 1) - extra_trace)], ...
+                'Color', Multi_func.pulse_color, 'LineWidth', 2);
+            hold on;
+            Multi_func.set_default_axis(gca);
+            ylabel('Normalized Vm');
+            xlabel('Time from pulse (ms)');
+            ax = gca;
+            ax.XAxis.TickLabelGapOffset = -1;
+            ax.YAxis.TickLabelGapOffset = -1;
+            
+            sgtitle([num2str(popul_data.plv_mod_stats(nr).mod) ' ' ...
+                f_stim(3:end) ' ' ...
+                popul_data.neuron_name{nr}], 'Interpreter', 'none');
+
+            % Set fontsize
+            fontsize(gcf, 14, 'points');
+
+            % Save the plots
+            saveas(gcf, [figure_path 'Examplary' f 'Entrainment' f popul_data.neuron_name{nr} '_plv_pulse_trig.png']);
+            saveas(gcf, [figure_path 'Examplary' f 'Entrainment' f popul_data.neuron_name{nr} '_plv_pulse_trig.pdf']);
+        end
+    end
+end
+
+% ----- Everything below here appears to be DEPRECATED code --------
 %% Code to plot individual trials with raster plot and average
 figure('Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
 tiledlayout(3, 1, 'TileSpacing', 'loose', 'Padding', 'loose', 'Units', 'centimeters', 'InnerPosition', [4 5 8 15]);

@@ -42,7 +42,7 @@ num_iter = 1000;
 %%% END Modification
 
 % Seed number for random number generation
-rng(100);
+rng(123);
 
 % Check that the server path exists
 if ~isfolder(local_root_path)
@@ -237,8 +237,9 @@ sgtitle('Onset Fr Plot by Region Overlay');
 saveas(gcf, [figure_path 'Small_Res' f 'Onset_Overlay_Fr.png']);
 saveas(gcf, [figure_path 'Small_Res' f 'Onset_Overlay_Fr.pdf']);
 
-%% All Vm pulse-triggered averaged across all pulses
+%% Population pulse-triggered averaged from trial-averaged Vm 
 % This calculates a shuffled distribution 
+% Uses trial-averaged Raw Vm for each neuron. 
 
 % Flag to determine which populations to plot
 % The variable must be set from 'single_cell_mod'
@@ -252,6 +253,9 @@ stat_met = 'shuff';
 
 % Flag for removing non-modulated neurons from analysis
 remove_nonmod_nrs = 1;
+
+% Keep the seed the same across shuffles
+rng(123);
 
 vm_trig_avg_time = struct();
 stats_log = [figure_path 'Small_Res' f 'Vm_pulse_triggered_time_to_final_average_' nr_pop];
@@ -298,6 +302,8 @@ for f_region = fieldnames(region_data)'
 
         num_neurons = length(nr_idxs);
 
+        % A bit of a misnomer, these are the "all" pulses from the
+        % trial-averaged Vm
         all_pulse_vm_by_neuron = cell(num_neurons, 1);
         all_pulse_vm = [];
         norm_vms = popul_data.neuron_RawVm(:, nr_idxs)./popul_data.neuron_spike_amp(nr_idxs);
@@ -343,7 +349,8 @@ for f_region = fieldnames(region_data)'
                 % store the pulse width
                 Vm_pulse_width = norm_vms(start_trace_idx:end_trace_idx, find(nr == nr_idxs));
 
-                % Store all of the Vm pulses per neuron preserving relative stimulation period shapes
+                % Store all of the Vm pulses for trigger analysis (has the extra_trace flanks as well)
+                % per neuron preserving relative stimulation period shapes
                 all_pulse_vm_by_neuron{find(nr == nr_idxs)} = horzcat_pad(all_pulse_vm_by_neuron{find(nr == nr_idxs)}, Vm_pulse_width');
 
                 % Store windows depending on period of pulse
@@ -548,7 +555,19 @@ for f_region = fieldnames(region_data)'
                     diary off;
 
                     % Save the peak time for the region and stimulation
-                    %region_data.(f_region).(f_stim).all_pulse_vm_pk_time = timeline(peak_idx(1));
+                    region_data.(f_region).(f_stim).(nr_pop).all_pulse_trig_vm_pk_time = timeline(peak_idx(1));
+                end
+
+                % Find peak Vm for the sustained period
+                cur_sus_vm = mean(sus_pulse_vm, 2, 'omitnan');
+
+                peak_sus_idx = find(cur_sus_vm == max(cur_sus_vm(timeline' >= 0 & ...
+                    timeline' <= nr_avg_pulse_width_time*1000)));
+                peak_sus_idx(timeline(peak_sus_idx) < 0| ...
+                    timeline(peak_sus_idx) > nr_avg_pulse_width_time*1000 ) = [];
+                
+                if ~isempty(peak_sus_idx)
+                    region_data.(f_region).(f_stim).(nr_pop).sus_pulse_trig_vm_pk_time = timeline(peak_sus_idx(1));
                 end
         
             case 'sign'
@@ -752,7 +771,7 @@ for f_region = fieldnames(region_data)'
                 sig_idx = find(p_vals < adj_alpha);
                 hold on;
                 plot(timeline(sig_idx), max(sus_cur_subVm + sus_sem_subVm)*ones(size(sig_idx)), ...
-                    'r.', 'MarkerSize', 6)
+                    'r.', 'MarkerSize', 6);
                 hold on;
 
                 % Save significant idxs for 'sus_pulse_vm'
@@ -805,8 +824,7 @@ for f_region = fieldnames(region_data)'
     %savefig(gca, [figure_path 'Small_Res' f f_region '_' nr_pop '_Pulse_Avg_Vm.fig']);
 end
 
-%% TODO if I ever need to replot this thing again
-%Plot the pulse-triggered Vm
+
 
 %% Stats on pulse-triggered Vm depolarization magnitude between transient and sustained
 nr_pop = 'etrain';
@@ -852,6 +870,129 @@ for f_region = fieldnames(region_data)'
         disp(['p= ' num2str(p_sign) ' statistic: ' num2str(stats.ranksum)]);
 
         diary off;
+    end
+end
+
+%% Single-cell pulse-triggered average from all trials Vm
+% Applying the very similar algorithm at the top, just with individual
+% trials instead of neurons
+rng(123);
+remove_nonmod_nrs = 1;
+extra_trace = 3;
+num_iter = 500%TODO change 500;
+
+% Track pafor progress
+D = parallel.pool.DataQueue;
+afterEach(D, @(i) fprintf(fprintf('Finished Step %d', i)));
+
+for f_region = fieldnames(region_data)'
+    f_region = f_region{1};
+    data_bystim = region_data.(f_region);
+    stims = fieldnames(data_bystim);
+
+    for f_stim=stims'
+        f_stim = f_stim{1};
+        popul_data = data_bystim.(f_stim);
+
+        % Will just include all neurons at the moment
+        nr_idxs = 1:length(popul_data.plv_mod_stats);
+        
+        % Cannot do this with parfor
+        % Filter out the neurons that were non-modulated at all
+        %if remove_nonmod_nrs == 1
+        %    non_mod_nr = find(sum(popul_data.mod_matrix, 2) == 0);
+        %    nr_idxs = nr_idxs(~ismember(nr_idxs, non_mod_nr));
+        %end
+
+        % Arrays for the stim data
+        nr_stim_period_vms = {};
+        nr_pulse_windows = {};
+        nr_shuf_pulses = {};
+
+        % Loop through each neuron
+        tic;
+        for nr = nr_idxs %TODO change to nr_idxs  
+            % Specify the window width for the pulse window
+            wind_width = ceil(mean(diff(popul_data.stim_timestamps(:, nr) ), 'omitnan')./ ...
+                                mean(diff(popul_data.trace_timestamps(:, nr) ), 'omitnan'));
+
+            % Normalize the traces
+            nr_norm_vms = popul_data.all_trial_rawVm{nr}./popul_data.neuron_spike_amp(nr);
+
+            % Grab all of the stim idxs for all trials            
+            trace_stimped_idxs = find(popul_data.trace_timestamps(:, nr) >= popul_data.stim_timestamps(1, nr) ...
+                & popul_data.trace_timestamps(:, nr) < popul_data.stim_timestamps(end, nr));
+
+            % Grab all of the normalized Vms during the stimulation time period and store them into
+            % array
+            get_stim_vm = @(tr) popul_data.all_trial_rawVm{nr}(trace_stimped_idxs, tr)./popul_data.neuron_spike_amp(nr);
+            stim_vms = arrayfun(get_stim_vm, 1:size(popul_data.all_trial_rawVm{nr}, 2), 'UniformOutput', false);
+            stim_vms = cat(2, stim_vms{:});
+            
+            % Grab the pulse windows with specified pulse window width of
+            % 'wind_width'
+
+            % Grab the stim pulse idx
+            get_idxs_above_pulse_time = @(stim_timestamp) find(stim_timestamp <= popul_data.trace_timestamps(:, nr));
+            pulse_idxs = arrayfun(get_idxs_above_pulse_time, popul_data.stim_timestamps(:, nr), 'UniformOutput',false);
+            pulse_idxs = cellfun(@(carray) carray(1), pulse_idxs);
+    
+            % Store all of the pulse windows across a whole trace window
+            grab_pulse_window = @(stim_pulse_idx, tr) ...
+                nr_norm_vms(stim_pulse_idx - extra_trace:stim_pulse_idx + wind_width + extra_trace, tr) ... 
+                - nr_norm_vms(stim_pulse_idx, tr);
+            
+            % Start the process of grabbing windows with the stim pulses
+            pulse_windows = arrayfun(@(stim_pulse_idx) arrayfun(@(tr) grab_pulse_window(stim_pulse_idx, tr), 1:size(popul_data.all_trial_rawVm{nr}, 2), 'UniformOutput',false) ... 
+                , pulse_idxs, 'UniformOutput',false);
+            pulse_windows = cat(2, pulse_windows{:});
+            pulse_windows = cat(2, pulse_windows{:});
+            
+            % Get the full size of a window
+            wind_size = size(pulse_windows, 1);
+            
+            % Store the pulses for the shuffled distribution
+            shuf_pulses = zeros(size(pulse_windows, 1), num_iter);
+            
+            % -- Perform shuffling of pulse windows
+            for i = 1:num_iter
+
+                iter_wind = zeros(wind_size, size(pulse_windows, 2));
+                % Grab the same number of pulses for the actual value
+                for j=1:size(pulse_windows, 2)
+
+                    % Randomly grab a trial
+                    rand_tr = randi([1, size(popul_data.all_trial_rawVm{nr}, 2)]);
+
+                    rand_wind_start = randi([1 size(stim_vms, 1) - wind_size]);
+
+                    iter_wind(:, j) = stim_vms(rand_wind_start:rand_wind_start+wind_size  - 1, rand_tr) ...
+                        - stim_vms(rand_wind_start + extra_trace, rand_tr);
+                
+                    % Concatenation way
+                    %iter_wind = horzcat_pad(iter_wind, stim_vms(rand_wind_start:rand_wind_start+wind_size  - 1, rand_tr) ...
+                    %    - stim_vms(rand_wind_start + extra_trace, rand_tr));
+                
+                end
+                
+                shuf_pulses(:, i) = mean(iter_wind, 2);
+            end
+            
+            
+            % Store the stim period and the pulse windows for this neuron
+            nr_stim_period_vms{nr} = stim_vms;
+            nr_pulse_windows{nr} = pulse_windows;
+            nr_shuf_pulses{nr} = shuf_pulses;
+            
+            send(D, nr);
+        end
+        toc
+
+        % Save pulse info
+        region_data.(f_region).(f_stim).nr_stim_period_vms = nr_stim_period_vms;
+        region_data.(f_region).(f_stim).nr_pulse_windows = nr_pulse_windows;
+        region_data.(f_region).(f_stim).nr_shuf_pulses = nr_shuf_pulses;
+
     end
 end
 
@@ -1137,9 +1278,9 @@ for f_region = fieldnames(region_data)'
                 %yline(shuf_mean, '--');
 
                 % Plotting the significant time and peak
-                % Find Vm that is significantly higher than the shuffled
+                % Find Fr that is significantly higher than the shuffled
                 sig_idx = find(cur_srate > high_perc);
-                % Find Vm that is significantly lower than the shuffled
+                % Find Fr that is significantly lower than the shuffled
                 sig_idx = [find(cur_srate < low_perc); sig_idx ];
                 sig_idx(timeline(sig_idx) <= 0 | ...
                     timeline(sig_idx) >= 1000*nr_avg_pulse_width_time) = [];
@@ -1183,8 +1324,22 @@ for f_region = fieldnames(region_data)'
                     fprintf('\n\n');
                     diary off;
 
-                    %region_data.(f_region).(f_stim).all_pulse_trig_fr_pk_time = timeline(peak_idx(1));
+                    region_data.(f_region).(f_stim).(nr_pop).all_pulse_trig_fr_pk_time = timeline(peak_idx(1));
                 end
+
+                % Find peak firing rate for the sustained period
+                cur_sus_srate = mean(sus_pulse_fr, 2, 'omitnan');
+
+                peak_sus_idx = find(cur_sus_srate == max(cur_sus_srate(timeline' >= 0 & ...
+                    timeline' <= nr_avg_pulse_width_time*1000)));
+                peak_sus_idx(timeline(peak_sus_idx) < 0| ...
+                    timeline(peak_sus_idx) > nr_avg_pulse_width_time*1000 ) = [];
+                
+                if ~isempty(peak_sus_idx)
+                    region_data.(f_region).(f_stim).(nr_pop).sus_pulse_trig_fr_pk_time = timeline(peak_sus_idx(1));
+                end
+
+
                 % -- End plotting the all pulse shuffled data
             
             case 'sign'
@@ -1555,56 +1710,62 @@ sgtitle('All Pulse Vm Plot by Region Overlay');
 saveas(gcf, [figure_path 'Small_Res' f 'Pulse_Triggered_Region_Overlay_Vm.png']);
 saveas(gcf, [figure_path 'Small_Res' f 'Pulse_Triggered_Region_Overlay_Vm.pdf']);
 
-%% Compare the heights of each Vm fluctuation based on the time of peak M1
-stats_log = [figure_path 'Small_Res' f 'Pulse_triggered_Vm_heights_from_peak_time'];
+%% Compare the heights of each Vm fluctuation based on the time of peak V1
+% to M1 for the entrained population during the sustained period
+stats_log = [figure_path 'Small_Res' f 'Pulse_triggered_Vm_heights_from_peak_time_sus'];
 if exist(stats_log), delete(sprintf('%s', stats_log)), end;
 diary(stats_log);
 diary off
+
+nr_pop = 'etrain';
+
 figure('Position', [0 0 , 1000, 1000]);
 %tiledlayout(1, length(stims), 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 4, 8.3, 3.5]);
 tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 4, 20, 20]);
 stims = fieldnames(region_data.r_M1)';
 for f_stim = stims
     f_stim = f_stim{1};
-    m1_pulses_vm = region_data.r_M1.(f_stim).all_pulse_trig_Vm;
-    ca1_pulses_vm = region_data.r_CA1.(f_stim).all_pulse_trig_Vm;
+    m1_pulses_vm = region_data.r_M1.(f_stim).(nr_pop).sus_pulse_trig_Vm;
+    v1_pulses_vm = region_data.r_V1.(f_stim).(nr_pop).sus_pulse_trig_Vm;
     timeline = [[0:size(m1_pulses_vm, 1) - 1] - extra_trace]*1000./avg_Fs;
 
-    pk_t_comp = region_data.r_M1.(f_stim).all_pulse_vm_pk_time;
+    pk_t_comp = region_data.r_V1.(f_stim).(nr_pop).sus_pulse_trig_vm_pk_time
     pk_idx = find(timeline == pk_t_comp);
     
     % Plot the violin of all the M1 height at time of peak
     m1_vm_heights = m1_pulses_vm(pk_idx, :);
-    ca1_vm_heights = ca1_pulses_vm(pk_idx, :);
+    v1_vm_heights = v1_pulses_vm(pk_idx, :);
     nexttile;
 
     % Setup variables for violinplots
-    data = [m1_vm_heights, ca1_vm_heights];
-    labels = [repmat({'M1'}, 1, length(m1_vm_heights)), repmat({'CA1'}, 1, length(ca1_vm_heights))];
+    data = [m1_vm_heights, v1_vm_heights];
+    labels = [repmat({'M1'}, 1, length(m1_vm_heights)), repmat({'V1'}, 1, length(v1_vm_heights))];
     ViolinOpts = Multi_func.get_default_violin();
-    violins = violinplot(data, labels, 'GroupOrder', {'M1', 'CA1'}, ViolinOpts);
+    violins = violinplot(data, labels, 'GroupOrder', {'M1', 'V1'}, ViolinOpts);
 
     %violins(1).ViolinColor = {'k'};
     %violins(2).ViolinColor = {'g'};
     violins(1).ViolinColor = {Multi_func.m1_color};
-    violins(2).ViolinColor = {Multi_func.ca1_color};
+    violins(2).ViolinColor = {Multi_func.v1_color};
 
     % Perform the statisical for significant difference
     diary on;
     disp(['Pulse Vm heights at peak for ' num2str(f_stim)]);
-    [p, h, stats] = ranksum(m1_vm_heights, ca1_vm_heights);
-    disp(['CA1 heights ' num2str(nanmean(ca1_vm_heights))]);
+    [p, h, stats] = ranksum(m1_vm_heights, v1_vm_heights);
+    disp(['V1 heights ' num2str(nanmean(v1_vm_heights))]);
     disp(['M1 heights ' num2str(nanmean(m1_vm_heights))]);
     fprintf('\n\n');
     diary off;
     legend(['p= ' num2str(p)]);    
 
-    title([f_stim(3:end) ' M1 and CA1 Vm hieghts comparison'], 'Interpreter', 'none');
+    title([f_stim(3:end) ' M1 and V1 Vm hieghts comparison'], 'Interpreter', 'none');
 end
-saveas(gcf, [figure_path 'Small_Res' f 'Violin_Vm_Heights_ca1_vs_m1.png']);
-saveas(gcf, [figure_path 'Small_Res' f 'Violin_Vm_Heights_ca1_vs_m1.pdf']);
+saveas(gcf, [figure_path 'Small_Res' f 'Violin_Vm_Heights_v1_vs_m1.png']);
+saveas(gcf, [figure_path 'Small_Res' f 'Violin_Vm_Heights_v1_vs_m1.pdf']);
 
 %% Compare the heights of each firing rate fluctuation based on the time of peak M1
+% against CA1 of the entrained population
+
 stats_log = [figure_path 'Small_Res' f 'Pulse_triggered_Fr_heights_from_peak_time'];
 if exist(stats_log), delete(sprintf('%s', stats_log)), end;
 diary(stats_log);
@@ -1653,18 +1814,19 @@ end
 saveas(gcf, [figure_path 'Small_Res' f 'Violin_Fr_Heights_ca1_vs_m1.png']);
 saveas(gcf, [figure_path 'Small_Res' f 'Violin_Fr_Heights_ca1_vs_m1.pdf']);
 
-%% Time to peak Vm during pulse-triggered average 
+%% Time to peak Vm during pulse-triggered average
 stats_log = [figure_path 'Small_Res' f 'Vm_neuronwise_pulse_triggered_region_times'];
 if exist(stats_log), delete(sprintf('%s', stats_log)), end;
 diary(stats_log);
 diary off;
 
+nr_pop = 'etrain';
 stats_data = struct();
 
 figure('Position', [140 150 , 1000, 1000]);
 %tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 4, 3.5, 5]);
 tiledlayout(length(stims), 1, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 4, 15, 20]);
-for f_stim = stims'
+for f_stim = stims
     f_stim = f_stim{1};
     stats_data.(f_stim) = struct();
     stats_data.(f_stim).reg_order = {};
@@ -1678,10 +1840,15 @@ for f_stim = stims'
     % Loop through each brain region
     for f_region = fieldnames(region_data)'
         f_region = f_region{1};
+
+        if strcmp(f_region, 'r_CA1') == 1
+            continue;
+        end
+
         % Store the time to peak values for both regions
         reg_pk_time = [];
         
-        reg_pulses = region_data.(f_region).(f_stim).all_pulse_trig_Vm(extra_trace + 1:end - extra_trace - 1, :);
+        reg_pulses = region_data.(f_region).(f_stim).(nr_pop).sus_pulse_trig_Vm(extra_trace + 1:end - extra_trace - 1, :);
         timeline = [0:size(reg_pulses) - 1]*1000./avg_Fs;
         for i=1:size(reg_pulses, 2)
             peak_idx = find(reg_pulses(:, i) == max(reg_pulses(:, i)));
@@ -1703,20 +1870,40 @@ for f_stim = stims'
         % Save the peak times
         stats_data.(f_stim).reg_order = cat(2, stats_data.(f_stim).reg_order, repmat({f_region}, 1, length(reg_pk_time)));
         stats_data.(f_stim).data = [stats_data.(f_stim).data, reg_pk_time];
+
+        % Save peak times by direct regions
+        stats_data.(f_stim).reg_pk_time.(f_region) = reg_pk_time;
     end
+    legend();
+%     diary on;
+%     fprintf('\n\n');
+%     diary off;
+%     
+%     title([num2str(f_stim) ' Vm time to peak histogram'], 'Interpreter', 'none');
+%     diary on;
+%     [p, h, stats] = kruskalwallis(stats_data.(f_stim).data, stats_data.(f_stim).reg_order)
+%     disp('Group Columns');
+%     disp(stats.gnames');
+%     disp('The first two columns indicate the pairs to compare between regions as indicated above.');
+%     disp('Last column is the p-value');
+%     c = multcompare(stats, 'CriticalValueType', 'dunn-sidak')
+%     diary off;
+
+    % Perform regular comparison between M1 and V1
     diary on;
     fprintf('\n\n');
+    disp(f_stim);
+    disp('Sus Vm Peak Times');
+    [p, h] = ranksum(stats_data.(f_stim).reg_pk_time.r_V1, stats_data.(f_stim).reg_pk_time.r_M1);
+    disp(['Avg Peak V1: ' num2str(mean(stats_data.(f_stim).reg_pk_time.r_V1))]);
+    disp(['Avg Peak M1: ' num2str(mean(stats_data.(f_stim).reg_pk_time.r_M1))]);
+
+    disp(['p= ' num2str(p)]);
+    fprintf('\n\n');
     diary off;
-    legend();
-    title([num2str(f_stim) ' Vm time to peak histogram'], 'Interpreter', 'none');
-    diary on;
-    [p, h, stats] = kruskalwallis(stats_data.(f_stim).data, stats_data.(f_stim).reg_order)
-    disp('Group Columns');
-    disp(stats.gnames');
-    disp('The first two columns indicate the pairs to compare between regions as indicated above.');
-    disp('Last column is the p-value');
-    c = multcompare(stats, 'CriticalValueType', 'dunn-sidak')
-    diary off;
+    
+    title([f_stim(3:end) ' p=' num2str(p)]);
+    
 end
 saveas(gcf, [figure_path 'Small_Res' f 'Histogram_Pulse_Triggered_Peak_Time_Vm_Regions.pdf']);
 saveas(gcf, [figure_path 'Small_Res' f 'Histogram_Pulse_Triggered_Peak_Time_Vm_Regions.png']);

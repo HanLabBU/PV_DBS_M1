@@ -15,8 +15,10 @@ addpath('..');
 interm_data_path = [f_sep 'home' f_sep 'pierfier' f_sep 'Projects' f_sep ...
       'Pierre Fabris' f_sep 'PV DBS neocortex' f_sep 'Interm_Data' f_sep];
 
-%save_data_file = [interm_data_path 'v1_flicker.mat'];
-save_data_file = [interm_data_path 'v1_flicker_aligned_dat.mat'];
+%save_data_file = [interm_data_path 'v1_flicker.mat']; % Used for the "true_time", true_time seems a bit off
+save_data_file = [interm_data_path 'v1_flicker_aligned_dat.mat']; % Used for individual frame time 
+
+savefig_path = [Multi_func.save_plot];
 
 data = load(save_data_file);
 
@@ -29,9 +31,9 @@ exp_time = 1/soft_Fs;
 front_frame_drop = 14;
 
 % Start time taken as difference from the ephys time
-true_time = 1000*exp_time*[front_frame_drop+1:total_frames] - 1; % Convert to ms
+true_time = exp_time*[front_frame_drop+1:total_frames] - 1; % Leave in seconds
 
-%% Store and calculate the visual pulse-triggered 
+%% Store and calculate the visual pulse-triggered with the "true_time"
 stim_time = [1, 2];
 
 % Loop through each stim frequency
@@ -39,7 +41,8 @@ for f_stim = fieldnames(data)'
     f_stim = f_stim{1};
     
     popul_data = data.(f_stim);
-    timeline = true_time; %timeline = popul_data.interp_time;
+    % Try to use the 'interp_time' first
+    timeline = true_time; %timeline = popul_data.interp_time; %;
 
     % Find all of the pulse onset times
     diff_arr = diff(popul_data.flicker_raster); %TODO may need to change a theoretical flicker raster
@@ -105,7 +108,7 @@ for f_stim = fieldnames(data)'
                 if timeline(p_idx) < stim_time(1)
                     all_pre_pulse_vm = cat(2, all_pre_pulse_vm, cur_pulse(:));
                     nr_pre_pulse_vm = cat(2, nr_pre_pulse_vm, cur_pulse(:));
-                
+                                
                 % During stim
                 elseif timeline(p_idx) >= stim_time(1) && timeline(p_idx) < stim_time(2)
                     all_stim_pulse_vm = cat(2, all_stim_pulse_vm, cur_pulse(:));
@@ -135,6 +138,7 @@ for f_stim = fieldnames(data)'
 end
 
 %% Calculate pulse-triggered average using the individual frame times and flicker onset and offset time
+% Use this one!!
 extra_trace = 0;
 
 stim_time = [1, 2];
@@ -154,6 +158,13 @@ for f_stim = fieldnames(data)'
     avg_stim_offset_t = [];
     avg_post_offset_t = [];
 
+    % Store the neuron's pulse triggered Vms
+    data.(f_stim).nr_pre_pulse_vm = struct();
+    data.(f_stim).nr_stim_pulse_vm = struct();
+    data.(f_stim).nr_post_pulse_vm = struct();
+
+    data.(f_stim).pulse_stats = struct();
+
     all_pulse_frame_time = [];
 
     % Loop through each neuron
@@ -170,11 +181,6 @@ for f_stim = fieldnames(data)'
         nr_stim_offset_t = [];
         nr_post_offset_t = [];
 
-        % DEBUG the trace timepoint between the camera frames and the theoretical time
-        %figure;
-        
-        % TODO plot the flicker timepoints and maybe have it so that all of the figures are saved somewhere
-        % for quick checking
         pulse_width = diff(popul_data.flicker_times.(f_nr) );
 
         % Loop through each trial
@@ -242,7 +248,7 @@ for f_stim = fieldnames(data)'
                     nr_pre_pulse_vm = horzcat_pad(nr_pre_pulse_vm, cur_pulse(:));
                     nr_pre_offset_t = cat(2, nr_pre_offset_t, pulse_offset - pulse_on);
                 % During stim
-                elseif pulse_on > stim_time(1) & pulse_on < stim_time(2)
+                elseif pulse_on >= stim_time(1) & pulse_on < stim_time(2)
                     nr_stim_pulse_vm = horzcat_pad(nr_stim_pulse_vm, cur_pulse(:));
                     nr_stim_offset_t = cat(2, nr_stim_offset_t, pulse_offset - pulse_on);
                 % Post stim
@@ -253,7 +259,31 @@ for f_stim = fieldnames(data)'
             end
         end
         
-        % Store the average Vm
+        % Perform statistical tests of pre vs stim, pre vs post
+        p_val_adj = 0.05/size(nr_pre_pulse_vm, 1);
+        data.(f_stim).pulse_stats.p_val_adj = p_val_adj;
+
+        pre_cells = mat2cell(nr_pre_pulse_vm', size(nr_pre_pulse_vm',1), ...
+            ones(1,size(nr_pre_pulse_vm',2)));
+        stim_cells = mat2cell(nr_stim_pulse_vm', size(nr_stim_pulse_vm',1), ...
+            ones(1,size(nr_stim_pulse_vm',2)));
+        post_cells = mat2cell(nr_post_pulse_vm', size(nr_post_pulse_vm',1), ...
+            ones(1,size(nr_post_pulse_vm',2)));
+        
+        [p_vals, ~] = cellfun(@(a,b) ranksum(a,b), pre_cells, stim_cells);
+        data.(f_stim).pulse_stats.ranksum_nr_pre_stim_sig_idx.(f_nr) = find(p_vals < p_val_adj);
+        
+
+        [p_vals, ~] = cellfun(@(a,b) ranksum(a,b), pre_cells, post_cells);
+        data.(f_stim).pulse_stats.ranksum_nr_pre_post_sig_idx.(f_nr) = find(p_vals < p_val_adj);
+        
+
+        % Store the neuron's pulse triggered Vm
+        data.(f_stim).nr_pre_pulse_vm.(f_nr) = nr_pre_pulse_vm;
+        data.(f_stim).nr_stim_pulse_vm.(f_nr) = nr_stim_pulse_vm;
+        data.(f_stim).nr_post_pulse_vm.(f_nr) = nr_post_pulse_vm;
+
+        % Store the neuron average Vm
         avg_pre_pulse_vm = horzcat_pad(avg_pre_pulse_vm, mean(nr_pre_pulse_vm, 2, 'omitnan'));
         avg_stim_pulse_vm = horzcat_pad(avg_stim_pulse_vm, mean(nr_stim_pulse_vm, 2, 'omitnan'));
         avg_post_pulse_vm = horzcat_pad(avg_post_pulse_vm, mean(nr_post_pulse_vm, 2, 'omitnan'));
@@ -275,6 +305,7 @@ for f_stim = fieldnames(data)'
     data.(f_stim).post_offset_t = avg_post_offset_t;
 end
 
+%TODO what does this pulse-triggered do?
 %% Calculate the pulse-triggered average from the pulse and camera frame time
 % with a specified amount before the pulse onset
 
@@ -586,7 +617,7 @@ for f_stim = fieldnames(data)'
     sgtitle(f_stim, 'Interpreter', 'none');
 end
 
-%% Plot pulse-triggered curves from the camera frame triggers
+%% Plot population pulse-triggered curves from the camera frame triggers
 
 % Loop through each stim frequency
 for f_stim = fieldnames(data)'
@@ -727,6 +758,96 @@ for f_stim = fieldnames(data)'
     %plot(timeline, avg_post_vm, '-m');
     
     sgtitle(f_stim, 'Interpreter', 'none');
+
+    saveas(gcf, [savefig_path 'Flicker' f 'Pulse_Trig' f 'Pop_Pulse_Trig_' f_stim '.png']);
+    saveas(gcf, [savefig_path 'Flicker' f 'Pulse_Trig' f 'Pop_Pulse_Trig_' f_stim '.pdf']);
+end
+
+%% Plot single neuron pulse-triggered curves from the camera frame triggers
+% Loop through each stim frequency
+for f_stim = fieldnames(data)'
+    f_stim = f_stim{1};
+    
+    popul_data = data.(f_stim);
+
+    % Use the population timeline and flicker raster for plotting
+    timeline = mean(popul_data.all_pulse_frame_time, 2, 'omitnan') + 2/1000; %; %  
+    avg_pulse_raster = mean(popul_data.all_pulse_raster, 2, 'omitnan');
+    
+    % Loop through each neuron
+    for f_nr = fieldnames(popul_data.nr_pre_pulse_vm)'
+        f_nr = f_nr{1};
+
+        % Calculate the single neuron average pulse vm
+        avg_pre_vm = mean(popul_data.nr_pre_pulse_vm.(f_nr), 2, 'omitnan');
+        avg_stim_vm = mean(popul_data.nr_stim_pulse_vm.(f_nr), 2, 'omitnan');
+        avg_post_vm = mean(popul_data.nr_post_pulse_vm.(f_nr), 2, 'omitnan');
+
+        sem_pre_vm = std(popul_data.nr_pre_pulse_vm.(f_nr), 0, 2, 'omitnan')./ ...
+        sqrt(size(popul_data.nr_pre_pulse_vm.(f_nr), 2));
+        sem_stim_vm = std(popul_data.nr_stim_pulse_vm.(f_nr), 0, 2, 'omitnan')./ ...
+        sqrt(size(popul_data.nr_stim_pulse_vm.(f_nr), 2));
+        sem_post_vm = std(popul_data.nr_post_pulse_vm.(f_nr), 0, 2, 'omitnan')./ ...
+        sqrt(size(popul_data.nr_post_pulse_vm.(f_nr), 2));
+
+        figure;
+        %tiledlayout(3, 1, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 20, 3.5, 5]);
+        %tiledlayout(3, 1, 'TileSpacing', 'compact', 'Padding', 'compact');
+        tiledlayout(2, 1, 'TileSpacing', 'compact', 'Padding', 'compact');
+
+        %-- Pre to Stim
+        nexttile;
+        fill_h = fill([timeline; flip(timeline)], [avg_pre_vm + sem_pre_vm; flipud(avg_pre_vm - sem_pre_vm)], [0.5 0.5 0.5], ...
+            'HandleVisibility', 'off');
+        Multi_func.set_fill_properties(fill_h);
+        hold on;
+        plot(timeline, avg_pre_vm, '-b', 'DisplayName', 'Pre', 'color', Multi_func.base_color);
+        hold on;
+
+        fill_h = fill([timeline; flip(timeline)], [avg_stim_vm + sem_stim_vm; flipud(avg_stim_vm - sem_stim_vm)], [0.5 0.5 0.5], ...
+            'HandleVisibility', 'off');
+        Multi_func.set_fill_properties(fill_h);
+        hold on;
+        plot(timeline, avg_stim_vm, '-g', 'DisplayName', 'Stim', 'color', Multi_func.stim_color );
+        hold on;
+
+        sig_idx = data.(f_stim).pulse_stats.ranksum_nr_pre_stim_sig_idx.(f_nr) + extra_trace;
+        plot(timeline(sig_idx), avg_stim_vm(sig_idx), '.b', 'MarkerSize', 10, 'HandleVisibility', 'off');
+        hold on;
+        xline(max(timeline)./2, 'b--', 'HandleVisibility', 'off');
+        legend();
+
+        title('Pre to Stim');
+
+        %-- Pre to Post
+        nexttile;
+        fill_h = fill([timeline; flip(timeline)], [avg_pre_vm + sem_pre_vm; flipud(avg_pre_vm - sem_pre_vm)], [0.5 0.5 0.5], ...
+            'HandleVisibility', 'off');
+        Multi_func.set_fill_properties(fill_h);
+        hold on;
+        plot(timeline, avg_pre_vm, '-b', 'DisplayName', 'Pre', 'color', Multi_func.base_color);
+        hold on;
+
+        fill_h = fill([timeline; flip(timeline)], [avg_post_vm + sem_post_vm; flipud(avg_post_vm - sem_post_vm)], [0.5 0.5 0.5], ...
+            'HandleVisibility', 'off');
+        Multi_func.set_fill_properties(fill_h);
+        hold on;
+        plot(timeline, avg_post_vm, '-g', 'DisplayName', 'Post', 'color', Multi_func.post_color);
+        hold on;
+        
+        sig_idx = data.(f_stim).pulse_stats.ranksum_nr_pre_post_sig_idx.(f_nr) + extra_trace;
+        plot(timeline(sig_idx), avg_post_vm(sig_idx), '.b', 'MarkerSize', 10, 'HandleVisibility', 'off');
+        hold on;
+        xline(max(timeline)./2, 'b--', 'HandleVisibility', 'off');
+        legend();
+        
+        title('Pre to Post');
+
+        sgtitle([f_stim(3:end) 'Hz ' data.(f_stim).nr_name.(f_nr)], 'Interpreter', 'none');
+
+        saveas(gcf, [savefig_path 'Flicker' f 'Pulse_Trig' f 'Neuronwise' f 'Pulse_Trig_' f_stim(3:end) '_' popul_data.nr_name.(f_nr) '.png']);
+        saveas(gcf, [savefig_path 'Flicker' f 'Pulse_Trig' f 'Neuronwise' f 'Pulse_Trig_' f_stim(3:end) '_' popul_data.nr_name.(f_nr) '.pdf']);
+    end
 end
 
 %% Plot a handful of the pulse-triggered examples to try to observe general trends

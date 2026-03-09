@@ -58,6 +58,13 @@ end
 %% Create table showing all estim-only neurons from the regular stimulation experiments
 estim_nr_t = table();
 
+% Have the relabels ready
+mouse_rename = struct();
+mice_names = fieldnames(Multi_func.mouse_color)';
+for f_i = 1:length(mice_names)
+    mouse_rename.(mice_names{f_i}) = ['Mouse ' num2str(f_i)];
+end
+
 nr_num = 1;
 for f_region = fieldnames(region_data)'
     f_region = f_region{1};
@@ -98,9 +105,9 @@ for f_region = fieldnames(region_data)'
             end
 
             % Enter the neuron identification info
-            estim_nr_t(num2str(nr_num), 'Mouse_ID') = {mouse_name};
+            estim_nr_t{num2str(nr_num), 'Mouse_ID'} = string(mouse_rename.(['m' mouse_name]));
             %estim_nr_t(num2str(nr_num), 'Neuron_ID') = {popul_data.neuron_name{nr_i}};
-            estim_nr_t(num2str(nr_num), 'Brain Region') = {f_region(3:end)};
+            estim_nr_t{num2str(nr_num), 'Brain Region'} = string(f_region(3:end));
             
             % Enter the stimulation parameters
             estim_nr_t{num2str(nr_num), 'Current'} = str2num(current);
@@ -152,6 +159,85 @@ end
 estim_nr_t
 writetable(estim_nr_t, [figure_path 'Neuronwise' f 'Neurons_Estim_Only_Data.csv'], 'WriteRowNames', true);
 
+%% Make table while grouped with each mouse, separated by condition
+% For the stim only experiments
+
+estim_mouse_t = table();
+row_num = 1;
+for f_region = fieldnames(region_data)' % TODO change back % {'r_V1'}
+    f_region = f_region{1};
+    data_bystim = region_data.(f_region);
+    stims = fieldnames(data_bystim);
+
+    % Skip CA1 neurons from this plot
+    if strcmp(f_region, 'r_CA1') == 1
+        continue;
+    end
+
+    % Loop through stim frequenciesd
+    for f_stim = stims' % {'f_40'} %
+        f_stim = f_stim{1};
+        
+        % Find all the neurons for current condition
+        cond_idxs = (estim_nr_t.("Brain Region") == f_region(3:end)) & ...
+            (estim_nr_t.("Stim Frequency") == str2num(f_stim(3:end)) );
+        
+        % Loop through each mouse for each condition
+        cond_mice = unique(estim_nr_t.Mouse_ID(cond_idxs));
+        for mouse = cond_mice'
+            mouse
+            mice_idxs = cond_idxs & (estim_nr_t.Mouse_ID == mouse);
+
+            % Loop through each current for this mouse
+            cur_amp = unique(estim_nr_t.Current(mice_idxs));
+            for amp = cur_amp'
+                amp_idxs = mice_idxs & (estim_nr_t.Current == amp);
+                
+                % Save these group of neuron's identifiable
+                estim_mouse_t{row_num, 'Mouse'} = mouse;
+                estim_mouse_t{row_num, 'Region'} = f_region(3:end);
+                estim_mouse_t{row_num, 'Stim'} = str2num(f_stim(3:end));
+                estim_mouse_t{row_num, 'Current'} = amp;
+                
+                % Count number of significant neurons for PLV
+                sig_idx = (estim_nr_t.("PLV Sign")(amp_idxs) > 0);
+                estim_mouse_t{row_num, 'PLV Sig'} = sum(sig_idx);
+                sig_idx = (estim_nr_t.("PLV Sign")(amp_idxs) < 0);
+                estim_mouse_t{row_num, 'Not PLV Sig'} = sum(sig_idx);
+
+                % Count number of significant neurons for Vm transient
+                sig_idx = (abs(estim_nr_t.("Vm Transient Sign")(amp_idxs)) > 0);
+                estim_mouse_t{row_num, 'Vm Transient Sig'} = sum(sig_idx);
+                sig_idx = (estim_nr_t.("Vm Transient Sign")(amp_idxs) == 0);
+                estim_mouse_t{row_num, 'Not Vm Transient Sig'} = sum(sig_idx);
+
+                % Count number of significant neurons for Vm sustained
+                sig_idx = (abs(estim_nr_t.("Vm Sustained Sign")(amp_idxs)) > 0);
+                estim_mouse_t{row_num, 'Vm Sustained Sig'} = sum(sig_idx);
+                sig_idx = (estim_nr_t.("Vm Sustained Sign")(amp_idxs) == 0);
+                estim_mouse_t{row_num, 'Not Vm Sustained Sig'} = sum(sig_idx);
+
+                % Count number of significant neurons for fr transient
+                sig_idx = (abs(estim_nr_t.("fr Transient Sign")(amp_idxs)) > 0);
+                estim_mouse_t{row_num, 'fr Transient Sig'} = sum(sig_idx);
+                sig_idx = (estim_nr_t.("fr Transient Sign")(amp_idxs) == 0);
+                estim_mouse_t{row_num, 'Not fr Transient Sig'} = sum(sig_idx);
+
+                % Count number of significant neurons for Vm sustained
+                sig_idx = (abs(estim_nr_t.("fr Sustained Sign")(amp_idxs)) > 0);
+                estim_mouse_t{row_num, 'fr Sustained Sig'} = sum(sig_idx);
+                sig_idx = (estim_nr_t.("fr Sustained Sign")(amp_idxs) == 0);
+                estim_mouse_t{row_num, 'Not fr Sustained Sig'} = sum(sig_idx);
+
+                row_num = row_num + 1;
+            end
+        end
+    end
+end
+estim_mouse_t = sortrows(estim_mouse_t, {'Region', 'Stim', 'Mouse', 'Current'})
+writetable(estim_mouse_t, [figure_path 'Neuronwise' f 'Mouse_Estim_Only_Data.csv'], 'WriteRowNames', true);
+
+
 %% Print out unique mice
 stim_mice = unique(estim_nr_t.Mouse_ID);
 
@@ -162,6 +248,58 @@ for m=stim_mice'
     idx = find(idx == 1);
     idx = idx(1);
     disp([m estim_nr_t.("Brain Region")(idx)]);
+end
+
+%% Count average+spread, median+spread for all neurons imaged with TICO
+for f_region = fieldnames(region_data)' % TODO change back % {'r_V1'}
+    f_region = f_region{1};
+    data_bystim = region_data.(f_region);
+    stims = fieldnames(data_bystim);
+
+    % Skip CA1 neurons from this plot
+    if strcmp(f_region, 'r_CA1') == 1
+        continue;
+    end
+
+    % Loop through stim frequenciesd
+    for f_stim = stims' % {'f_40'} %
+        f_stim = f_stim{1};
+        popul_data = data_bystim.(f_stim);
+
+        % Same mouse neurons
+        looped_nrs = [];
+
+        % Count number of neurons in same ROI
+        nr_per_roi_count = [];
+
+        % Loop through each neuron
+        for nr=1:length(popul_data.neuron_name)
+            if ismember(nr, looped_nrs)
+                continue;
+            end
+                
+            % Grab the Roi label
+            tokens = split(popul_data.neuron_name{nr}, "_");
+            left_str = join(tokens(1:end - 1), "_");
+            right_str = tokens(end);
+            
+            % Check that the neuron comes from a TICO recording, greater
+            % than 1
+            if str2num(right_str{1}) > 1
+                % Grab neurons from the same ROI
+                same_roi_nrs = find(contains(popul_data.neuron_name, left_str) == 1);
+                looped_nrs = [looped_nrs, same_roi_nrs];
+                nr_per_roi_count(end + 1) = length(same_roi_nrs);
+
+            end
+        end
+
+        % Print out the TICO recordings number of neurons info
+        disp([f_region ' ' f_stim]);
+        disp(nr_per_roi_count);
+        disp([num2str(mean(nr_per_roi_count)) ' ' num2str(std(nr_per_roi_count))]);
+        
+    end
 end
 
 %% -- (Deprecated) -- This is an old method

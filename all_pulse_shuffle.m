@@ -24,7 +24,7 @@ ignore_trial_dict = Multi_func.csv_to_struct([local_root_path 'Pierre Fabris' f 
 % Smoothing parameter for spike rate
 
 % Specify seed
-rng(100);
+rng(123);
 
 % Do all region
 all_region = 0;

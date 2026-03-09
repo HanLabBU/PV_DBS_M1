@@ -46,7 +46,6 @@ if ~isfolder(server_root_path)
     disp('Server rootpath does not exist!!!');
     return;
 end
-
 % Read in the saved pv data and perform analysis
 if ~exclude_200ms
     save_all_data_file = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Interm_Data' f 'pv_data.mat'];
@@ -459,6 +458,7 @@ for f_region = fieldnames(region_data)'
             % Shuffled PLV data
             shuf_plv = [];
             shuf_plv_adj = [];
+            shuf_phase_vecs = {};
 
             % Shuffle the start of the dbs timepoints and recalculate the PLV
             % Need to randomize where the DBS points are along the rasters
@@ -478,10 +478,10 @@ for f_region = fieldnames(region_data)'
                 
 
                 [sh_PLV, sh_PLV2, norm_vecs] = Multi_func.spike_field_PLV(vm_phases, stim_rasters, 0, 10);            
-                
+
                 shuf_plv(end + 1) = sh_PLV;
                 shuf_plv_adj(end + 1) = sh_PLV2;
-                
+                shuf_phase_vecs{i} = norm_vecs;
             end
         
 
@@ -542,6 +542,7 @@ for f_region = fieldnames(region_data)'
             plv_mod_stats(nr).obs_PLV2 = obs_PLV2;
             plv_mod_stats(nr).shuf_PLV = sh_PLV;
             plv_mod_stats(nr).shuf_PLV2 = sh_PLV2;
+            plv_mod_stats(nr).shuf_phase_vecs = shuf_phase_vecs;
 
         end %neuron loop
         % Add plv mod stats to structure
@@ -635,6 +636,8 @@ for f_region = fieldnames(region_data)'
     end
 end
 
+% Error to stop and indicate end of mod_matrx
+error('Done creating mod_matrix');
 %% Save the number of neurons per modulation
 % Note: to get percentages, I have to copy the top part of this csv into the top of formula.xlsx file
 
@@ -1634,6 +1637,9 @@ for f_region = fieldnames(region_data)'
             num_pulse_wind = size(popul_data.etrain.all_pulse_trig_Vm, 1); 
             base_sub = @(mat) mat - mat(extra_trace + 1, :);
             
+            %TODO the reason this is not working is because I changed the
+            %all_pulse_vm_by_neuron that does not include the extra_trace,
+            %can I change this back???
             etrain_avg_pulse_mat = cellfun(@(x) mean(base_sub(reshape(x', num_pulse_wind, [])), 2, 'omitnan'), ...
                 popul_data.etrain.([f_ped '_pulse_vm_by_neuron']), 'UniformOutput', false)';
             etrain_avg_pulse_mat = cat(2, etrain_avg_pulse_mat{:})';
@@ -1749,8 +1755,8 @@ end
 % Note:To use ''
 
 %plot_mode = 'pow'; % Use stimulation frequency power spectra for each neuron
-plot_mode = 'Vm'; % Use the trial averaged Vm
-%plot_mode = 'pulse'; % use Pulse-triggered average
+%plot_mode = 'Vm'; % Use the trial averaged Vm
+plot_mode = 'pulse'; % use Pulse-triggered average
 freqs = Multi_func.entr_freqs;
 extra_trace = 3;
 

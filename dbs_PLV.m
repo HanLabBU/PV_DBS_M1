@@ -67,6 +67,10 @@ avg_Fs = mean(region_data.(field1{1}).f_40.framerate, 'omitnan');
 
 %% Loop through and calculate dbs-Vm PLV values for all region and conditions
 % Needed for ;single_cell_mod.m'
+
+% The base data here I do not believe will have any relevant data since
+% pulses do not occur during the baseline period
+
 freqs = Multi_func.entr_freqs;
 for f_region = fieldnames(region_data)'
     f_region = f_region{1};
@@ -83,8 +87,8 @@ for f_region = fieldnames(region_data)'
         % Loop through each neuron
         base_plvs = [];
         stim_plvs = [];
-        base_phase_vectors = [];
-        stim_phase_vectors = [];
+        base_phase_vectors = {};
+        stim_phase_vectors = {};
         base_plvs_adjusted = [];
         stim_plvs_adjusted = [];
         
@@ -128,15 +132,15 @@ for f_region = fieldnames(region_data)'
             base_rasters(base_idx) = dbs_rasters(base_idx);
             stim_rasters(stim_idx) = dbs_rasters(stim_idx);
             
-            [PLV, PLV2, norm_vecs] = Multi_func.spike_field_PLV(vm_phases{nr}, base_rasters, 0, 10);             
+            [PLV, PLV2, norm_vecs] = Multi_func.spike_field_PLV(vm_phases{nr}, base_rasters, 0, 10);   
             base_plvs(:, nr) = PLV(:);
             base_plvs_adjusted(:, nr) = PLV2(:);
-            base_phase_vectors = [base_phase_vectors; norm_vecs];
+            base_phase_vectors{nr} = norm_vecs;
 
             [PLV, PLV2, norm_vecs] = Multi_func.spike_field_PLV(vm_phases{nr}, stim_rasters, 0, 10);           
             stim_plvs(:, nr) = PLV(:);
             stim_plvs_adjusted(:, nr) = PLV2(:); %TODO I changed this to transpose the dimensions
-            stim_phase_vectors = [stim_phase_vectors; norm_vecs];
+            stim_phase_vectors{nr} = norm_vecs;
         end
 
         % Save the variables to structs
@@ -178,7 +182,7 @@ for f_region = fieldnames(region_data)'
         
         % Loop through each neuron
         tic;
-        for nr=1:length(popul_data.neuron_name) %1 %TODO change back 
+        for nr=1:length(popul_data.neuron_name)
             % Try to do vectorization for the frequency
             vm_phases = {};
 
@@ -386,6 +390,125 @@ for f_region = fieldnames(region_data)'
         %end 
     end
 end
+
+%% Plot population roseplot of the phases vectors from DBS-Vm and the shuffled distribution
+% Note: requires 'single cell DBS-PLV' section executed from 'single_cell_mod.m'
+
+%TODO need to finish implementing this function
+
+%nr_pop = 'all';
+nr_pop = 'etrain';
+%nr_pop = 'non_entr';
+
+remove_nonmod_nrs = 1;
+
+polar_edges = linspace(0, 2*pi, 24);
+
+% Loop through regions
+for f_region = fieldnames(region_data)'
+    f_region = f_region{1};
+    data_bystim = region_data.(f_region);
+    stims = fieldnames(data_bystim);
+
+    % Setup figure to show frequencies side-by-side
+    figure;
+    tiledlayout(1, 2, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 4, 9.38, 4.94]);
+
+
+    % Loop through stim frequencies
+    for f_stim = stims'
+        f_stim = f_stim{1};
+        popul_data = data_bystim.(f_stim);
+        
+        % Check if there is an entrained field in the population data
+        try
+            switch nr_pop
+                case 'etrain'
+                    nr_idxs = find([popul_data.plv_mod_stats.mod] > 0);
+                case 'non_entr'
+                    nr_idxs = find([popul_data.plv_mod_stats.mod] < 0);
+                case 'all'
+                    nr_idxs = 1:length(popul_data.plv_mod_stats);
+            end
+        catch ME
+            disp(ME.message);
+        end
+        
+        % Filter out the neurons that were non-modulated at all
+        if remove_nonmod_nrs == 1
+            non_mod_nr = find(sum(popul_data.mod_matrix, 2) == 0);
+            nr_idxs = nr_idxs(~ismember(nr_idxs, non_mod_nr));
+        end
+
+        
+        nexttile;
+        % Plot the stim phase-vectors
+        %stim_phases = 
+        polarhistogram(base_phases, polar_edges, 'Normalization', 'probability', 'DisplayStyle', 'stairs', 'EdgeColor', Multi_func.base_color);
+        title([f_stim]);
+    end
+end
+
+%% Plot individual neuron roseplot of the phases vectors from DBS-Vm and the shuffled distribution
+% Note: requires 'single cell DBS-PLV' section executed from 'single_cell_mod.m'
+
+polar_edges = linspace(0, 2*pi, 24);
+
+% Loop through regions
+for f_region = fieldnames(region_data)'
+    f_region = f_region{1};
+    data_bystim = region_data.(f_region);
+    stims = fieldnames(data_bystim);
+    
+    % Skip CA1 region
+    if strcmp(f_region, 'r_CA1') == 1
+        continue;
+    end
+
+    % Setup figure to show frequencies side-by-side
+    %figure;
+    %tiledlayout(1, 2, 'TileSpacing', 'compact', 'Padding', 'compact', 'Units', 'centimeters', 'InnerPosition', [4, 4, 9.38, 4.94]);
+
+
+    % Loop through stim frequencies
+    for f_stim = stims'
+        f_stim = f_stim{1};
+        popul_data = data_bystim.(f_stim);
+
+        % Loop through each neuron name
+        for nr=1:length(popul_data.neuron_name)
+            
+            figure;
+            
+            % Grab the stim-phases of the stimulation frequency
+            stim_phases = popul_data.stim_dbsvm_phase_vecs{nr};
+            stim_phases = stim_phases(:, find(Multi_func.entr_freqs == str2num(f_stim(3:end))));
+            
+            % Grab the shuffled phase vectors
+            shuf_phases = popul_data.plv_mod_stats(nr).shuf_phase_vecs;
+            shuf_phases = cat(2, shuf_phases{:});
+            
+            % Save the PLV mod stats
+            nr_plv_mod = popul_data.plv_mod_stats(nr).mod;
+
+            nexttile;
+            polarhistogram(angle(stim_phases), polar_edges, 'Normalization', 'probability', 'EdgeColor', Multi_func.stim_color);
+            title('Stim Phases');
+
+            nexttile;
+            polarhistogram(angle(shuf_phases), polar_edges, 'Normalization', 'probability', 'EdgeColor', Multi_func.base_color)
+            title('Shuffled Phases');
+
+            sgtitle([f_region(3:end) f_stim(3:end) ' mod: ' num2str(nr_plv_mod)], 'Interpreter', 'none');
+
+            saveas(gcf, [figure_path 'Phase' f 'Neuronwise' f 'DBS_Vm_Phase_roseplot_' popul_data.neuron_name{nr} '.png']);
+            saveas(gcf, [figure_path 'Phase' f 'Neuronwise' f 'DBS_Vm_Phase_roseplot_' popul_data.neuron_name{nr} '.pdf']);        
+        end
+    end
+end
+
+% Just want to close all figures
+close all;
 
 %% Combine the DBS-PLV for both CA1 and M1 stim data
 test_regions = {'r_CA1', 'r_M1'};

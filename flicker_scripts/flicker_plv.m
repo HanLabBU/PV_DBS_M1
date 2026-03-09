@@ -175,17 +175,23 @@ for f_stim = fieldnames(data)'
         [PLVs, PLV2s, norm_vecs] = arrayfun(partial_apply_PLV, [1:size(vm_phases, 3)], 'UniformOutput',false);
         PLV2s = cellfun(@(ar) ar(:), PLV2s, 'UniformOutput', false);
         PLV2s = [PLV2s{:}];
-
+        
+        norm_vecs = cellfun(@(ar) ar', norm_vecs, 'UniformOutput', false);
+       
         data.(f_stim).nr_plvs.(f_nr).base_PLV2s = PLV2s;
-
+        data.(f_stim).nr_plvs.(f_nr).base_norm_vecs = norm_vecs; % Each cell is a trial, for element row is the frequency, columns are the individual 
+        
         % Calculate the stim flicker PLVs
         partial_apply_PLV = @(tr) Multi_func.spike_field_PLV(vm_phases(:, :, tr), estim_rasters(:, tr), 0, 6);
 
         [PLVs, PLV2s, norm_vecs] = arrayfun(partial_apply_PLV, [1:size(vm_phases, 3)], 'UniformOutput',false);
         PLV2s = cellfun(@(ar) ar(:), PLV2s, 'UniformOutput', false);
         PLV2s = [PLV2s{:}];
+       
+        norm_vecs = cellfun(@(ar) ar', norm_vecs, 'UniformOutput', false);
 
         data.(f_stim).nr_plvs.(f_nr).estim_PLV2s = PLV2s;
+        data.(f_stim).nr_plvs.(f_nr).estim_norm_vecs = norm_vecs; % Each cell is a trial, for element row is the frequency, columns are the individual
 
         % Calculate the offset flicker PLVs
         partial_apply_PLV = @(tr) Multi_func.spike_field_PLV(vm_phases(:, :, tr), flicker_offset_rasters(:, tr), 0, 6);
@@ -194,7 +200,11 @@ for f_stim = fieldnames(data)'
         PLV2s = cellfun(@(ar) ar(:), PLV2s, 'UniformOutput', false);
         PLV2s = [PLV2s{:}];
 
+        norm_vecs = cellfun(@(ar) ar', norm_vecs, 'UniformOutput', false);
+
         data.(f_stim).nr_plvs.(f_nr).offset_PLV2s = PLV2s;
+        data.(f_stim).nr_plvs.(f_nr).offset_norm_vecs = norm_vecs; % Each cell is a trial, for element row is the frequency, columns are the individual
+
     end
 end
 
@@ -304,7 +314,7 @@ for f_stim = fieldnames(data)'
         
 end
 
-%% Plot the population PLVs with individual neuron PLVs as points
+%% Plot the individual neuron PLVs as points along the frequency axis
 freqs = Multi_func.entr_freqs;
 for f_stim = fieldnames(data)'
     f_stim = f_stim{1};
@@ -453,173 +463,55 @@ for f_stim = fieldnames(data)'
     
 end
 
+%% Plot individual neuron PLVs in a violin based
 
-%% Plot each neuron's PLV distribution, power, and coherence with 8 Hz
-flick_base_tmps = [0 1];
-stim_timestamps = [1 2];
-gray = [0.5 0.5 0.5];
-freqs = Multi_func.entr_freqs;
-set_xlim = [0, 10];
+plv_pop = 1; % 1 are significant and higher during stim
+             % 2 are significant and lower during stim
+             % 3 not significant
 
-% Interpolate the frequency space        
-freq_lin = linspace(Multi_func.entr_freqs(1), Multi_func.entr_freqs(end), 200);
 for f_stim = fieldnames(data)' %{'f_140'} %
     f_stim = f_stim{1};
     popul_data = data.(f_stim);
     timeline = popul_data.interp_time;
 
+    % Find neurons of the specific population
+    nrs = popul_data.plv_mod{plv_pop};
+
     % Loop through all of the neurons
-    for f_nr = fieldnames(popul_data.nr_name)' %{'n_12'}%
+    for f_nr = nrs % fieldnames(popul_data.nr_name)' %{'n_12'}%
         f_nr = f_nr{1};
         
-        fig = figure('Position', [400 400 1800 1200]);
+        fig = figure; %('Position', [400 400 1800 1200]);
         
-        tiledlayout(3, 1);
-
-        % Plot the power
-        nexttile;
-        get_base_idxs = @(tr_tmstmp, stim_tmstp) find(tr_tmstmp < stim_tmstp(1));
-        get_stim_idxs = @(tr_tmstmp, stim_tmstp) find(tr_tmstmp >= stim_tmstp(1) & ...
-                                                   tr_tmstmp <= stim_tmstp(end));
-        calc_time_pow = @(trial_spec, time_idxs) mean(trial_spec(:, time_idxs, :), 2);
+        % Get PLVs from each period
+        flicker_onset_plvs = popul_data.nr_plvs.(f_nr).base_PLV2s(Multi_func.entr_freqs == 8, :);
+        stim_plvs = popul_data.nr_plvs.(f_nr).estim_PLV2s(Multi_func.entr_freqs == 8, :);
+        flicker_offset_plvs = popul_data.nr_plvs.(f_nr).offset_PLV2s(Multi_func.entr_freqs == 8, :);
         
-        calc_trial_spec = @(trial_spec, base_pow, stim_pow) (trial_spec - base_pow)./(base_pow + stim_pow);
-        
-        calc_nr_spec = @(trial_spec, tr_tmstmp, stim_tmstp) mean(calc_trial_spec(trial_spec, ...
-            calc_time_pow(trial_spec, get_base_idxs(tr_tmstmp, stim_tmstp)),  ...
-            calc_time_pow(trial_spec, get_stim_idxs(tr_tmstmp, stim_tmstp))), 3, 'omitnan');
-        avg_pow = calc_nr_spec(abs(popul_data.spec_pow.(f_nr).vpo_24), timeline, flick_base_tmps);
-        avg_f = mean(popul_data.spec_f.(f_nr).vpo_24, 3, 'omitnan');
-        
-        % Interpolate frequency points
-        pow_interp = interp1(avg_f, avg_pow, freq_lin);
+        % Make the violin plot
+        data_plvs = [flicker_onset_plvs, stim_plvs, flicker_offset_plvs];
+        labels = [repmat({'Pre-stim'}, 1, length(flicker_onset_plvs)), ...
+            repmat({'Stim'}, 1, length(stim_plvs)), ...
+            repmat({'Post-stim'}, 1, length(flicker_offset_plvs))  ];
 
-        %surface(timeline, ...
-        %       freq_lin, pow_interp, ...
-        %        'CDataMapping', 'scaled', 'FaceColor', 'texturemap', 'EdgeColor', 'none');
-        imagesc(timeline, freq_lin, pow_interp);
-        ylim([0, 20]);
-        axis xy;
-        xlabel('Time');
-        ylabel('Frequency (Hz)');
-        %ylim([0, 20]);
-        %pcolor(timeline, avg_f, avg_pow);
-        
-        % Check if neuron's power spec is significant
-        sig = [];
-        if ismember(f_nr, popul_data.pow_mod.vpo_24{1})
-            sig = 'Inc';
-        elseif ismember(f_nr, popul_data.pow_mod.vpo_24{2})
-            sig = 'Dec';
-        else
-            sig = '';
-        end
-        title(['Power Spectra ' sig ' ' num2str(popul_data.pow_vals.vpo_24.stats.(f_nr))]);
+        ViolinOpts = Multi_func.get_default_violin();
+        violins = violinplot(data_plvs, labels, 'GroupOrder', {'Pre-stim', 'Stim', 'Post-stim'}, ...
+            ViolinOpts);
 
-        % Plot the coherence
-        nexttile;
-        avg_coh = mean(abs(popul_data.spec_wcoh.(f_nr).vpo_24), 3, 'omitnan');
-        avg_coh_f = mean(popul_data.spec_coh_f.(f_nr).vpo_24, 3, 'omitnan');
-        
-        % Interpolate frequency points
-        coh_interp = interp1(avg_coh_f, avg_coh, freq_lin);
-            
-        imagesc(timeline, freq_lin, coh_interp);
-        ylim([0, 20]);
-        axis xy;
-        xlabel('Time');
-        ylabel('Frequency (Hz)');
+        violins(1).ViolinColor = {Multi_func.base_color};
+        violins(2).ViolinColor = {Multi_func.stim_color};
+        violins(3).ViolinColor = {Multi_func.post_color};
+        hold on;
 
-        % Check if neuron's coherence is significant
-        sig = [];
-        if ismember(f_nr, popul_data.coh_mod.vpo_24{1})
-            sig = 'Inc';
-        elseif ismember(f_nr, popul_data.coh_mod.vpo_24{2})
-            sig = 'Dec';
-        else
-            sig = '';
-        end
-        title(['Coherence ' sig ' ' num2str(popul_data.coh_vals.vpo_24.stats.(f_nr))]);
-
-        % Plot the PLV
-        nexttile;
-        % Plotting the flicker baseline
-        flicker_base_mean = mean(popul_data.nr_plvs.(f_nr).base_PLV2s, 2, 'omitnan');
-        flicker_base_std = std(popul_data.nr_plvs.(f_nr).base_PLV2s, [], 2, 'omitnan');
-        num_flick_base = size(popul_data.nr_plvs.(f_nr).base_PLV2s, 2);
-        flicker_base_sem = flicker_base_std./sqrt(num_flick_base);
-
-        fill_h = fill([freqs, flip(freqs)], [flicker_base_mean' + flicker_base_sem', ...
-            flip(flicker_base_mean' - flicker_base_sem')], [0.5 0.5 0.5]);
-        Multi_func.set_fill_properties(fill_h);
-
+        % Plot the lines between correspond PLV values
+        plot([1, 2, 3], [flicker_onset_plvs', stim_plvs', flicker_offset_plvs'], '-k');
+        hold on;
         Multi_func.set_default_axis(gca);
-        hold on;
-        plot(freqs, flicker_base_mean, 'color', Multi_func.base_color, DisplayName='Base');
-        hold on;
-
-        % Plotting the estim
-        estim_mean = mean(popul_data.nr_plvs.(f_nr).estim_PLV2s, 2, 'omitnan');
-        estim_std = std(popul_data.nr_plvs.(f_nr).estim_PLV2s, [], 2, 'omitnan');
-        num_flick_base = size(popul_data.nr_plvs.(f_nr).estim_PLV2s, 2);
-        estim_sem = estim_std./sqrt(num_flick_base);
-
-        fill_h = fill([freqs, flip(freqs)], [estim_mean' + estim_sem', ...
-            flip(estim_mean' - estim_sem')], [0.5 0.5 0.5]);
-        Multi_func.set_fill_properties(fill_h);
-
-        Multi_func.set_default_axis(gca);
-        hold on;
-        plot(freqs, estim_mean, 'color', Multi_func.stim_color, DisplayName='Estim');
-        hold on;
-
-        % Plotting the flicker offset
-        flicker_offset_mean = mean(popul_data.nr_plvs.(f_nr).offset_PLV2s, 2, 'omitnan');
-        flicker_offset_std = std(popul_data.nr_plvs.(f_nr).offset_PLV2s, [], 2, 'omitnan');
-        num_flick_base = size(popul_data.nr_plvs.(f_nr).offset_PLV2s, 2);
-        flicker_offset_sem = flicker_offset_std./sqrt(num_flick_base);
-
-        fill_h = fill([freqs, flip(freqs)], [flicker_offset_mean' + flicker_offset_sem', ...
-            flip(flicker_offset_mean' - flicker_offset_sem')], [0.5 0.5 0.5]);
-        Multi_func.set_fill_properties(fill_h);
-
-        Multi_func.set_default_axis(gca);
-        hold on;
-        plot(freqs, flicker_offset_mean, 'color', Multi_func.post_color, DisplayName='Offset');
-        hold on;
-
-        % Check if neuron's PLV is significant
-        sig = [];
-        if ismember(f_nr, popul_data.plv_mod{1})
-            sig = 'Inc';
-        elseif ismember(f_nr, popul_data.plv_mod{2})
-            sig = 'Dec';
-        else
-            sig = '';
-        end
-        title(['PLV ' sig ' ' num2str(popul_data.plv_stats.(f_nr))]);
-            
-        %TODO need to doube check wat the stats are being present here,
-        % Check how they are being saved
-
-        %ax = gca;
-        %set(ax,'Xscale','log');
-        xlabel('Frequency (Hz)');
-        ylabel('PLV');
-        xlim(set_xlim);
-
-        % Show only plots that have DisplayNames
-        lines = findall(gca, 'Type', 'Line');
-        lines = lines(~cellfun(@isempty, get(lines, 'DisplayName')));
-        legend(lines, 'Location', 'east');
-
-        sgtitle([f_stim 'Hz ' f_nr ' ' popul_data.nr_name.(f_nr)], 'Interpreter', 'none');
-
-        %fontsize(fig, 20, "points");
-        set(findall(fig,'-property','FontSize'), 'FontSize', 20);
-
-        exportgraphics(fig, [savefig_path 'Flicker' f 'Neuronwise' f '8Hz_plots' f ...
-           f_stim(3:end) '_' popul_data.nr_name.(f_nr) '_.png'], 'Resolution', 600);
-   
+        
+        fontsize(fig, 10, "points");
+        
+        title([f_stim ' ' f_nr ' sig and dir: ' num2str(plv_pop)], 'Interpreter', 'none');
     end
 end
+
+

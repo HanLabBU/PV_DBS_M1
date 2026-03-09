@@ -658,8 +658,9 @@ end
 
 
 %% Loop through and calculate spike-DBS PLV values for all region and conditions
+%TODO double check and update this code
 freqs = [1:200];
-for f_region = {'r_M1'}%fieldnames(region_data)'
+for f_region = fieldnames(region_data)'
     f_region = f_region{1};
     data_bystim = region_data.(f_region);
     stims = fieldnames(data_bystim);
@@ -743,7 +744,7 @@ for f_region = {'r_M1'}%fieldnames(region_data)'
 end
 
 %% Loop and plot all of the spike-dbs stuff
-for f_region = {'r_M1'}%fieldnames(region_data)'
+for f_region = fieldnames(region_data)'
     f_region = f_region{1};
     data_bystim = region_data.(f_region);
     stims = fieldnames(data_bystim);
@@ -773,8 +774,12 @@ for f_region = {'r_M1'}%fieldnames(region_data)'
         %ylim([-0.07 0.5]);
         %xlim([2, 10]);
         title([f_region(3:end) ' ' f_stim(3:end)], 'Interpreter', 'none');
-        saveas(gcf, [figure_path 'PLV' f 'PLV_DBSStim_' f_region '_' f_stim '.png']);
-        saveas(gcf, [figure_path 'PLV' f 'PLV_DBSStim_' f_region '_' f_stim '.pdf']);
+        xlabel('Frequency (Hz)');
+        ylabel('Spike-DBS PLV^2');
+        
+        fontsize(gcf, 10, 'points');
+        saveas(gcf, [figure_path 'PLV' f 'PLV_DBSSpike_' f_region '_' f_stim '.png']);
+        saveas(gcf, [figure_path 'PLV' f 'PLV_DBSSpike_' f_region '_' f_stim '.pdf']);
         
 
 

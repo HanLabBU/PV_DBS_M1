@@ -470,15 +470,19 @@ end
 stats_filename =[Multi_func.save_plot 'Flicker' f 'Coherence' f 'pop_stats_file.txt']; 
 stats_file = fopen(stats_filename, 'w');
 fclose(stats_file);
+
+% To determine which resolution for stats
+vpo = 'vpo_24';
+
 for f_stim = fieldnames(data)'
     f_stim = f_stim{1};
     popul_data = data.(f_stim);
     interp_time = popul_data.interp_time;
 
-    freqs = mean(popul_data.spec_coh_f.n_0, 3, 'omitnan');
+    freqs = mean(popul_data.spec_coh_f.n_0.(vpo), 3, 'omitnan');
     
     % calculate the population coherence 
-    pop_coh = cellfun(@(f_nr) mean(abs(popul_data.spec_wcoh.(f_nr)), 3, 'omitnan'), ...
+    pop_coh = cellfun(@(f_nr) mean(abs(popul_data.spec_wcoh.(f_nr).(vpo)), 3, 'omitnan'), ...
                 fieldnames(popul_data.spec_wcoh)', 'UniformOutput', false);
 
     pop_coh = cat(3, pop_coh{:});
@@ -838,7 +842,7 @@ for f_stim = fieldnames(data)'
             sgtitle([popul_data.nr_name.(f_nr) ' mod: ' mod_str{f_mod} ' stim: ' f_stim], ...
                 'Interpreter', 'none');
             
-            exportgraphics(gcf, [savefig_path 'Coherence' f 'Mod' f ...
+            exportgraphics(gcf, [savefig_path 'Flicker' f 'Coherence' f 'Mod' f ...
                 'Mod_' mod_str{f_mod} '_' f_stim '_' f_nr '_' vpo '.png'], 'Resolution', 600);
             
             %TODO need to take this back
@@ -850,7 +854,7 @@ for f_stim = fieldnames(data)'
             ylim(ax, ylimits);
             caxis(caxis_lts);
 
-            exportgraphics(gcf, [savefig_path 'Coherence' f 'Mod' f ...
+            exportgraphics(gcf, [savefig_path 'Flicker' f 'Coherence' f 'Mod' f ...
                 'Mod_' mod_str{f_mod} '_' f_stim '_' f_nr '_' vpo '.pdf'], 'ContentType', 'vector');
         end
     end

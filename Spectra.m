@@ -208,7 +208,9 @@ for f_region = fieldnames(region_data)'
         region_data.(f_region).(f_stim).ab_norm_pow_spec = cur_spec_pow;
 
         sgtitle([ f_region '_' f_stim ' Time Series Spectra with (x - A)/(A + B) normalization individually ' nr_pop], 'Interpreter', 'none');
-    
+        
+        fontsize(gcf, 10, "points");
+
         saveas(gcf, [figure_path 'Spectra/' f_region '_'  f_stim '_' nr_pop '_A_B_Normalization_Time_Spectra.png']);
         saveas(gcf, [figure_path 'Spectra/' f_region '_'  f_stim '_' nr_pop '_A_B_Normalization_Time_Spectra.pdf']);
         savefig(gcf, [figure_path 'Spectra/' f_region '_' f_stim '_' nr_pop '_A_B_Normalization_Time_Spectra.fig']);

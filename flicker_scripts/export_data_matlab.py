@@ -62,6 +62,7 @@ for stim_freq in df['stim_freq'].unique():
     all_rawvm_dict = {}
     all_neuron_name = {}
     all_spike_amp_raster_dict = {}
+    all_neuron_amp = {}
     flicker_raster = []
 
     # Save a single interp time for each frequency
@@ -88,6 +89,9 @@ for stim_freq in df['stim_freq'].unique():
                     
         # Add neuron name
         all_neuron_name['n_' + str(roi_acum)] = "_".join([str(e) for e in values])
+
+        # Add the current parameter
+        all_neuron_amp['n_' + str(roi_acum)] = np.unique(fov_df['stim_param'].values)[0]
         
         flicker_raster = fov_df[fov_df['trial_id'] == fov_df['trial_id'].unique()[0]]['flicker_raster'].values
 
@@ -104,6 +108,8 @@ for stim_freq in df['stim_freq'].unique():
     data_struct['f_' + str(stim_freq)]['spike_amp_raster'] = all_spike_amp_raster_dict
     data_struct['f_' + str(stim_freq)]['nr_name'] = all_neuron_name
     data_struct['f_' + str(stim_freq)]['flicker_raster'] = flicker_raster
+    data_struct['f_' + str(stim_freq)]['stim_amp'] = all_neuron_amp
+    
     
     
 # DEBUGGING how to save things
@@ -113,5 +119,7 @@ for stim_freq in df['stim_freq'].unique():
 #sample = [np.array([[1, 2, 3]]), np.array([[1], [2], [3]])]
 #sample = np.array(sample, dtype=object)
 #data_struct['f_140']['sam'] = sample
+# %% Save data to matfile
 
 savemat(interm_data_path + 'v1_flicker.mat', data_struct)
+# %%
