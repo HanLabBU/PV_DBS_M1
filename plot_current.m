@@ -7,11 +7,13 @@ clc;
 f = filesep;
 
 % Linux server
-local_root_path = '~/Projects/';
+%local_root_path = '~/Projects/';
 % Handata Server on Linux
 server_root_path = '~/handata_server/eng_research_handata3/';
 % Windows server
-%local_root_path = 'Z:\';
+local_root_path = 'C:\Users\fabri\BOSTON UNIVERSITY Dropbox\RKC-HanLab\Pierre PV DBS Project Dropbox\Materials\Interm_Data\';
+
+addpath('../Packages/');
 
 % List path where all of the matfiles are stored
 %pv_data_path = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'PV_Data' f];
@@ -19,13 +21,16 @@ server_root_path = '~/handata_server/eng_research_handata3/';
 %pv_data_path = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'PV_Data' f];
 % Data on handata3 folder
 pv_data_path = [server_root_path 'Pierre Fabris' f 'PV Project' f 'PV_Data' f];
-savepath = Multi_func.save_plot;
+%savepath = Multi_func.save_plot;
+
+% Windows
+savepath = 'C:\Users\fabri\BOSTON UNIVERSITY Dropbox\Pierre Fabris\Pierre PV DBS Project Dropbox\Materials\Plots\';
 
 exclude_200ms = 1;
 
 % CSV file to determine which trials to ignore
-ignore_trial_dict = Multi_func.csv_to_struct([local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f ...
-                                       'Stim Recordings' f 'Data_Config' f 'byvis_ignore.csv']);
+%ignore_trial_dict = Multi_func.csv_to_struct([local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f ...
+%                                      'Stim Recordings' f 'Data_Config' f 'byvis_ignore.csv']);
 
 % Check that the server path exists
 if ~isfolder(local_root_path)
@@ -50,6 +55,12 @@ disp('Finished Loading Data');
 
 %% <--- determine if the file that has the current info for the flicker experiments is older than the interm pickle file
 
+%% Relabel mouse names from their ID tags
+mouse_rename = struct();
+mice_names = fieldnames(Multi_func.mouse_color)';
+for f_i = 1:length(mice_names)
+    mouse_rename.(mice_names{f_i}) = ['Mouse ' num2str(f_i)];
+end
 
 %% Read in the flicker amplitude data into our currents structure
 % Note: Need to only do this once, otherwise neuron names will keep getting appended
@@ -765,12 +776,6 @@ end
 
 %% Plotting current from days to first recording date for each neuron with violinplots for different time ranges
 
-% Have the relabels ready
-mouse_rename = struct();
-mice_names = fieldnames(Multi_func.mouse_color)';
-for f_i = 1:length(mice_names)
-    mouse_rename.(mice_names{f_i}) = ['Mouse ' num2str(f_i)];
-end
 % Specify the boundaries for each 
 % This range seems decent
 %day_ranges = [0 1 20];
@@ -976,6 +981,266 @@ for f_region = fieldnames(region_data)'
         saveas(gcf, [savepath 'Current/' f_region '_' f_stim '_Current_Mouse_Violin.png']);
         saveas(gcf, [savepath 'Current/' f_region '_' f_stim '_Current_Mouse_Violin.pdf']);
     end   
+end
+
+%% Fit Current for each mouse 
+% Plotting current from first day of imaging for each neuron separate plots for 
+% each brain region and stimulation frequency
+% Each color is a unique mouse and a curve is fitted for its points
+% Mean current is taken for neurons recorded on the same day for the same
+% mouse
+
+% Flag for loggin the scales
+log_f = 0;
+
+% Loop through regions
+for f_region = fieldnames(region_data)'
+
+    f_region = f_region{1};
+
+    % Skip CA1 neurons from this plot
+    if strcmp(f_region, 'r_CA1') == 1
+        continue;
+    end
+
+    data_bystim = region_data.(f_region);
+    stims = fieldnames(data_bystim);
+
+    % Loop through stim frequencies
+    for f_stim = stims'
+        f_stim = f_stim{1};
+        popul_data = data_bystim.(f_stim);
+        
+        figure('Position', [0 0 1000 800]);
+        %A map that keeps track of how many repetitions there are
+        %of number of days since surgery and amperage
+        days_amp_map = [];
+        % Keep track of neurons plotted
+        neurons_plotted = [];
+        mouse_line_width = 4;
+        %set(gca, 'ColorOrder', hsv(10), 'NextPlot', 'replacechildren')
+
+        % Loop through each neuron
+        for nr=1:length(popul_data.neuron_name)
+            if ismember(nr, neurons_plotted)
+                continue;
+            end
+            
+            % Grab tokens for the mouse number, which is the first element
+            tokens = regexp(popul_data.neuron_name{nr}, '_', 'split');
+
+            % Find all of the neurons that come from the same mouse
+            same_m_nrs = find(contains(popul_data.neuron_name, tokens{1}) == 1);
+ 
+            % Grab the first recording date
+            get_third = @(c_array) datetime(erase(c_array{3}, 'rec'), 'InputFormat', 'yyyyMMdd');
+            rec_days = cellfun(@(x) get_third(regexp(x, '_', 'split')), popul_data.neuron_name(same_m_nrs), ...
+                        'UniformOutput', false);
+            first_rec_date = min([rec_days{:}]);
+
+            neurons_plotted = cat(2, neurons_plotted, same_m_nrs);
+            same_m_nrs_pts = [];
+        
+            same_m_currents = [];
+            
+            % This is for plotting the concentric circles with lines
+            for i=same_m_nrs
+                tokens = regexp(popul_data.neuron_name{i}, '_', 'split');
+                
+                % Get the imaging date
+                tokens{3} = erase(tokens{3}, 'rec');
+                img_date = datetime(tokens{3}, 'InputFormat', 'yyyyMMdd');
+               
+                % Calculate the days between imaging and surgery date
+                %surg_date = popul_data.surgery_date.(['m_' tokens{1}]);
+                %if isempty(surg_date)
+                %    continue;
+                %end
+                %surg_date = datetime(surg_date, 'InputFormat', 'yyyyMMdd');
+                
+                % Old way was using the surgery date from recording date
+                %days_from_surg = days(img_date - surg_date);
+
+                days_from_first = days(img_date - first_rec_date);
+
+                % Add 1 to every day if going to log the scale
+                if log_f
+                    days_from_first = days_from_first + 1;
+                end
+
+                % Parse out the current amperage
+                fov_i = find(contains(tokens, 'FOV') == 1);
+                amp_i = fov_i + 2;
+                if contains(tokens{amp_i}, '.') == 1
+                    amp_str = regexp(tokens{amp_i}, '\.', 'split');
+                    amp_str = amp_str{1};
+                else
+                    amp_str = tokens{amp_i};
+                end
+                
+                % Save the currents for the same neuron
+                same_m_currents = [same_m_currents, str2num(amp_str)];
+
+                
+                % Increment the marker size for repeated points
+                % Need to shift the index for days from first because 0 is not a primary index
+                if size(days_amp_map, 1) < days_from_first + 1 | size(days_amp_map, 2) < str2num(amp_str)
+                    days_amp_map(days_from_first + 1, str2num(amp_str)) = 1;
+                else
+                    days_amp_map(days_from_first + 1, str2num(amp_str)) = ...
+                        1 + days_amp_map(days_from_first + 1, str2num(amp_str));
+                end
+            end
+            
+            % Calculate the mean value of neurons uniquely 
+            % Find neurons on the same day
+            [unique_dates, ~, idx] = unique([rec_days{:}]);
+            mean_cur = accumarray(idx(:), same_m_currents(:), [], @mean);
+            
+            % Normalize current by the first day
+            mean_cur = 100 * mean_cur ./ mean_cur(1);
+
+            % Individual neuron currents and then the average current as
+            % well
+            days_imaged = days(unique_dates - first_rec_date);
+            h = plot(days_imaged, mean_cur, '.', 'MarkerSize', 10, 'DisplayName', mouse_rename.(['m' tokens{1}]) );
+            hold on;
+            
+            % Fit a curve if more than 1 point
+            if length(mean_cur) > 1
+                p = polyfit(days_imaged, mean_cur, 1);
+                xq = linspace(min(days_imaged), max(days_imaged), 100);
+                yq = polyval(p, xq);
+
+                plot(xq, yq, '-', 'Color', h.Color, 'HandleVisibility', 'off');
+            else
+
+            end
+
+            %plot(days([rec_days{:}] - first_rec_date), same_m_currents, 'b.');
+            %hold on;
+
+            % Plot lines across all FOVs of the same mouse
+            if ~isempty(same_m_nrs_pts)
+                
+                [~, i] = sort(same_m_nrs_pts(1, :));
+               
+                % Specify color based on stim frequency
+                if strcmp(f_stim, 'f_40') == 1
+                    color = 'b';
+                elseif strcmp(f_stim, 'f_140') == 1
+                    color = 'r';
+                end
+                
+
+                % Old plotting with the same color for the frequency
+                %plot(same_m_nrs_pts(1, i), same_m_nrs_pts(2, i), '-', 'Color', color);
+                
+                % Plot a line if neurons have different amperages,
+                % otherwise just plot a point
+                if length(unique(same_m_nrs_pts(1, :))) == 1 && length(unique(same_m_nrs_pts(2, :))) == 1 
+                    plot(same_m_nrs_pts(1, 1), same_m_nrs_pts(2, 1), '.', 'MarkerSize', 4*mouse_line_width, 'DisplayName', tokens{1});
+                    hold on;
+                else
+                    plot(same_m_nrs_pts(1, i), same_m_nrs_pts(2, i), '-', ...
+                        'LineWidth', mouse_line_width, ...
+                        'DisplayName', tokens{1});
+                end
+                % If wanted to use distinct color for each mouse
+                %if isfield(mouse_color, ['m_' tokens{1}])
+                %    color = mouse_color.(['m_' tokens{1}]);
+                %    plot(same_m_nrs_pts(1, i), same_m_nrs_pts(2, i), '-', 'Color', color);
+                %else
+                %    plot_h = plot(same_m_nrs_pts(1, i), same_m_nrs_pts(2, i),  '-');
+                %    mouse_color.(['m_' tokens{1}]) = get(plot_h, 'Color');
+                %end
+                hold on;
+
+                mouse_line_width = mouse_line_width - 0.5;
+            end
+
+
+            % EBUG
+            %if strcmp(f_region, 'r_M1') == 1 && strcmp(f_stim, 'f_40') == 1 
+            %    pause(3);
+            %    drawnow;
+            %end
+
+        end
+
+        %DEBUG, something is wrong with this code
+        % Count number of neurons 
+        %f_region
+        %f_stim
+        %sum(days_amp_map, "all")
+        % % Print out the number of neurons for this condition
+        %length(popul_data.neuron_name)
+        %
+        %neurons_plotted
+
+        % Check if all enruons were plotted
+        %h = findobj(gca,'Type','scatter');
+
+        %numPoints = arrayfun(@(x) size(x.XData,2), h)
+        %h = findobj(gcf,'Type','line');
+        %numPoints = arrayfun(@(x) length(x.XData), h)
+        disp(length(popul_data.neuron_name));
+            disp(length(neurons_plotted));
+        if length(neurons_plotted) ~= length(popul_data.neuron_name)
+            disp('Not the same');
+        end
+
+    % Labels
+    xlabel('Days since first recording (days)');
+    ylabel("% Amperage change (uamp)");
+    %ylabel({'Amperage',  '(uamp)'});
+
+    % Set the axis
+    Multi_func.set_default_axis(gca);
+    
+
+    % Log the scales
+    if log_f
+        set(gca, 'XScale', 'log', 'YScale', 'log');
+    end
+
+    y_limits = ylim;
+    y_range = range(y_limits);
+    ylim([0, y_limits(2) + .1*y_range]); % scaled lower end y_limits(1) - .1*y_range
+
+    x_limits = xlim;
+    x_range = range(x_limits);
+    xlim([x_limits(1) - .1*x_range, x_limits(2) + .1*x_range]);
+
+    % Make x-axis conditional by brain region
+    %if strcmp(f_region, 'r_M1') == 1
+    %    x_limits = xlim;
+    %    xlim([-10 x_limits(2)]);
+    %elseif strcmp(f_region, 'r_V1') == 1
+    %    x_limits = xlim;
+    %    xlim([-40 x_limits(2)]);
+    %end
+
+    legend('show', 'Location', 'SouthEast');
+
+    % Title
+    title([f_region ' ' f_stim], 'Interpreter', 'none');
+    
+    ax = gca;
+    ax.Units = "centimeters";
+    ax.InnerPosition = [10 10 5.9828 5.1729 ];
+set(gcf,'Units','centimeters');
+    fontsize(gcf, 10, "points");
+
+
+    saveas(gcf, [savepath 'Current/' f_region '_' f_stim  '_current_scatter_with_curve_fit.png']);
+    saveas(gcf, [savepath 'Current/' f_region '_' f_stim '_current_scatter_with_curve_fit.pdf']);
+
+    % TODO check that the number of points plotted equals the number of
+    % neurons for this condition
+
+    end
+ 
 end
 
 %% Plotting current from days to surgery for each neuron with swarmchart

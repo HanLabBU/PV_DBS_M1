@@ -6,8 +6,12 @@ classdef Multi_func
         % Into Dropbox
         % Old dropbox link
         %save_plot = ['~/Dropbox/RKC-HanLab/Pierre PV DBS Project Dropbox/Materials/Plots/'];
-        save_plot = ['~/Dropbox/Pierre PV DBS Project Dropbox/Materials/Plots/'];
         
+        % For Linux computer
+        %save_plot = ['~/Dropbox/Pierre PV DBS Project Dropbox/Materials/Plots/'];
+        % For Windows
+        save_plot = ['C:\Users\fabri\BOSTON UNIVERSITY Dropbox\Pierre Fabris\Pierre PV DBS Project Dropbox\Materials\Plots\'];
+
         % Into the server
         %save_plot = ['~/handata_server/eng_research_handata3/Pierre Fabris/PV Project/Plots/'];
 

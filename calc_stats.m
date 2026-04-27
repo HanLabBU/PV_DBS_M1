@@ -89,7 +89,17 @@ for f_region = fieldnames(region_data)'
             % Parse out recording info
             name_parts = strsplit(popul_data.neuron_name{nr_i}, "_");
             mouse_name = name_parts{1};
+        
+            % Store the current neuron's recording date
+            rec_date = datetime(erase(name_parts{3}, 'rec'), 'InputFormat', 'yyyyMMdd');
+            same_m_nrs = find(contains(popul_data.neuron_name, name_parts{1}) == 1);
 
+            % Find the earliest recording date for this neuron
+            splitNames = cellfun(@(x) strsplit(x, '_'), popul_data.neuron_name(same_m_nrs), 'UniformOutput', false);
+            dateStrs = cellfun(@(x) x{3}, splitNames, 'UniformOutput', false);
+            dates = datetime(erase(dateStrs, 'rec'), 'InputFormat', 'yyyyMMdd');
+            earliestDate = min(dates);
+            
             % Find and grab the current amperage value
             idxs = contains(name_parts, 'mat');
             
@@ -149,6 +159,9 @@ for f_region = fieldnames(region_data)'
             % Indicate if neurons were modulated or non-modulated at all
             modulated = sum(popul_data.mod_matrix(nr_i, :));
             estim_nr_t{num2str(nr_num), 'Modulated'} = modulated;
+            
+            % Calculate days since first recording
+            estim_nr_t{num2str(nr_num), 'Recording Day'} = days(rec_date - earliestDate); 
 
             % Increment neuron number
             nr_num = nr_num + 1;

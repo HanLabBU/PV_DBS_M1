@@ -11,7 +11,15 @@ addpath('..');
 interm_data_path = [f 'home' f 'pierfier' f 'Projects' f ...
       'Pierre Fabris' f 'PV DBS neocortex' f 'Interm_Data' f];
 
+% Windows computer
+interm_data_path = ['C:\Users\fabri\BOSTON UNIVERSITY Dropbox\RKC-HanLab\Pierre PV DBS Project Dropbox\Materials\Interm_Data\Pierre Fabris\PV DBS neocortex\Interm_Data\'];
+
+addpath(genpath('../Packages/'));
+
 savefig_path = [Multi_func.save_plot  'Flicker' f]; 
+
+% Windows Computer
+savefig_path = ['C:\Users\fabri\BOSTON UNIVERSITY Dropbox\Pierre Fabris\Pierre PV DBS Project Dropbox\Materials\Plots\Flicker' f];
 
 % Index for 'nr_mod' array the description of each  is storing
 mod_str = {'inc', 'dec', 'unc'};
@@ -171,7 +179,7 @@ for f_stim = fieldnames(data)'
     ax.InnerPosition = [2, 2, 5.5, 3.367];
 
     % First save as a rasterized object
-    exportgraphics(gcf, [Multi_func.save_plot 'Flicker' f 'Spectra' f 'Power_spec' f_stim(3:end)  'Hz_' num2str(ylimits(2)) '_' vpo '.png'], ...
+    exportgraphics(gcf, [savefig_path f 'Spectra' f 'Power_spec' f_stim(3:end)  'Hz_' num2str(ylimits(2)) '_' vpo '.png'], ...
                     'Resolution', 600);
     
     % Delete the plot and save the vector graphics axis and heatmap
@@ -184,10 +192,88 @@ for f_stim = fieldnames(data)'
     caxis(caxis_lts);
     
     set(gcf, 'Renderer', 'painters');
-    exportgraphics(gcf, [Multi_func.save_plot 'Flicker' f 'Spectra' f 'Power_spec' f_stim(3:end) 'Hz_' num2str(ylimits(2)) '_' vpo '.pdf'], ...
+    exportgraphics(gcf, [savefig_path f 'Spectra' f 'Power_spec' f_stim(3:end) 'Hz_' num2str(ylimits(2)) '_' vpo '.pdf'], ...
         'ContentType','vector');
     
 end
+
+%% Stats for single-Cell level power spectra
+for f_stim = fieldnames(data)' %{'f_140'} %
+    f_stim = f_stim{1};
+    popul_data = data.(f_stim);
+
+    interp_time = popul_data.interp_time;
+
+    % Store the modulation of power spectra for each neuron
+    pow_mod = struct; % 2D cell array where the first one is improved, second is worsened, and third is unchanged
+    pow_vals = struct;
+
+    for vpo = voices_per_octaves
+        vpo = vpo{1};
+        pow_mod.(vpo) = {};
+        pow_mod.(vpo){1} = {};
+        pow_mod.(vpo){2} = {};
+        pow_mod.(vpo){3} = {};
+
+        pow_vals.(vpo).onset = struct;
+        pow_vals.(vpo).stim = struct;
+        pow_vals.(vpo).stats = struct;
+    end
+
+    % Loop through each neuron and calculate significance
+    for f_nr = fieldnames(popul_data.spec_pow)' %{'n_12'}%
+        f_nr = f_nr{1};
+        
+        for vpo = voices_per_octaves
+            vpo = vpo{1};
+            
+            nr_pow = abs(popul_data.spec_pow.(f_nr).(vpo));
+            freqs = mean(popul_data.spec_f.n_0.(vpo), 3, 'omitnan');
+
+            % TODO swtich to narrow band
+            %flick_freq_idxs = find(7.5 < freqs & 8.5 > freqs);
+            flick_freq_idxs = find(freqs < 8, 1, 'first');
+            flick_freq_idxs = [flick_freq_idxs, flick_freq_idxs - 1]; % Note: frequencies are in decreaseing order
+
+            % Calculate each trial's power for each period
+            flick_onset_idxs = find(interp_time > 0.250 & interp_time < 0.750);
+            stim_idxs = find(interp_time > 1.250 & interp_time < 1.750);
+            flick_offset_idxs = find(interp_time > 2.250 & interp_time < 2.750);
+
+            flicker_onset_pow = mean(mean(nr_pow(flick_freq_idxs, flick_onset_idxs, :), 2), 1);
+            stim_pow = mean(mean(nr_pow(flick_freq_idxs, stim_idxs, :), 2), 1);
+            flicker_offset_pow = mean(mean(nr_pow(flick_freq_idxs, flick_offset_idxs, :), 2), 1);
+            
+            flicker_onset_pow = squeeze(flicker_onset_pow);
+            stim_pow = squeeze(stim_pow);
+            flicker_offset_pow = squeeze(flicker_offset_pow);
+
+            % Test for significance
+            [sr_p, ~, sr_stats] = signrank(flicker_onset_pow, stim_pow);
+
+            % Store the power values
+            pow_vals.(vpo).onset.(f_nr) = flicker_onset_pow(:);
+            pow_vals.(vpo).stim.(f_nr) = stim_pow(:);
+
+            pow_vals.(vpo).stats.(f_nr) = sr_p(:);
+
+            if sr_p < 0.05
+                if mean(stim_pow -  flicker_onset_pow) > 0
+                    pow_mod.(vpo){1}{end + 1} = f_nr;
+                else
+                    pow_mod.(vpo){2}{end + 1} = f_nr;
+                end
+            else
+                pow_mod.(vpo){3}{end + 1} = f_nr;
+            end
+        end
+    end
+
+    % Add to the data structure
+    data.(f_stim).pow_mod = pow_mod;
+    data.(f_stim).pow_vals = pow_vals;
+end
+
 
 %% Population calculation for period power spectra for flicker onset, stim, to flicker offset
 % Note: use vpo from the population average plots
@@ -255,8 +341,7 @@ for f_stim = fieldnames(data)'
     fprintf(stats_file, 'SR stat: %s\n', num2str(sr_stats.signedrank));
     fprintf(stats_file, 'SR P-Value: %s\n', num2str(sr_pval));
 
-    fprintf(stats_file, '\n\n');
-    fclose(stats_file);
+    fprintf(stats_file, '\n');
 
     % Prepare data for violins
     data_pow = [flicker_onset_pow, stim_pow, flicker_offset_pow];
@@ -276,93 +361,43 @@ for f_stim = fieldnames(data)'
     violins(3).ViolinColor = {Multi_func.post_color};
     hold on;
     
+    % Find the neurons that have significant power increases
+    sig_dec = data.(f_stim).pow_mod.vpo_24{2} % This is for decrease
+    [idx, loc_dec] = ismember(sig_dec, fieldnames(popul_data.spec_pow));
+
+    sig_inc = data.(f_stim).pow_mod.vpo_24{1} % This is for increase
+    [idx, loc_inc] = ismember(sig_inc, fieldnames(popul_data.spec_pow));
+
     % Plot the individual value points
-    plot([1, 2, 3], [flicker_onset_pow, stim_pow, flicker_offset_pow], '-k')
+    plot([1, 2, 3], [flicker_onset_pow, stim_pow, flicker_offset_pow], '-k');
+    hold on;
+
+    % Check if there are any significant points
+    if ~isempty(sig_dec)
+        plot([1, 2, 3], [flicker_onset_pow(loc_dec), stim_pow(loc_dec), flicker_offset_pow(loc_dec)], '-r');
+        hold on;
+
+        % Print the spectra values to file
+        med_spec = median(stim_pow(loc_dec) - flicker_onset_pow(loc_dec));
+        iqr_spec = iqr(stim_pow(loc_dec) - flicker_onset_pow(loc_dec));
+        fprintf(stats_file, ['Median+-iqr spectra: ' num2str(med_spec) '+-' num2str(iqr_spec)]);
+        fprintf(stats_file, '\n\n');
+    end
+
+    if ~isempty(sig_inc)
+        plot([1, 2, 3], [flicker_onset_pow(loc_inc), stim_pow(loc_inc), flicker_offset_pow(loc_inc)], '-b');
+    end
+
     f_stim
     title([f_stim ' Hz'], 'Interpreter', 'none');
+    fclose(stats_file);
 
     % Save figure
     saveas(gcf, [Multi_func.save_plot 'Flicker' f 'Spectra' f 'Power_violin_' f_stim(3:end) 'Hz.png']);
     saveas(gcf, [Multi_func.save_plot 'Flicker' f 'Spectra' f 'Power_violin_' f_stim(3:end) 'Hz.pdf']);
-    close(gcf);
+    %close(gcf);
 end
 
-%% Stats for single-Cell level power spectra
-for f_stim = fieldnames(data)' %{'f_140'} %
-    f_stim = f_stim{1};
-    popul_data = data.(f_stim);
-
-    interp_time = popul_data.interp_time;
-
-    % Store the modulation of power spectra for each neuron
-    pow_mod = struct; % 2D cell array where the first one is improved, second is worsened, and third is unchanged
-    pow_vals = struct;
-
-    for vpo = voices_per_octaves
-        vpo = vpo{1};
-        pow_mod.(vpo) = {};
-        pow_mod.(vpo){1} = {};
-        pow_mod.(vpo){2} = {};
-        pow_mod.(vpo){3} = {};
-
-        pow_vals.(vpo).onset = struct;
-        pow_vals.(vpo).stim = struct;
-        pow_vals.(vpo).stats = struct;
-    end
-
-    % Loop through each neuron and calculate significance
-    for f_nr = fieldnames(popul_data.spec_pow)' %{'n_12'}%
-        f_nr = f_nr{1};
-        
-        for vpo = voices_per_octaves
-            vpo = vpo{1};
-            
-            nr_pow = abs(popul_data.spec_pow.(f_nr).(vpo));
-            freqs = mean(popul_data.spec_f.n_0.(vpo), 3, 'omitnan');
-
-            % TODO swtich to narrow band
-            %flick_freq_idxs = find(7.5 < freqs & 8.5 > freqs);
-            flick_freq_idxs = find(freqs < 8, 1, 'first');
-            flick_freq_idxs = [flick_freq_idxs, flick_freq_idxs - 1]; % Note: frequencies are in decreaseing order
-
-            % Calculate each trial's power for each period
-            flick_onset_idxs = find(interp_time > 0.250 & interp_time < 0.750);
-            stim_idxs = find(interp_time > 1.250 & interp_time < 1.750);
-            flick_offset_idxs = find(interp_time > 2.250 & interp_time < 2.750);
-
-            flicker_onset_pow = mean(mean(nr_pow(flick_freq_idxs, flick_onset_idxs, :), 2), 1);
-            stim_pow = mean(mean(nr_pow(flick_freq_idxs, stim_idxs, :), 2), 1);
-            flicker_offset_pow = mean(mean(nr_pow(flick_freq_idxs, flick_offset_idxs, :), 2), 1);
-            
-            flicker_onset_pow = squeeze(flicker_onset_pow);
-            stim_pow = squeeze(stim_pow);
-            flicker_offset_pow = squeeze(flicker_offset_pow);
-
-            % Test for significance
-            [sr_p, ~, sr_stats] = signrank(flicker_onset_pow, stim_pow);
-
-            % Store the power values
-            pow_vals.(vpo).onset.(f_nr) = flicker_onset_pow(:);
-            pow_vals.(vpo).stim.(f_nr) = stim_pow(:);
-
-            pow_vals.(vpo).stats.(f_nr) = sr_p(:);;
-
-            if sr_p < 0.05
-                if mean(stim_pow -  flicker_onset_pow) > 0
-                    pow_mod.(vpo){1}{end + 1} = f_nr;
-                else
-                    pow_mod.(vpo){2}{end + 1} = f_nr;
-                end
-            else
-                pow_mod.(vpo){3}{end + 1} = f_nr;
-            end
-        end
-    end
-
-    % Add to the data structure
-    data.(f_stim).pow_mod = pow_mod;
-    data.(f_stim).pow_vals = pow_vals;
-end
 
 %% Create table indicating the power modulation for each stimulation frequency
 

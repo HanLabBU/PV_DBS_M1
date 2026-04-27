@@ -5,11 +5,13 @@ f = filesep;
 
 %% USER Modification
 % Linux server
-local_root_path = '~/Projects/';
+%local_root_path = '~/Projects/';
 % Handata Server on Linux
 server_root_path = '~/handata_server/eng_research_handata3/';
 % Windows server
 %local_root_path = 'Z:\';
+% Windows server
+local_root_path = 'C:\Users\fabri\BOSTON UNIVERSITY Dropbox\RKC-HanLab\Pierre PV DBS Project Dropbox\Materials\Interm_Data\';
 
 exclude_200ms = 1;
 
@@ -31,10 +33,12 @@ pv_data_path = [server_root_path 'Pierre Fabris' f 'PV Project' f 'PV_Data' f];
 
 %figure_path = [server_root_path 'Pierre Fabris' f 'PV Project' f 'Plots' f];
 figure_path = Multi_func.save_plot;
+% local windows computer
+figure_path = 'C:\Users\fabri\BOSTON UNIVERSITY Dropbox\Pierre Fabris\Pierre PV DBS Project Dropbox\Materials\Plots\';
 
 % CSV file to determine which trials to ignore
-ignore_trial_dict = Multi_func.csv_to_struct([local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f ...
-                                       'Stim Recordings' f 'Data_Config' f 'byvis_ignore.csv']);
+%ignore_trial_dict = Multi_func.csv_to_struct([local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f ...
+%                                       'Stim Recordings' f 'Data_Config' f 'byvis_ignore.csv']);
 
 % Parameter to determine whether to combine all regions as one data
 all_regions = 0;
@@ -42,10 +46,11 @@ all_regions = 0;
 %% END Modification
 
 %% Check that the server path exists
-if ~isfolder(server_root_path)
-    disp('Server rootpath does not exist!!!');
-    return;
-end
+% if ~isfolder(server_root_path)
+%     disp('Server rootpath does not exist!!!');
+%     return;
+% end
+
 % Read in the saved pv data and perform analysis
 if ~exclude_200ms
     save_all_data_file = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Interm_Data' f 'pv_data.mat'];
@@ -62,10 +67,10 @@ load(save_all_data_file);
 
 
 %% Setup the color variables
-[red_blue_color_cmap] = (cbrewer('div', 'RdBu',500));
-red_blue_color_cmap(red_blue_color_cmap > 1) = 1;
-red_blue_color_cmap(red_blue_color_cmap < 0) = 0;
-red_blue_color_cmap = flipud(red_blue_color_cmap);
+% [red_blue_color_cmap] = (cbrewer('div', 'RdBu',500));
+% red_blue_color_cmap(red_blue_color_cmap > 1) = 1;
+% red_blue_color_cmap(red_blue_color_cmap < 0) = 0;
+% red_blue_color_cmap = flipud(red_blue_color_cmap);
 
 %% Calculate the Vm modulation stats from onset, transient period
 % Creates 'Vm_trans_mod_stats' field
@@ -555,6 +560,48 @@ for f_region = fieldnames(region_data)'
         end
     end % Stim freq loop
 end % Region loop
+
+%% Print the PLV values to a table
+plv_t = table();
+
+%nr_pop = 'all';
+nr_pop = 'etrain';
+%nr_pop = 'non';
+
+for f_region = fieldnames(region_data)'
+    f_region = f_region{1};
+    data_bystim = region_data.(f_region);
+    stims = fieldnames(data_bystim);
+
+    % Loop through stim frequencies
+    for f_stim = stims'
+        f_stim = f_stim{1};
+        popul_data = data_bystim.(f_stim);
+        
+        % Check if there is an entrained field in the population data
+        try
+            switch nr_pop
+                case 'etrain'
+                    nr_idxs = find([popul_data.plv_mod_stats.mod] > 0);
+                case 'non'
+                    nr_idxs = find([popul_data.plv_mod_stats.mod] < 0);
+                case 'all'
+                    nr_idxs = 1:length(popul_data.plv_mod_stats);
+            end
+        catch ME
+            disp(ME.message);
+        end
+
+        med_plv = median([popul_data.plv_mod_stats(nr_idxs).obs_PLV2]);
+        std_plv = iqr([popul_data.plv_mod_stats(nr_idxs).obs_PLV2]);
+
+        plv_t([f_region f_stim], 'PLV') = {[num2str(med_plv) '+-' num2str(std_plv)]};
+    end
+end
+
+% Print the table
+plv_t
+writetable(plv_t,  [figure_path 'PLV' f 'plv_table.csv'], 'WriteRowNames', true);
 
 %% Determine neurons by Vm modulation, firing rate modulation, and entrainment
 % Creates the 'mod_matrix'
