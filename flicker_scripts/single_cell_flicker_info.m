@@ -352,8 +352,19 @@ for f_stim = fieldnames(data)' %{'f_140'} %
         name_parts = strsplit(popul_data.nr_name.(f_nr), "_");
         mouse_name = name_parts{1};
 
-        % Grab the recording date
-        recording_date = name_parts{4};
+        rec_date = datetime(name_parts{4}, 'InputFormat', 'yyyyMMdd');
+        
+        % Get neurons with the same name
+        fn = fieldnames(popul_data.nr_name);
+        vals = struct2cell(popul_data.nr_name);
+        idx = contains(vals, mouse_name);
+        same_m_names = vals(idx);
+        
+        % Find the earliest recording date for this neuron
+        splitNames = cellfun(@(x) strsplit(x, '_'), same_m_names, 'UniformOutput', false);
+        dateStrs = cellfun(@(x) x{4}, splitNames, 'UniformOutput', false);
+        dates = datetime(dateStrs, 'InputFormat', 'yyyyMMdd');
+        earliestDate = min(dates);
 
         % Parse out the current amplitude
         amp_str = popul_data.stim_amp.(f_nr);
@@ -406,6 +417,9 @@ for f_stim = fieldnames(data)' %{'f_140'} %
         end
         flicker_nr_t{row_num, 'Power stats'} = popul_data.pow_vals.vpo_24.stats.(f_nr);
         flicker_nr_t{row_num, 'Power Sign'} = str2num(sig);
+
+        % Add the recording day
+        flicker_nr_t{row_num, 'Recording Day'} = days(rec_date - earliestDate);
 
         row_num = row_num + 1;
     end
