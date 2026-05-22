@@ -96,7 +96,7 @@ for f_region = fieldnames(region_data)'
         f_stim = f_stim{1};
         
         figure('visible', 'on', 'Renderer', 'Painters', 'Units', 'centimeters', 'Position', [4 20 21.59 27.94]);
-    
+        
         popul_data = data_bystim.(f_stim);
 
         % Check if there is an entrained field in the population data
@@ -123,6 +123,9 @@ for f_region = fieldnames(region_data)'
             nr_idxs = nr_idxs(~ismember(nr_idxs, non_mod_nr));
         end
         
+        disp([f_region ' ' f_stim]);
+        length(nr_idxs);
+
         % Get the trace timestamps
         timeline = nanmean(popul_data.trace_timestamps, 2)';
         
@@ -154,6 +157,11 @@ for f_region = fieldnames(region_data)'
         
         avg_f = mean(popul_data.neuron_rawvm_spec_freq, 3);
         avg_pow = mean(cur_spec_pow, 3, 'omitnan');
+        
+        % Skip if there is no power
+        if isempty(avg_pow)
+            continue;
+        end
 
         % Interpolate frequency for easier heatmap plotting
         pow_interp = interp1(avg_f, avg_pow, freq_lin);
@@ -177,11 +185,15 @@ for f_region = fieldnames(region_data)'
         caxis([-0.4 0.4]);
         ax = gca;
         ax.Units = 'centimeters';
-        ax.Position = [2 2 3 3];
+        % This is for half the regular width
+        %ax.Position = [2 2 3 3];
+        % This is for the regular full width
+        ax.Position = [2 2 7.50 3.9];
+        
         orig_pos = ax.Position;
 
-        % Only have color bar for 40Hz
-        if strcmp(f_stim, 'f_40') == 1
+        % Change colorbar for entrained vs non-entrained
+        if strcmp(f_stim, 'f_140') == 1
             a = colorbar;
             set(a, 'TickDirection', 'out');
             a.Ticks = linspace(a.Limits(1), a.Limits(2), 5);
@@ -216,6 +228,12 @@ for f_region = fieldnames(region_data)'
         savefig(gcf, [figure_path 'Spectra/' f_region '_' f_stim '_' nr_pop '_A_B_Normalization_Time_Spectra.fig']);
         %saveas(gcf, [figure_path 'Spectra/' f_region '_A_B_Normalization_Time_Spectra.eps'], 'epsc');
         %savefig(gcf, [figure_path 'Spectra/' f_region '_A_B_Normalization_Time_Spectra.fig']);
+
+        % Save the source data used for the plotting
+        writematrix(timeline, ['Figure_Data' f f_region '_' f_stim '_timeline.csv']);
+        writematrix(freq_lin, ['Figure_Data' f f_region '_' f_stim '_frequencies.csv']);
+        writematrix(pow_interp, ['Figure_Data' f f_region '_' f_stim '_SpectraPower.csv']);
+        
     end
     
 end

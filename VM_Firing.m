@@ -70,7 +70,7 @@ field1 = fieldnames(region_data);
 field1 = field1(1);
 avg_Fs = mean(region_data.(field1{1}).f_40.framerate, 'omitnan');
 
-%%Compact full collective spike rate over time
+%% Compact full collective spike rate over time
 
 % Filter neurons based on this variable
 nr_pop = 'all_mod';
@@ -181,6 +181,12 @@ for f_region = fieldnames(region_data)'
         end
         ylabel('Firing Rate Change (Spikes/sec)');
         %title(f_stim(3:end), 'Interpreter', 'none');
+
+        % Save source data used for generating figures
+        writematrix(timeline, ['Figure_Data' f f_region '_' f_stim '_timeline.csv']);
+        writematrix(cur_srate, ['Figure_Data' f f_region '_' f_stim '_PopulationAvgFR.csv']);
+        writematrix(sem_srate, ['Figure_Data' f f_region '_' f_stim '_PopulationSemFR.csv']);
+
     end
     sgtitle([f_region(3:end) ' Average Spike rate'], 'Interpreter', 'none');
     saveas(gcf, [figure_path 'Average/' f_region '_Summary_Continuous_FiringRate' num2str(cur_win_srate) '_' nr_pop '.png']);
@@ -300,6 +306,12 @@ for f_region = fieldnames(region_data)'
         %title(f_stim(3:end), 'Interpreter', 'none');
         ylabel('Normalized Vm');
         xlabel('Time from stim onset (s)');
+
+        % Save source data used for generating figures
+        writematrix(timeline, ['Figure_Data' f f_region '_' f_stim '_timeline.csv']);
+        writematrix(cur_Vm, ['Figure_Data' f f_region '_' f_stim '_PopulationAvgVm.csv']);
+        writematrix(sem_Vm, ['Figure_Data' f f_region '_' f_stim '_PopulationSemVm.csv']);
+        
     end
 
     %fontsize(7, "points")
@@ -513,6 +525,10 @@ for f_region = fieldnames(region_data)'
 
         sub_vm_stat_data.(f_region).(f_stim).trans_vm.(nr_pop) = pop_trans_vms;
         sub_vm_stat_data.(f_region).(f_stim).sus_vm.(nr_pop) = pop_sus_vms;
+
+        % Save source data for generating figures
+        writematrix(pop_trans_vms, ['Figure_Data' f f_region '_' f_stim '_PopulationTransientVm.csv']);
+        writematrix(pop_sus_vms, ['Figure_Data' f f_region '_' f_stim '_PopulationSustainedVm.csv']);
     end
     
     sgtitle([f_region(3:end) ' Vm Violins'], 'Interpreter', 'none');
@@ -806,6 +822,10 @@ for f_region = fieldnames(region_data)'
         %    error('pause');
         %end
 
+        % Save source data for generating figures
+        writematrix(pop_trans_frs, ['Figure_Data' f f_region '_' f_stim '_PopulationTransientFR.csv']);
+        writematrix(pop_sus_frs, ['Figure_Data' f f_region '_' f_stim '_PopulationSustainedFR.csv']);
+
     end
     
     sgtitle([f_region(3:end) ' Firing Rate Violins'], 'Interpreter', 'none');
@@ -926,6 +946,9 @@ for f_region = fieldnames(region_data)'
             nr_idxs = nr_idxs(~ismember(nr_idxs, non_mod_nr));
         end
 
+        disp([f_region ' ' f_stim]);
+        length(nr_idxs)
+
         timeline = nanmean(popul_data.trace_timestamps, 2);
         norm_vms = popul_data.neuron_RawVm(:, nr_idxs)./popul_data.neuron_spike_amp(nr_idxs);
         cur_Vm = mean(norm_vms, 2, 'omitnan');
@@ -987,6 +1010,7 @@ for f_region = fieldnames(region_data)'
         a.YAxis.Visible = 'off';
         set(gca, 'color', 'none')
         title(f_stim(3:end), 'Interpreter', 'none');
+                    
     end
     sgtitle([f_region(3:end) ' Average subthreshold Vm Showing all pulses ' nr_pop], 'Interpreter', 'none');
    
@@ -1094,6 +1118,13 @@ for f_region = fieldnames(region_data)'
         a.YAxis.Visible = 'off';
         set(gca, 'color', 'none')
         title(f_stim(3:end), 'Interpreter', 'none');
+
+        % Save source data for figures
+        writematrix(cur_srate, ['Figure_Data' f f_region '_' f_stim '_avgFR.csv']);
+        writematrix(sem_srate, ['Figure_Data' f f_region '_' f_stim '_semFR.csv']);
+        writematrix(timeline, ['Figure_Data' f f_region '_' f_stim '_timeline.csv']);
+        writematrix(stim_time, ['Figure_Data' f f_region '_' f_stim '_pulseTime.csv']);
+
     end
     sgtitle([f_region(3:end) ' Population Firing Rate Showing All Pulses ' nr_pop], 'Interpreter', 'none');
     saveas(gcf, [figure_path 'Average/' f_region '_' nr_pop '_Display_All_Pulse_FR.png']);

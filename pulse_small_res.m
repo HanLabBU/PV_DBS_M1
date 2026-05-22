@@ -74,8 +74,8 @@ timeline = ( (4+(front_frame_drop:back_frame_drop) )./avg_Fs) - 1;
 % Flag to determine which populations to plot
 % The variable must be set from 'single_cell_mod'
 %nr_pop = 'all';
-nr_pop = 'etrain';
-%nr_pop = 'non';
+%nr_pop = 'etrain';
+nr_pop = 'non';
 
 Fr_onset_time = struct();
 stats_log = [figure_path 'Small_Res' f 'Fr_onset_sig_times_' nr_pop];
@@ -104,6 +104,8 @@ for f_region = fieldnames(region_data)'
                 case 'all'
                     nr_idxs = 1:length(popul_data.plv_mod_stats);
             end
+            disp([f_region ' ' f_stim]);
+            length(nr_idxs)
         catch ME
             disp(ME.message);
         end
@@ -299,8 +301,9 @@ for f_region = fieldnames(region_data)'
             non_mod_nr = find(sum(popul_data.mod_matrix, 2) == 0);
             nr_idxs = nr_idxs(~ismember(nr_idxs, non_mod_nr));
         end
-
-        num_neurons = length(nr_idxs);
+        
+        disp([f_region ' ' f_stim]);
+        num_neurons = length(nr_idxs)
 
         % A bit of a misnomer, these are the "all" pulses from the
         % trial-averaged Vm
@@ -429,6 +432,13 @@ for f_region = fieldnames(region_data)'
         hold on;
         plot(timeline, trans_cur_subVm, 'k', 'LineWidth', 1);
         hold on;
+
+        % Save source data for generating figure
+        writematrix(timeline, ['Figure_Data' f f_region '_' f_stim '_transientTimeline.csv']);
+        writematrix(trans_cur_subVm, ['Figure_Data' f f_region '_' f_stim '_transientAvgVm.csv']);
+        writematrix(trans_sem_subVm, ['Figure_Data' f f_region '_' f_stim '_transientSemVm.csv']);
+
+        
         % -- End plotting the transient period pulse average
 
         % -- Plotting the sustained pulse average
@@ -446,7 +456,13 @@ for f_region = fieldnames(region_data)'
         hold on;
         plot(timeline, sus_cur_subVm, 'k', 'LineWidth', 1);
         hold on;
-        % -- End plotting the transient period pulse average
+
+        % Save source data for generating figure
+        writematrix(timeline, ['Figure_Data' f f_region '_' f_stim '_sustainedTimeline.csv']);
+        writematrix(sus_cur_subVm, ['Figure_Data' f f_region '_' f_stim '_sustainedAvgVm.csv']);
+        writematrix(sus_sem_subVm, ['Figure_Data' f f_region '_' f_stim '_sustainedSemVm.csv']);
+
+        % -- End plotting the sustained period pulse average
 
         switch stat_met
             case 'shuff'
@@ -615,6 +631,12 @@ for f_region = fieldnames(region_data)'
                 hold on;
                 plot(timeline, shuf_mean, 'Color', Multi_func.shuf_color);
                 hold on;
+                
+                % Save source data for generating figure
+                writematrix(shuf_mean, ['Figure_Data' f f_region '_' f_stim '_transientAvgShuffle.csv']);
+                writematrix(low_perc, ['Figure_Data' f f_region '_' f_stim '_transientLowPercentileShuffle.csv']);
+                writematrix(high_perc, ['Figure_Data' f f_region '_' f_stim '_transientHighPercentileShuffle.csv']);
+                
 
                 % Plotting the significant time and peak
                 % Find Vm that is significantly higher than the shuffled
@@ -712,7 +734,11 @@ for f_region = fieldnames(region_data)'
                 hold on;
                 plot(timeline, shuf_mean, 'Color', Multi_func.shuf_color);
                 hold on;
-
+                
+                % Save source data for generating figure
+                writematrix(shuf_mean, ['Figure_Data' f f_region '_' f_stim '_sustainedAvgShuffle.csv']);
+                writematrix(low_perc, ['Figure_Data' f f_region '_' f_stim '_sustainedLowPercentileShuffle.csv']);
+                writematrix(high_perc, ['Figure_Data' f f_region '_' f_stim '_sustainedHighPercentileShuffle.csv']);
 
                 % Plotting the significant time and peak
                 % Find Vm that is significantly higher than the shuffled
@@ -1050,6 +1076,9 @@ for f_region = fieldnames(region_data)'
             non_mod_nr = find(sum(popul_data.mod_matrix, 2) == 0);
             nr_idxs = nr_idxs(~ismember(nr_idxs, non_mod_nr));
         end
+        
+        disp([f_region ' ' f_stim]);
+        length(nr_idxs)
 
         timeline = nanmean(popul_data.trace_timestamps, 2);
         
@@ -1183,6 +1212,12 @@ for f_region = fieldnames(region_data)'
         hold on;
         plot(timeline, trans_cur_srate, 'k', 'LineWidth', 1);
         hold on;
+
+        % Save source data for generating figure
+        writematrix(timeline, ['Figure_Data' f f_region '_' f_stim '_transientTimeline.csv']);
+        writematrix(trans_cur_srate, ['Figure_Data' f f_region '_' f_stim '_transientAvgFR.csv']);
+        writematrix(trans_sem_srate, ['Figure_Data' f f_region '_' f_stim '_transientSemFR.csv']);
+
         % -- End plotting the transient pulse average    
 
         % -- Plotting the sustained pulse average
@@ -1204,6 +1239,12 @@ for f_region = fieldnames(region_data)'
         hold on;
         plot(timeline, sus_cur_srate, 'k', 'LineWidth', 1);
         hold on;
+        
+        % Save source data for generating figure
+        writematrix(timeline, ['Figure_Data' f f_region '_' f_stim '_sustainedTimeline.csv']);
+        writematrix(sus_cur_srate, ['Figure_Data' f f_region '_' f_stim '_sustainedAvgFR.csv']);
+        writematrix(sus_sem_srate, ['Figure_Data' f f_region '_' f_stim '_sustainedSemFR.csv']);
+
         % -- End plotting the sustained pulse average    
 
         switch stat_met
@@ -1396,6 +1437,12 @@ for f_region = fieldnames(region_data)'
                 plot(timeline, shuf_mean, 'Color', Multi_func.shuf_color);
                 hold on;
 
+                
+                % Save source data for generating figure
+                writematrix(shuf_mean, ['Figure_Data' f f_region '_' f_stim '_transientAvgShuffleFR.csv']);
+                writematrix(low_perc, ['Figure_Data' f f_region '_' f_stim '_transientLowPercentileShuffleFR.csv']);
+                writematrix(high_perc, ['Figure_Data' f f_region '_' f_stim '_transientHighPercentileShuffleFR.csv']);
+
                 % Plotting the significant time and peak
                 % Find Vm that is significantly higher than the shuffled
                 sig_idx = find(trans_cur_srate > high_perc);
@@ -1491,6 +1538,11 @@ for f_region = fieldnames(region_data)'
                 hold on;
                 plot(timeline, shuf_mean, 'Color', Multi_func.shuf_color);
                 hold on;
+
+                % Save source data for generating figure
+                writematrix(shuf_mean, ['Figure_Data' f f_region '_' f_stim '_sustainedAvgShuffleFR.csv']);
+                writematrix(low_perc, ['Figure_Data' f f_region '_' f_stim '_sustainedLowPercentileShuffleFR.csv']);
+                writematrix(high_perc, ['Figure_Data' f f_region '_' f_stim '_sustainedHighPercentileShuffleFR.csv']);
 
                 % Plotting the significant time and peak
                 % Find Vm that is significantly higher than the shuffled

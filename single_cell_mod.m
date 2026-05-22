@@ -44,7 +44,7 @@ all_regions = 0;
 %% Check that the server path exists
 if ~isfolder(server_root_path)
     disp('Server rootpath does not exist!!!');
-    return;
+    %return;
 end
 % Read in the saved pv data and perform analysis
 if ~exclude_200ms
@@ -855,9 +855,9 @@ for f_region = fieldnames(region_data)'
         %TODO need to figure out why the non-modulated is showing up here without the correct total number of mod neurons
 
         % DEBUG
-        if strcmp(f_region, 'r_M1') == 1 & strcmp(f_stim, 'f_140') == 1 %TODO ensure that the M1 140 Hz Vm non-modulated is somehow accounted for?
-            error('Ned');
-        end
+        %if strcmp(f_region, 'r_M1') == 1 & strcmp(f_stim, 'f_140') == 1 %TODO ensure that the M1 140 Hz Vm non-modulated is somehow accounted for?
+        %     error('Ned');
+        %end
 
         %DEBUG
         %disp([f_region ' ' f_stim]);
@@ -1043,6 +1043,20 @@ for f_region = fieldnames(region_data)'
         % Save figure stuff
         saveas(gcf, [figure_path 'Neuronwise/' f_region '_' f_stim '_' num2str(wind_dist) '_Vm_mod_plots.png']);
         saveas(gcf, [figure_path 'Neuronwise/' f_region '_' f_stim '_' num2str(wind_dist) '_Vm_mod_plots.pdf']);
+
+        % Save the source data used for the plotting
+        writematrix(timeline, ['Figure_Data' f f_region '_' f_stim '_timeline.csv']);
+        writematrix(vm_heatmap, ['Figure_Data' f f_region '_' f_stim '_VmHeatmap.csv']);
+
+        writematrix(act_Vm_avg, ['Figure_Data' f f_region '_' f_stim '_avgActivatedVm.csv']);
+        writematrix(act_Vm_sem, ['Figure_Data' f f_region '_' f_stim '_semActivatedVm.csv']);
+        
+        writematrix(non_Vm_avg, ['Figure_Data' f f_region '_' f_stim '_avgUnchangedVm.csv']);
+        writematrix(non_Vm_sem, ['Figure_Data' f f_region '_' f_stim '_semUnchangedVm.csv']);
+        
+        writematrix(sup_Vm_avg, ['Figure_Data' f f_region '_' f_stim '_avgSuppressedVm.csv']);
+        writematrix(sup_Vm_sem, ['Figure_Data' f f_region '_' f_stim '_semSuppressedVm.csv']);
+        
     end
 end
 
@@ -1478,8 +1492,7 @@ for f_region = fieldnames(region_data)'
                 plv_mod_stats(nr).last_mod = -1;
             end
 
-            % DEBUG plotting randomized stim within vectors
-            nexttile;
+            % DEBUG plotting randomized stim within vectors            nexttile;
             plot(dbs_raster);
             hold on;
             plot(stim_rasters + [1:size(stim_rasters, 2)]); % The original DBS pulses
@@ -1699,8 +1712,8 @@ for f_region = fieldnames(region_data)'
             hold on;
             
             %TODO plot the red points on the actual line
-            plot(timeline(sig_idx), max(cur_etrain_avg_Vm + cur_etrain_sem_Vm)*ones(size(sig_idx)), ...
-                'b*', 'MarkerSize', 4)
+            %plot(timeline(sig_idx), max(cur_etrain_avg_Vm + cur_etrain_sem_Vm)*ones(size(sig_idx)), ...
+            %    'b*', 'MarkerSize', 4)
             %plot(timeline(sig_idx), cur_etrain_avg_Vm(sig_idx), ...
             %    'b.', 'MarkerSize', 6)
             hold on;
@@ -1738,6 +1751,11 @@ for f_region = fieldnames(region_data)'
 
             % Increment to the next period pulse-triggered
             tilenum = tilenum + 1;
+
+            % Save source data for generating figures
+            writematrix(timeline, ['Figure_Data' f f_region '_' f_stim '_' f_ped '_timeline.csv']);
+            writematrix(pulse_heatmap, ['Figure_Data' f f_region '_' f_stim '_' f_ped '_PulseTriggeredVm.csv']);
+            
         end
 
         % Give the whole title
@@ -2009,6 +2027,9 @@ for f_region = fieldnames(region_data)'
                 caxis([-1 1]*range(clim)/2);
                 c.Label.String = 'Vm';
 
+                % Save data source for figure generation
+                writematrix(timeline, ['Figure_Data' f f_region '_' f_stim '_timeline.csv']);
+                writematrix(pulse_heatmap, ['Figure_Data' f f_region '_' f_stim '_NeuronPulseTiggered.csv']);
         end
 
         % Plot the population average PLV for each group entrainment

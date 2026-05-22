@@ -42,10 +42,10 @@ pv_data_path = [server_root_path 'eng_research_handata3' f 'Pierre Fabris' f 'PV
 
 
 % Check if the figure path exists
-if ~exist(savefig_path)
-    disp('Figure path not found');
-    return;
-end
+%if ~exist(savefig_path)
+%    disp('Figure path not found');
+%    return;
+%end
 
 % Read in the saved pv data and perform analysis
 save_all_data_file = [local_root_path 'Pierre Fabris' f 'PV DBS neocortex' f 'Interm_Data' f 'pv_data_ex200.mat'];
@@ -62,7 +62,6 @@ red_blue_color_cmap = flipud(red_blue_color_cmap);
 spectral_cmap(spectral_cmap > 1) = 1;
 spectral_cmap(spectral_cmap < 0) = 0;
 spectral_cmap = flipud(spectral_cmap);
-
 
 
 savefig_path = Multi_func.save_plot;
@@ -228,9 +227,9 @@ base_pow = mean(nr_pow(:, base_idxs, :), 2);
 stim_pow = mean(nr_pow(:, stim_idxs, :), 2);
 
 nr_pow = (nr_pow - base_pow) ./(base_pow + stim_pow);
-
+nr_freq = nanmean(neuron_data.neuron_rawvm_spec_freq(:, :, nr_idx), 2);
 surface(timeline, ... 
-        nanmean(neuron_data.neuron_rawvm_spec_freq(:, :, nr_idx), 2), ...
+        nr_freq, ...
         mean(nr_pow, 3, 'omitnan'), 'CDataMapping', 'scaled', 'FaceColor', 'texturemap', 'edgecolor', 'none');
 
 % Reset scale with the limits to the max value of whats plotted
@@ -253,6 +252,20 @@ ylabel('Freq (Hz)');
 % Save figure
 saveas(gcf, [savefig_path 'Exemplary' f neuron '_heatmap.png']);
 saveas(gcf, [savefig_path 'Exemplary' f neuron '_heatmap.pdf']);
+
+%% Save the single-cell trace data as an example matfile
+save(['Example_traces' f neuron '.mat'], 'neuron_data', '-v7.3');
+
+%TODO just save each component of the plots to separate csv files
+writematrix(timeline, ['Figure_Data' f neuron '_timeline.csv']);
+writematrix([raw_tr./tr_noise], ['Figure_Data' f neuron '_trace.csv']);
+writematrix(spike_idx, ['Figure_Data' f neuron '_spikeIndex.csv']);
+writematrix(vm_map, ['Figure_Data' f neuron '_trialTraces.csv']);
+writematrix(sem_trace, ['Figure_Data' f neuron '_SEMTrials.csv']);
+writematrix(avg_trace, ['Figure_Data' f neuron '_avgTrace.csv']);
+writematrix(nr_freq, ['Figure_Data' f neuron '_Spectra_frequencies.csv']);
+writematrix(nr_pow, ['Figure_Data' f neuron '_Spectra_Power.csv']);
+
 
 %% -- Show single neuron example of phase locking to stimulation with summary pulse-triggered Vm average
 % for that neuron
