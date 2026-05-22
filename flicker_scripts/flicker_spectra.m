@@ -148,6 +148,12 @@ for f_stim = fieldnames(data)'
     hold on;
     plot(stim_timestamps, 0.5.*[1 1] + max(freqs_p) + 2, 'color', Multi_func.dbs_color);
 
+    % Save data used for generating figure
+    writematrix(interp_time, ['../Figure_Data' f f_stim '_timeline.csv']);
+    writematrix(stim_timestamps, ['../Figure_Data' f f_stim '_StimTime.csv']);
+    writematrix(freqs_p, ['../Figure_Data' f f_stim '_SpectraFrequencies.csv']);
+    writematrix(mean(cur_spec_pow, 3, 'omitnan'), ['../Figure_Data' f f_stim '_SpectraPower.csv']);
+
     % Color bar and labels
     a = colorbar;
     a.Label.String = "Relative Power";
@@ -189,7 +195,7 @@ for f_stim = fieldnames(data)'
     
 end
 
-%% Population calculation for period power spectra for flicker onset, stim, to flicker offset
+%% Violin plot for population calculation for period power spectra for flicker onset, stim, to flicker offset
 % Note: use vpo from the population average plots
 stats_filename =[Multi_func.save_plot 'Flicker' f 'Spectra' f 'pop_stats_file.txt']; 
 stats_file = fopen(stats_filename, 'w');
@@ -280,6 +286,12 @@ for f_stim = fieldnames(data)'
     plot([1, 2, 3], [flicker_onset_pow, stim_pow, flicker_offset_pow], '-k')
     f_stim
     title([f_stim ' Hz'], 'Interpreter', 'none');
+
+    % Save data sources used for generating figures
+    writematrix(flicker_onset_pow, ['../Figure_Data' f f_stim '_PreStimSpectraPower.csv']);
+    writematrix(stim_pow, ['../Figure_Data' f f_stim '_DuringStimSpectraPower.csv']);
+    writematrix(flicker_offset_pow, ['../Figure_Data' f f_stim '_OffsetStimSpectraPower.csv']);
+    
 
     % Save figure
     saveas(gcf, [Multi_func.save_plot 'Flicker' f 'Spectra' f 'Power_violin_' f_stim(3:end) 'Hz.png']);
@@ -838,11 +850,24 @@ for f_stim = fieldnames(data)'
            % 
            % ylim([0 20]);
            % title('Power');
+        
+            % Save data source for generating figures
+            writematrix(timeline, ['../Figure_Data' f f_stim '_' mod_str{f_mod} '_' popul_data.nr_name.(f_nr) '_timeline.csv']);
+            writematrix(norm_trs - 0.5 + repmat(1:size(norm_trs, 2), size(norm_trs, 1), 1), ...
+                ['../Figure_Data' f f_stim '_' mod_str{f_mod} '_' popul_data.nr_name.(f_nr) '_traces.csv']);
+            writematrix(trs_8hz + repmat(1:size(trs_8hz, 2), size(trs_8hz, 1), 1), ...
+                ['../Figure_Data' f f_stim '_' mod_str{f_mod} '_' popul_data.nr_name.(f_nr) '_8HzFilteredTraces.csv']);
+
+            writematrix(avg_vm, ['../Figure_Data' f f_stim '_' mod_str{f_mod} '_' popul_data.nr_name.(f_nr) '_avgVm.csv']);
+            writematrix(avg_8hz_tr, ['../Figure_Data' f f_stim '_' mod_str{f_mod} '_' popul_data.nr_name.(f_nr) '_avg8HzVm.csv']);
+            writematrix(avg_coh_f, ['../Figure_Data' f f_stim '_' mod_str{f_mod} '_' popul_data.nr_name.(f_nr) '_cohereceFrequencies.csv']);
+            writematrix(avg_coh, ['../Figure_Data' f f_stim '_' mod_str{f_mod} '_' popul_data.nr_name.(f_nr) '_cohereceValues.csv']);
+
 
             sgtitle([popul_data.nr_name.(f_nr) ' mod: ' mod_str{f_mod} ' stim: ' f_stim], ...
                 'Interpreter', 'none');
             
-            exportgraphics(gcf, [savefig_path 'Flicker' f 'Coherence' f 'Mod' f ...
+            exportgraphics(gcf, [savefig_path f 'Coherence' f 'Mod' f ...
                 'Mod_' mod_str{f_mod} '_' f_stim '_' f_nr '_' vpo '.png'], 'Resolution', 600);
             
             %TODO need to take this back
@@ -854,7 +879,7 @@ for f_stim = fieldnames(data)'
             ylim(ax, ylimits);
             caxis(caxis_lts);
 
-            exportgraphics(gcf, [savefig_path 'Flicker' f 'Coherence' f 'Mod' f ...
+            exportgraphics(gcf, [savefig_path f 'Coherence' f 'Mod' f ...
                 'Mod_' mod_str{f_mod} '_' f_stim '_' f_nr '_' vpo '.pdf'], 'ContentType', 'vector');
         end
     end
